@@ -1,127 +1,197 @@
-Run comprehensive validation of the project to ensure all tests, type checks, linting, and deployments are working correctly.
+Run validation honestly for the current repository or the current OpenSpec change.
 
-Execute the following commands in sequence and report results:
+Optional focus: `@ARGUMENTS`
 
-## 1. Test Suite
+This command should align with the rest of the command layer:
+
+- `/prime` establishes current context
+- `/plan` creates an OpenSpec change
+- `/execute` implements from that change
+- `/validate` proves what actually works now
+
+Use repo reality, not stale expectations.
+
+## Goal
+
+Validate the repo or the active change with the right level of scope, then report:
+
+- what was validated
+- what passed
+- what failed
+- what could not be validated
+- what the next action should be
+
+## OpenSpec-aware rule
+
+Validation should first determine whether there is an active or explicitly targeted OpenSpec change.
+
+Run:
 
 ```bash
-uv run pytest -v
+openspec list --json
 ```
 
-**Expected:** All tests pass (currently 34 tests), execution time < 1 second
+If `@ARGUMENTS` specifies a change name, use that.
 
-## 2. Type Checking
+If there is one clearly relevant active change, validate in the context of that change.
+
+If there is no active change, run the repository baseline.
+
+If validating a change, inspect it first:
 
 ```bash
-uv run mypy app/
+openspec status --change "<name>" --json
+openspec instructions apply --change "<name>" --json
 ```
 
-**Expected:** "Success: no issues found in X source files"
+Read the relevant context files so the validation report can say whether the implemented work matches the expected scope.
 
-```bash
-uv run pyright app/
-```
+## Validation workflow
 
-**Expected:** "0 errors, 0 warnings, 0 informations"
+### 1. Establish validation scope
 
-## 3. Linting
+Decide whether this is:
+
+- repository baseline validation
+- active change validation
+- focused subsystem validation if `@ARGUMENTS` indicates one
+
+Always state the scope clearly before running commands.
+
+### 2. Read validation context
+
+Always read:
+
+- `AGENTS.md`
+- `README.md`
+- `docs/reference-guides/validation-baseline.md`
+
+If validating an OpenSpec change, also read:
+
+- the files listed by `openspec instructions apply --change "<name>" --json`
+
+### 3. Run the repository baseline
+
+Core baseline:
 
 ```bash
 uv run ruff check .
+uv run pyright app/
+uv run mypy app/
+uv run pytest -v
 ```
 
-**Expected:** "All checks passed!"
+### 4. Run environment-dependent checks when relevant
 
-## 4. Local Server Validation
+If the work or tests depend on the database, Docker, or server runtime, run the relevant checks too:
 
-Start the server in background:
+```bash
+docker-compose up -d db
+uv run alembic upgrade head
+uv run pytest -v -m integration
+```
+
+For application runtime checks:
 
 ```bash
 uv run uvicorn app.main:app --host 0.0.0.0 --port 8123 &
-```
-
-Wait 3 seconds for startup, then test endpoints:
-
-```bash
 curl -s http://localhost:8123/ | python3 -m json.tool
-```
-
-**Expected:** JSON response with app name, version, and docs link
-
-```bash
 curl -s -o /dev/null -w "HTTP Status: %{http_code}\n" http://localhost:8123/docs
-```
-
-**Expected:** HTTP Status: 200
-
-```bash
-curl -s -i http://localhost:8123/ | head -10
-```
-
-**Expected:** Headers include `x-request-id` and status 200
-
-Stop the server:
-
-```bash
+curl -s http://localhost:8123/health
+curl -s http://localhost:8123/health/db
+curl -s http://localhost:8123/health/ready
 lsof -ti:8123 | xargs kill -9 2>/dev/null || true
 ```
 
-## 5. Docker Deployment Validation
+Only run the checks that are justified by the current scope and environment.
 
-Build and start Docker service:
+### 5. Interpret results honestly
 
-```bash
-docker-compose up -d --build
-```
+Do not claim PASS just because linting or typing passed.
 
-**Expected:** Container builds successfully and starts
+A validation report must distinguish between:
 
-Wait 5 seconds, then verify container status:
+- passed
+- failed
+- blocked by missing environment or service
+- not run because out of scope
 
-```bash
-docker-compose ps
-```
+If a required service like PostgreSQL is not running, say that explicitly.
 
-**Expected:** Container status shows "Up"
+If a tool reports issues but still exits successfully, include that nuance in the summary.
 
-Test Docker endpoints:
+### 6. Connect the result back to workflow
 
-```bash
-curl -s http://localhost:8123/ | python3 -m json.tool
-```
+If validating an OpenSpec change, report whether the change looks:
 
-**Expected:** Same JSON response as local server
+- ready to continue execution
+- blocked and needs a fix
+- complete and ready for archive
 
-```bash
-curl -s -o /dev/null -w "HTTP Status: %{http_code}\n" http://localhost:8123/docs
-```
+If validating the repo baseline, report whether the repo is:
 
-**Expected:** HTTP Status: 200
+- ready for a new `/plan`
+- should fix validation drift first
+- blocked by environment setup
 
-Check Docker logs:
+## Output Format
 
-```bash
-docker-compose logs app | tail -20
-```
+Use these sections:
 
-**Expected:** Structured JSON logs with request_id, startup message, request logging
+### Validation Scope
 
-Stop Docker service:
+- repository baseline or change-specific validation
+- change name if applicable
 
-```bash
-docker-compose down
-```
+### Commands Run
 
-## 6. Summary Report
+- exact commands executed
+- note which commands were skipped and why
 
-After all validations complete, provide a summary report with:
+### Results
 
-- Total tests passed/failed
-- Type checking status (mypy + pyright)
-- Linting status
-- Local server status
-- Docker deployment status
-- Any errors or warnings encountered
-- Overall health assessment (PASS/FAIL)
+- `ruff`
+- `pyright`
+- `mypy`
+- `pytest`
+- integration tests
+- runtime checks
+- Docker checks
 
-**Format the report clearly with sections and status indicators (✅/❌)**
+Use `✅`, `❌`, and `⚠️`:
+
+- `✅` passed
+- `❌` failed
+- `⚠️` blocked, skipped, or partially valid
+
+### Key Findings
+
+- the most important issues or blockers
+- concrete evidence, not generic wording
+
+### Overall Assessment
+
+State one of:
+
+- `PASS`
+- `PARTIAL PASS`
+- `FAIL`
+- `BLOCKED`
+
+### Next Action
+
+Recommend the next command or action:
+
+- continue `/execute`
+- revise `/plan`
+- run `/next-step`
+- fix environment
+- archive the change
+
+## Guardrails
+
+- Use the real current repo state, not stale test counts or timing assumptions.
+- Validation must be scoped intelligently, not blindly maximal every time.
+- If a service is required, call it out explicitly.
+- Never say all validations passed unless they actually passed.
+- Make the report actionable enough that the next command is obvious.
