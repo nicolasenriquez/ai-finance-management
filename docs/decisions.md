@@ -86,9 +86,73 @@ Implications:
 - persistence must use upsert or equivalent deduplication-safe behavior
 - market or reference data must be stored separately from transaction data
 
+### ADR-009: Keep a ledger-first portfolio model
+
+Status: Accepted
+
+Reason:
+
+- trustworthy analytics depend on event history, not only current holdings
+- lot-level contribution analysis requires stable transaction provenance
+- derived snapshots and grouped views should be reproducible from canonical records
+
+Implications:
+
+- canonical transactions are the system of record
+- portfolio views are derived outputs
+- lots must be stable and explainable from ledger events
+
+### ADR-010: Store price history separately from the transaction ledger
+
+Status: Accepted
+
+Reason:
+
+- current prices and historical quotes refresh on a different cadence than transactions
+- market data should be replaceable or refreshable without mutating transaction truth
+- valuation and performance metrics need explicit market data provenance
+
+Implications:
+
+- `price_history` and quote refresh logic live outside the core transaction ledger
+- analytics must declare the pricing snapshot or timestamp used
+- transaction rows must not be rewritten during quote refresh
+
+### ADR-011: Freeze accounting policy before advanced analytics expansion
+
+Status: Accepted
+
+Reason:
+
+- lot-level analytics become untrustworthy if cost basis rules are implicit
+- fees, dividends, FX, and corporate actions change metric interpretation materially
+- early clarity prevents drift in KPI behavior and test expectations
+
+Implications:
+
+- cost basis method must be documented explicitly
+- realized and unrealized gain rules must be documented explicitly
+- fee, dividend, FX, and corporate action treatment must be documented explicitly
+- advanced analytics should wait until these rules are frozen
+
+### ADR-012: Keep broker-specific logic outside the canonical schema
+
+Status: Accepted
+
+Reason:
+
+- broker-specific parsing rules are volatile and should not contaminate the shared domain model
+- a broker-agnostic canonical schema makes multi-source expansion practical
+- source adapters become easier to test and replace when normalization boundaries are clear
+
+Implications:
+
+- source adapters may emit raw or intermediate structures
+- only the normalizer may emit canonical transactions
+- canonical schemas and persistence models should not embed broker-only field names
 ## Proposed
 
-### ADR-009: Add Camelot or PyMuPDF as secondary validation engines
+### ADR-013: Add Camelot or PyMuPDF as secondary validation engines
 
 Status: Proposed
 
@@ -97,7 +161,7 @@ Reason:
 - cross-engine comparison may help debug extraction mismatches
 - not required for the first pass if pdfplumber is sufficient
 
-### ADR-010: Add Pandera for DataFrame-level validation
+### ADR-014: Add Pandera for DataFrame-level validation
 
 Status: Proposed
 

@@ -108,6 +108,29 @@ Validation must produce:
 
 Blank cells must remain `null`. The system must not hallucinate or infer missing values.
 
+## Domain Model Direction
+
+The long-term analytics model should be event-driven and ledger-first.
+
+Core domain entities should converge toward:
+
+- accounts
+- institutions or brokers
+- instruments
+- source documents
+- import jobs
+- canonical transactions
+- lots
+- positions
+- price history
+- FX rates
+- dividends and cash events
+- corporate actions
+- verification reports
+
+The system of record is the canonical transaction ledger plus supporting provenance.
+Portfolio snapshots, KPI tables, grouped views, and contribution reports are derived outputs and must be reproducible from canonical records.
+
 ## Functional Requirements
 
 ### PDF Ingestion
@@ -143,6 +166,7 @@ Blank cells must remain `null`. The system must not hallucinate or infer missing
 - Store document metadata and normalized rows in PostgreSQL.
 - Keep enough provenance to re-run and audit extractions later.
 - Make persistence idempotent so reruns do not create duplicate documents or transactions.
+- Keep transaction ledger tables separate from market data and derived analytics tables.
 
 ### Deduplication and Idempotency
 
@@ -160,12 +184,14 @@ The MVP must prevent duplicate financial data during repeated ingestion and futu
 - The deduplication key must be based on stable business fields, not database-generated IDs.
 - The first version should include the source system plus transaction-defining fields such as date, symbol, type, and monetary or quantity values.
 - Persistence must use upsert-style semantics or an equivalent pre-insert deduplication check.
+- Lots derived from transactions must remain stable across reruns of the same source data.
 
 #### Cross-Source Separation
 
 - PDF-derived portfolio transactions and API-derived market or reference data must not be stored as the same logical record type.
 - Transaction data and market or price-history data must live in separate storage models.
 - Future broker API or `yfinance` ingestion must include source provenance and deduplication rules before it is enabled.
+- Broker-specific parsing logic must not leak into the canonical transaction schema.
 
 #### Provenance Requirements
 
@@ -175,20 +201,55 @@ Every persisted record must preserve:
 - source document ID or source request ID
 - ingestion timestamp
 - deterministic row fingerprint
+- import batch or import job identifier
 
 This is required so duplicate detection, auditing, and future reconciliation remain explainable.
+
+### Market Data
+
+- Current quotes and historical prices must be stored separately from the canonical transaction ledger.
+- Market data refresh must be replaceable without mutating transaction records.
+- Derived valuation metrics must always indicate the price timestamp or market data snapshot used.
+
+### Accounting Policy
+
+The project must explicitly freeze accounting rules before advanced analytics are treated as trusted.
+
+The MVP and near-term roadmap must define:
+
+- cost basis method for lot tracking
+- realized gain and unrealized gain rules
+- fee treatment
+- dividend treatment
+- FX conversion policy
+- handling of splits and other corporate actions
+
+These policies must be documented before broadening KPI coverage or performance claims.
 
 ### Analytics
 
 - Expose grouped portfolio views by ticker.
 - Expose lot-level views for individual purchases.
 - Compute initial KPIs such as capital invested, current value, unrealized return, and holding period.
+- Make every lot-level contribution explainable from source transactions and price history.
+- Distinguish between ledger-derived truth and presentation-oriented aggregates.
+- Avoid analytics that depend on undocumented accounting assumptions.
 
 ### Frontend
 
 - Show grouped rows by ticker with aggregate KPIs.
 - Allow drill-down into individual lots or transactions.
 - Prioritize correctness and auditability over design polish.
+
+## Importer and Normalizer Boundary
+
+The system should formalize the boundary between source adapters and canonical data.
+
+- broker or source adapters may emit raw or intermediate representations
+- the normalizer is the only layer allowed to emit canonical transactions
+- the canonical schema must remain broker-agnostic
+- source-specific quirks should stay in adapters, mappers, or extraction rules
+- normalization and validation must be deterministic and testable independent of a live source
 
 ## Proposed Architecture
 
@@ -206,6 +267,8 @@ These services will run locally through Docker Compose.
 - Separate ingestion, extraction, parsing, validation, persistence, and analytics concerns.
 - Use Pydantic for model contracts and row validation.
 - Keep validation reports explicit and machine-readable.
+- Keep the transaction ledger, market data, and derived analytics as separate concerns.
+- Treat lots as first-class financial concepts rather than implicit UI groupings.
 
 ### Data Flow
 
@@ -238,6 +301,8 @@ The MVP is successful when:
 - normalized rows are persisted in PostgreSQL
 - grouped and transaction-level portfolio views are visible in the frontend
 - baseline validation commands pass consistently in local development
+- lot-level contribution output is explainable from source transactions
+- reruns of the same source remain duplicate-safe
 
 ## Risks
 
@@ -246,6 +311,8 @@ The MVP is successful when:
 - Locale-specific number formats may cause subtle normalization bugs.
 - Market/reference API behavior may differ from transaction PDF semantics.
 - KPI definitions can drift if formulas are not frozen early.
+- lot calculation can become inconsistent if accounting rules are not frozen explicitly.
+- market data refresh may incorrectly influence ledger truth if storage boundaries are weak.
 
 ## Assumptions
 
@@ -259,7 +326,8 @@ The MVP is successful when:
 2. Validation baseline
 3. PDF extraction and golden-set reconciliation
 4. Database persistence
-5. Analytics API
-6. Frontend grouped table
-7. External broker API integration
-8. Future phases: auth, AI, cloud deployment
+5. Ledger-safe lot derivation and accounting policy freeze
+6. Analytics API
+7. Frontend grouped table
+8. External broker API integration and market data enrichment
+9. Future phases: auth, AI, cloud deployment

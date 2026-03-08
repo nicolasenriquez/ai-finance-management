@@ -21,26 +21,36 @@
 - Add normalized transaction persistence in PostgreSQL.
 - Define database models and migrations.
 - Preserve provenance needed for audit and reprocessing.
+- Add deterministic transaction fingerprints and duplicate-safe persistence behavior.
 
-## Phase 3: Portfolio Analytics API
+## Phase 3: Ledger and Accounting Foundation
+
+- Introduce canonical ledger entities needed for lot derivation.
+- Freeze accounting policy for cost basis, gains, fees, dividends, FX, and corporate actions.
+- Keep market data storage separate from transactions.
+- Define the boundary between source adapters, canonical transactions, and derived analytics.
+
+## Phase 4: Portfolio Analytics API
 
 - Build portfolio aggregation endpoints.
 - Build lot-level transaction endpoints.
 - Define initial KPI formulas.
 - Add unit and integration coverage for analytics logic.
+- Add explainable lot-level contribution output.
 
-## Phase 4: Frontend MVP
+## Phase 5: Frontend MVP
 
 - Add React frontend container to Docker Compose.
 - Build grouped table by ticker.
 - Add drill-down view for lots and transactions.
 - Connect frontend to analytics APIs.
 
-## Phase 5: External Broker API Integration
+## Phase 6: External Broker API Integration
 
 - Integrate broker API for historical/reference data.
 - Reconcile API-driven data with PDF-driven records where needed.
 - Expand analytics scope using the additional data.
+- Keep quote refresh and market data ingestion isolated from ledger mutation.
 
 ## Deferred Phases
 

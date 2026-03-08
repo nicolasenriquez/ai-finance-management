@@ -136,13 +136,55 @@ Definition of Done:
 - reprocessing the same transaction set does not create duplicate transaction rows
 - duplicate-safe persistence behavior is covered by tests
 
-## Sprint 3: Analytics API and Frontend MVP
+## Sprint 3: Ledger and Accounting Foundation
 
-### Item 3.1: Implement analytics service layer
+### Item 3.1: Formalize ledger entities for portfolio analytics
+
+- define canonical ledger entities required for lot tracking
+- distinguish transaction ledger records from derived position snapshots
+- define market data entities separately from ledger tables
+
+Definition of Done:
+
+- entity boundaries are documented and reflected in implementation planning
+- transaction records remain the system of record
+- price history is not stored as transaction data
+
+### Item 3.2: Freeze accounting policy
+
+- choose and document cost basis method
+- define realized and unrealized gain rules
+- define fee handling
+- define dividend handling
+- define FX handling
+- define split and corporate action handling
+
+Definition of Done:
+
+- accounting rules are documented explicitly
+- analytics implementation does not depend on hidden assumptions
+- financial test scenarios can be derived from the documented policy
+
+### Item 3.3: Add financial calculation golden cases
+
+- define test cases for lot contribution
+- define test cases for realized and unrealized gain
+- define test cases for fees and dividends
+- define test cases for FX-sensitive calculations if applicable
+
+Definition of Done:
+
+- financial calculation cases are deterministic
+- tests can prove analytics correctness beyond extraction correctness
+
+## Sprint 4: Analytics API and Frontend MVP
+
+### Item 4.1: Implement analytics service layer
 
 - aggregate by ticker
 - expose lot-level transaction detail
 - define first KPI set
+- expose lot-level contribution breakdown
 
 Definition of Done:
 
@@ -150,8 +192,9 @@ Definition of Done:
 - analytics logic is covered by unit tests
 - grouped and detail responses are stable and typed
 - analytics are computed from deduplicated transaction storage, not duplicate raw rows
+- lot-level contribution can be explained from ledger plus price history
 
-### Item 3.2: Expose analytics endpoints
+### Item 4.2: Expose analytics endpoints
 
 - add FastAPI routes for grouped portfolio data
 - add routes for individual transaction or lot views
@@ -161,7 +204,7 @@ Definition of Done:
 - analytics endpoints return typed responses
 - integration tests cover at least one end-to-end analytics flow
 
-### Item 3.3: Add React frontend container and grouped-table MVP
+### Item 4.3: Add React frontend container and grouped-table MVP
 
 - add frontend service to Docker Compose
 - implement grouped table by ticker
@@ -173,6 +216,30 @@ Definition of Done:
 - grouped ticker view is visible in the browser
 - drill-down view displays per-purchase details and KPIs
 
+## Sprint 5: External Broker API and Market Data
+
+### Item 5.1: Add market data ingestion boundary
+
+- ingest current quotes and historical prices separately from transactions
+- persist market data with explicit source and timestamp
+- keep quote refresh idempotent
+
+Definition of Done:
+
+- quote refresh does not mutate canonical transaction rows
+- analytics can declare which price snapshot they used
+
+### Item 5.2: Add broker API integration
+
+- define source adapter boundary for broker API ingestion
+- normalize API-driven transaction or reference data into canonical forms where appropriate
+- preserve source provenance and deduplication rules
+
+Definition of Done:
+
+- API integration does not bypass canonical normalization
+- PDF and API sources can coexist without record-type confusion
+
 ## Exit Criteria for MVP
 
 - dataset 1 is extracted deterministically
@@ -180,8 +247,9 @@ Definition of Done:
 - normalized records are stored in PostgreSQL
 - grouped and lot-level analytics are visible in the frontend
 - repository validation baseline remains green
+- accounting rules are frozen and reflected in tests
 
-## Explicitly Deferred Beyond Sprint 3
+## Explicitly Deferred Beyond Sprint 5
 
 - authentication
 - AI features and agent workflows
