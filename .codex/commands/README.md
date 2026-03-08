@@ -33,7 +33,7 @@ Mental model:
 
 - `/prime` = understand the repo
 - `/next-step` = choose the best next implementation step
-- `/plan` = create or refine the OpenSpec change
+- `/plan` = investigate, then create or refine the OpenSpec change artifact by artifact
 - `/execute` = implement the change task by task
 - `/validate` = prove what actually works now
 - `/commit` = package verified work and push it to `origin main`
@@ -119,9 +119,12 @@ Use when:
 What it does:
 
 - reads repo guidance first
+- starts with an investigative pass before writing artifacts
 - uses OpenSpec as the planning source of truth
 - creates or updates the relevant change in `openspec/changes/`
-- ensures tasks are concrete and execution-ready
+- works artifact by artifact instead of fast-forwarding by default
+- pauses for user approval between artifacts
+- ensures tasks are concrete, execution-ready, and can include adjacent planning notes without breaking checkbox parsing
 
 Examples:
 
@@ -191,9 +194,10 @@ What it does:
 - stages only the intended atomic set of files
 - generates a descriptive conventional commit message from diff plus user intent
 - asks for human approval before creating the commit
-- asks for human approval again before pushing to `origin main`
-- creates the commit only after approval
-- pushes only after the second approval
+- supports splitting one goal into 2-3 atomic commit groups when needed
+- asks for human approval before each commit and again before the final push to `origin main`
+- creates commits only after approval
+- pushes once after all planned commit groups are finished
 
 Examples:
 
@@ -224,10 +228,11 @@ Note:
 - Start broad with `/prime` before jumping into implementation.
 - Use `/next-step` when you are unsure what to build next.
 - Use `/plan` before `/execute` for anything non-trivial.
+- Treat `/plan` as approval-gated by default: investigate first, then review each artifact before continuing.
 - Treat OpenSpec artifacts as the planning source of truth.
 - Use `/validate` to report reality, not optimism.
 - Use `/commit` after validation, not before it.
-- Treat `/commit` as approval-gated: one approval for commit, one approval for push.
+- Treat `/commit` as approval-gated: approve each commit, then approve one final push.
 - Prefer small, localized changes for the first end-to-end workflow trials.
 
 ## Good Example Session
@@ -252,5 +257,5 @@ That is a good workflow trial because it is:
 ## Notes
 
 - These commands should stay aligned with real repo state.
-- If the workflow changes, update these command files and this README together.
+- If the workflow changes, update the command file and `.codex/commands/README.md` together in the same change.
 - Prefer repo reality over stale assumptions like old test counts or outdated architecture descriptions.

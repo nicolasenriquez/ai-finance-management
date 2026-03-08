@@ -1,17 +1,17 @@
-Create a clean commit from the current work and push it to `origin main`.
+Create clean commit(s) from the current work and push once to `origin main`.
 
 Optional input: `@ARGUMENTS`
 
 Use this command as the final delivery step after implementation and validation.
 
-Human approval is mandatory twice:
+Human approval is mandatory:
 
-- before creating the commit
-- before pushing to `origin main`
+- before creating each commit
+- before the final push to `origin main`
 
 ## Goal
 
-Package the intended work into one atomic commit, generate a clear and descriptive commit message from the real diff plus the user intent, then push the result to `origin main`.
+Package the intended work into one or more atomic commits for one goal, generate clear and descriptive commit messages from the real diff plus user intent, then push once to `origin main`.
 
 ## Input Rule
 
@@ -66,7 +66,9 @@ Before committing, verify:
 - the remote `origin` exists
 - validation status is known for risky code changes
 
-If the diff is mixed or unclear, stop and explain what should be split out first.
+If the diff is mixed but still part of one goal, split it into 2-3 coherent commit groups and process them in sequence.
+
+If the diff is mixed and not one goal, stop and explain what should be split out first.
 
 ### 5. Stage the intended files
 
@@ -108,17 +110,25 @@ Then explicitly ask for human approval.
 
 Do not create the commit until approval is granted.
 
-### 8. Push to `origin main`
+### 8. Push once after all commit groups are complete
 
-After a successful commit, prepare to run:
+After each successful commit, decide whether more commit groups are still pending for the same goal.
+
+If more groups are pending:
+
+- keep committing group by group
+- do not push yet
+- report push status as deferred
+
+When the final group is committed, prepare to run:
 
 ```bash
 git push origin main
 ```
 
-Before running the push, explicitly ask for human approval again.
+Before running the final push, explicitly ask for human approval again.
 
-Do not push automatically just because the commit was approved.
+Do not push automatically just because a commit was approved.
 
 If push fails, report the failure clearly and include the reason.
 
@@ -131,7 +141,7 @@ Return:
 - final commit message
 - commit hash
 - push target: `origin main`
-- whether push succeeded
+- whether push is deferred or succeeded
 
 ## Safeguards
 
@@ -140,6 +150,7 @@ Return:
 - Refuse to continue if the current branch is not `main`.
 - Refuse to create the commit until human approval is given.
 - Refuse to push until a second human approval is given.
+- Refuse to push while additional commit groups are still pending for the same goal.
 - Warn if validation was not run for code changes that affect runtime behavior.
 - Stop if the diff appears to contain unrelated work that should be split into separate commits.
 
@@ -160,7 +171,7 @@ Commit message:
 
 Push result:
 - target: origin main
-- status: pending approval / succeeded / failed
+- status: pending approval / deferred / succeeded / failed
 
 Next action:
 - <if blocked or failed, say exactly what to do next>
@@ -173,5 +184,6 @@ Next action:
 - Do not create the commit without explicit human approval.
 - Do not push if commit creation failed.
 - Do not push without explicit human approval, even if the commit already exists.
+- Do not push until all planned commit groups for the goal are committed.
 - Do not hide mixed or unrelated changes.
 - Prefer one clean commit over one noisy commit.
