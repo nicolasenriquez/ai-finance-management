@@ -8,6 +8,7 @@ dependencies = [
     "alembic>=1.17.1",
     "asyncpg>=0.30.0",
     "fastapi>=0.120.1",
+    "pypdf>=6.0.0",
     "pydantic-settings>=2.11.0",
     "python-dotenv>=1.2.1",
     "sqlalchemy[asyncio]>=2.0.44",
@@ -90,10 +91,6 @@ disallow_untyped_decorators = false
 # Allow test files to have less strict typing
 [[tool.mypy.overrides]]
 module = "*.tests.*"
-disallow_untyped_defs = false
-
-[[tool.mypy.overrides]]
-module = "test_*"
 disallow_untyped_defs = false
 
 [tool.pytest.ini_options]

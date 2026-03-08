@@ -41,6 +41,9 @@ class Settings(BaseSettings):
     # CORS settings
     allowed_origins: list[str] = ["http://localhost:3000", "http://localhost:8123"]
 
+    # PDF preflight
+    pdf_preflight_min_text_chars: int = 20
+
 
 @lru_cache
 def get_settings() -> Settings:

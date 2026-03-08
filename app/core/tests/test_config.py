@@ -36,6 +36,7 @@ def test_settings_defaults() -> None:
         assert settings.environment == "development"
         assert settings.log_level == "INFO"
         assert settings.api_prefix == "/api"
+        assert settings.pdf_preflight_min_text_chars == 20
         assert "http://localhost:3000" in settings.allowed_origins
         assert "http://localhost:8123" in settings.allowed_origins
 
@@ -50,6 +51,7 @@ def test_settings_from_environment() -> None:
             "ENVIRONMENT": "production",
             "LOG_LEVEL": "DEBUG",
             "API_PREFIX": "/v1",
+            "PDF_PREFLIGHT_MIN_TEXT_CHARS": "35",
             "DATABASE_URL": "postgresql+asyncpg://test:test@localhost:5432/test",
         },
     ):
@@ -60,6 +62,7 @@ def test_settings_from_environment() -> None:
         assert settings.environment == "production"
         assert settings.log_level == "DEBUG"
         assert settings.api_prefix == "/v1"
+        assert settings.pdf_preflight_min_text_chars == 35
 
 
 def test_allowed_origins_parsing() -> None:
