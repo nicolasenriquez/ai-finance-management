@@ -1,1 +1,1 @@
-"""Obsidian Agent Project application package."""
+"""AI Finance Management application package."""

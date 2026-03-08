@@ -1,5 +1,5 @@
 [project]
-name = "vsa-fastapi-project"
+name = "ai-finance-management"
 version = "0.1.0"
 description = "FastAPI + PostgreSQL starter with vertical slice architecture, optimized for AI coding"
 readme = "README.md"

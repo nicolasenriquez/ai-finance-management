@@ -1,0 +1,4164 @@
+{
+  "document": {
+    "title": "CERTIFICADO DE TRANSACCIONES EN ACCIONES Y EXCHANGE TRADED FUNDS (ETFs)",
+    "issue_date": "2026-02-28",
+    "issuer": {
+      "name": "Fintual Administradora General de Fondos SA",
+      "rut": "76.810.627-4"
+    },
+    "currency": "USD",
+    "extraction": {
+      "method": "pdfplumber.extract_tables",
+      "locale_number_format_in_source": "es-CL (comma decimal separator)",
+      "generated_at_utc": "2026-02-28T16:41:21Z",
+      "source_pdf_path": "/mnt/data/certificado (1).pdf",
+      "source_pdf_pages": 9
+    }
+  },
+  "tables": {
+    "compra_venta_activos": {
+      "columns": [
+        "fecha",
+        "nombre_activo",
+        "simbolo_activo",
+        "categoria_activo",
+        "aporte_dolares",
+        "acciones_compradas",
+        "rescate_dolares",
+        "acciones_vendidas"
+      ],
+      "rows": [
+        {
+          "row_id": 1,
+          "fecha": "2023-09-25",
+          "nombre_activo": "Vanguard S&P 500 ETF",
+          "simbolo_activo": "VOO",
+          "categoria_activo": "ETF",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 112,80",
+            "usd": 112.8
+          },
+          "acciones_compradas": {
+            "raw": "0,284897406",
+            "qty": 0.284897406
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 1
+        },
+        {
+          "row_id": 2,
+          "fecha": "2023-10-04",
+          "nombre_activo": "Vanguard S&P 500 ETF",
+          "simbolo_activo": "VOO",
+          "categoria_activo": "ETF",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 0,31",
+            "usd": 0.31
+          },
+          "acciones_compradas": {
+            "raw": "0,000798429",
+            "qty": 0.000798429
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 1
+        },
+        {
+          "row_id": 3,
+          "fecha": "2023-10-12",
+          "nombre_activo": "Vanguard S&P 500 ETF",
+          "simbolo_activo": "VOO",
+          "categoria_activo": "ETF",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 213,64",
+            "usd": 213.64
+          },
+          "acciones_compradas": {
+            "raw": "0,536142703",
+            "qty": 0.536142703
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 1
+        },
+        {
+          "row_id": 4,
+          "fecha": "2023-11-21",
+          "nombre_activo": "Vanguard S&P 500 ETF",
+          "simbolo_activo": "VOO",
+          "categoria_activo": "ETF",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 136,40",
+            "usd": 136.4
+          },
+          "acciones_compradas": {
+            "raw": "0,327489423",
+            "qty": 0.327489423
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 1
+        },
+        {
+          "row_id": 5,
+          "fecha": "2023-12-04",
+          "nombre_activo": "Vanguard S&P 500 ETF",
+          "simbolo_activo": "VOO",
+          "categoria_activo": "ETF",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 253,25",
+            "usd": 253.25
+          },
+          "acciones_compradas": {
+            "raw": "0,604493180",
+            "qty": 0.60449318
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 1
+        },
+        {
+          "row_id": 6,
+          "fecha": "2023-12-27",
+          "nombre_activo": "Vanguard S&P 500 ETF",
+          "simbolo_activo": "VOO",
+          "categoria_activo": "ETF",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 2,22",
+            "usd": 2.22
+          },
+          "acciones_compradas": {
+            "raw": "0,005076165",
+            "qty": 0.005076165
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 1
+        },
+        {
+          "row_id": 7,
+          "fecha": "2023-12-29",
+          "nombre_activo": "Schwab US Dividend Equity ETF",
+          "simbolo_activo": "SCHD",
+          "categoria_activo": "ETF",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 135,00",
+            "usd": 135.0
+          },
+          "acciones_compradas": {
+            "raw": "1,774261381",
+            "qty": 1.774261381
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 1
+        },
+        {
+          "row_id": 8,
+          "fecha": "2023-12-29",
+          "nombre_activo": "Vanguard S&P 500 ETF",
+          "simbolo_activo": "VOO",
+          "categoria_activo": "ETF",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 150,06",
+            "usd": 150.06
+          },
+          "acciones_compradas": {
+            "raw": "0,344011774",
+            "qty": 0.344011774
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 1
+        },
+        {
+          "row_id": 9,
+          "fecha": "2024-03-19",
+          "nombre_activo": "Schwab US Dividend Equity ETF",
+          "simbolo_activo": "SCHD",
+          "categoria_activo": "ETF",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 100,00",
+            "usd": 100.0
+          },
+          "acciones_compradas": {
+            "raw": "1,270680322",
+            "qty": 1.270680322
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 1
+        },
+        {
+          "row_id": 10,
+          "fecha": "2024-03-19",
+          "nombre_activo": "Invesco Nasdaq 100 ETF",
+          "simbolo_activo": "QQQM",
+          "categoria_activo": "ETF",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 250,00",
+            "usd": 250.0
+          },
+          "acciones_compradas": {
+            "raw": "1,395696787",
+            "qty": 1.395696787
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 1
+        },
+        {
+          "row_id": 11,
+          "fecha": "2024-03-19",
+          "nombre_activo": "VanEck Semiconductor ETF",
+          "simbolo_activo": "SMH",
+          "categoria_activo": "ETF",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 126,54",
+            "usd": 126.54
+          },
+          "acciones_compradas": {
+            "raw": "0,587661613",
+            "qty": 0.587661613
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 1
+        },
+        {
+          "row_id": 12,
+          "fecha": "2024-03-26",
+          "nombre_activo": "Schwab US Dividend Equity ETF",
+          "simbolo_activo": "SCHD",
+          "categoria_activo": "ETF",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 1,59",
+            "usd": 1.59
+          },
+          "acciones_compradas": {
+            "raw": "0,019952815",
+            "qty": 0.019952815
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 1
+        },
+        {
+          "row_id": 13,
+          "fecha": "2024-03-28",
+          "nombre_activo": "Vanguard S&P 500 ETF",
+          "simbolo_activo": "VOO",
+          "categoria_activo": "ETF",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 2,76",
+            "usd": 2.76
+          },
+          "acciones_compradas": {
+            "raw": "0,005737043",
+            "qty": 0.005737043
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 1
+        },
+        {
+          "row_id": 14,
+          "fecha": "2024-04-16",
+          "nombre_activo": "Schwab US Dividend Equity ETF",
+          "simbolo_activo": "SCHD",
+          "categoria_activo": "ETF",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 101,87",
+            "usd": 101.87
+          },
+          "acciones_compradas": {
+            "raw": "1,333935679",
+            "qty": 1.333935679
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 1
+        },
+        {
+          "row_id": 15,
+          "fecha": "2024-04-29",
+          "nombre_activo": "Schwab US Dividend Equity ETF",
+          "simbolo_activo": "SCHD",
+          "categoria_activo": "ETF",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 100,00",
+            "usd": 100.0
+          },
+          "acciones_compradas": {
+            "raw": "1,286504567",
+            "qty": 1.286504567
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 1
+        },
+        {
+          "row_id": 16,
+          "fecha": "2024-04-29",
+          "nombre_activo": "Vanguard S&P 500 ETF",
+          "simbolo_activo": "VOO",
+          "categoria_activo": "ETF",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 100,00",
+            "usd": 100.0
+          },
+          "acciones_compradas": {
+            "raw": "0,213931199",
+            "qty": 0.213931199
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 1
+        },
+        {
+          "row_id": 17,
+          "fecha": "2024-04-29",
+          "nombre_activo": "VanEck Semiconductor ETF",
+          "simbolo_activo": "SMH",
+          "categoria_activo": "ETF",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 68,39",
+            "usd": 68.39
+          },
+          "acciones_compradas": {
+            "raw": "0,314668261",
+            "qty": 0.314668261
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 1
+        },
+        {
+          "row_id": 18,
+          "fecha": "2024-04-29",
+          "nombre_activo": "Invesco Nasdaq 100 ETF",
+          "simbolo_activo": "QQQM",
+          "categoria_activo": "ETF",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 68,00",
+            "usd": 68.0
+          },
+          "acciones_compradas": {
+            "raw": "0,383487480",
+            "qty": 0.38348748
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 1
+        },
+        {
+          "row_id": 19,
+          "fecha": "2024-06-27",
+          "nombre_activo": "Schwab US Dividend Equity ETF",
+          "simbolo_activo": "SCHD",
+          "categoria_activo": "ETF",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 336,30",
+            "usd": 336.3
+          },
+          "acciones_compradas": {
+            "raw": "4,360954418",
+            "qty": 4.360954418
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 2
+        },
+        {
+          "row_id": 20,
+          "fecha": "2024-06-27",
+          "nombre_activo": "VanEck Semiconductor ETF",
+          "simbolo_activo": "SMH",
+          "categoria_activo": "ETF",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 184,26",
+            "usd": 184.26
+          },
+          "acciones_compradas": {
+            "raw": "0,709276096",
+            "qty": 0.709276096
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 2
+        },
+        {
+          "row_id": 21,
+          "fecha": "2024-06-28",
+          "nombre_activo": "Invesco Nasdaq 100 ETF",
+          "simbolo_activo": "QQQM",
+          "categoria_activo": "ETF",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 300,00",
+            "usd": 300.0
+          },
+          "acciones_compradas": {
+            "raw": "1,519095024",
+            "qty": 1.519095024
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 2
+        },
+        {
+          "row_id": 22,
+          "fecha": "2024-06-28",
+          "nombre_activo": "Vanguard S&P 500 ETF",
+          "simbolo_activo": "VOO",
+          "categoria_activo": "ETF",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 200,00",
+            "usd": 200.0
+          },
+          "acciones_compradas": {
+            "raw": "0,399667476",
+            "qty": 0.399667476
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 2
+        },
+        {
+          "row_id": 23,
+          "fecha": "2024-06-28",
+          "nombre_activo": "VanEck Semiconductor ETF",
+          "simbolo_activo": "SMH",
+          "categoria_activo": "ETF",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 139,87",
+            "usd": 139.87
+          },
+          "acciones_compradas": {
+            "raw": "0,535645900",
+            "qty": 0.5356459
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 2
+        },
+        {
+          "row_id": 24,
+          "fecha": "2024-06-28",
+          "nombre_activo": "Schwab US Dividend Equity ETF",
+          "simbolo_activo": "SCHD",
+          "categoria_activo": "ETF",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 100,00",
+            "usd": 100.0
+          },
+          "acciones_compradas": {
+            "raw": "1,286868790",
+            "qty": 1.28686879
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 2
+        },
+        {
+          "row_id": 25,
+          "fecha": "2024-06-28",
+          "nombre_activo": "Invesco Nasdaq 100 ETF",
+          "simbolo_activo": "QQQM",
+          "categoria_activo": "ETF",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 0,49",
+            "usd": 0.49
+          },
+          "acciones_compradas": {
+            "raw": "0,002481138",
+            "qty": 0.002481138
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 2
+        },
+        {
+          "row_id": 26,
+          "fecha": "2024-07-01",
+          "nombre_activo": "Schwab US Dividend Equity ETF",
+          "simbolo_activo": "SCHD",
+          "categoria_activo": "ETF",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 3,99",
+            "usd": 3.99
+          },
+          "acciones_compradas": {
+            "raw": "0,051543728",
+            "qty": 0.051543728
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 2
+        },
+        {
+          "row_id": 27,
+          "fecha": "2024-07-02",
+          "nombre_activo": "Vanguard S&P 500 ETF",
+          "simbolo_activo": "VOO",
+          "categoria_activo": "ETF",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 3,52",
+            "usd": 3.52
+          },
+          "acciones_compradas": {
+            "raw": "0,006979833",
+            "qty": 0.006979833
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 2
+        },
+        {
+          "row_id": 28,
+          "fecha": "2024-08-06",
+          "nombre_activo": "Vanguard S&P 500 ETF",
+          "simbolo_activo": "VOO",
+          "categoria_activo": "ETF",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 160,08",
+            "usd": 160.08
+          },
+          "acciones_compradas": {
+            "raw": "0,332701516",
+            "qty": 0.332701516
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 2
+        },
+        {
+          "row_id": 29,
+          "fecha": "2024-08-06",
+          "nombre_activo": "Invesco Nasdaq 100 ETF",
+          "simbolo_activo": "QQQM",
+          "categoria_activo": "ETF",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 80,00",
+            "usd": 80.0
+          },
+          "acciones_compradas": {
+            "raw": "0,441661974",
+            "qty": 0.441661974
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 2
+        },
+        {
+          "row_id": 30,
+          "fecha": "2024-08-06",
+          "nombre_activo": "Schwab US Dividend Equity ETF",
+          "simbolo_activo": "SCHD",
+          "categoria_activo": "ETF",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 21,56",
+            "usd": 21.56
+          },
+          "acciones_compradas": {
+            "raw": "0,270249943",
+            "qty": 0.270249943
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 2
+        },
+        {
+          "row_id": 31,
+          "fecha": "2024-09-27",
+          "nombre_activo": "Schwab US Dividend Equity ETF",
+          "simbolo_activo": "SCHD",
+          "categoria_activo": "ETF",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 200,00",
+            "usd": 200.0
+          },
+          "acciones_compradas": {
+            "raw": "2,369158745",
+            "qty": 2.369158745
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 2
+        },
+        {
+          "row_id": 32,
+          "fecha": "2024-09-27",
+          "nombre_activo": "Vanguard S&P 500 ETF",
+          "simbolo_activo": "VOO",
+          "categoria_activo": "ETF",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 100,00",
+            "usd": 100.0
+          },
+          "acciones_compradas": {
+            "raw": "0,190140095",
+            "qty": 0.190140095
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 2
+        },
+        {
+          "row_id": 33,
+          "fecha": "2024-09-27",
+          "nombre_activo": "Invesco Nasdaq 100 ETF",
+          "simbolo_activo": "QQQM",
+          "categoria_activo": "ETF",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 121,21",
+            "usd": 121.21
+          },
+          "acciones_compradas": {
+            "raw": "0,603888080",
+            "qty": 0.60388808
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 2
+        },
+        {
+          "row_id": 34,
+          "fecha": "2024-09-27",
+          "nombre_activo": "VanEck Semiconductor ETF",
+          "simbolo_activo": "SMH",
+          "categoria_activo": "ETF",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 21,21",
+            "usd": 21.21
+          },
+          "acciones_compradas": {
+            "raw": "0,085363792",
+            "qty": 0.085363792
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 2
+        },
+        {
+          "row_id": 35,
+          "fecha": "2024-10-02",
+          "nombre_activo": "Invesco Nasdaq 100 ETF",
+          "simbolo_activo": "QQQM",
+          "categoria_activo": "ETF",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 0,96",
+            "usd": 0.96
+          },
+          "acciones_compradas": {
+            "raw": "0,004851327",
+            "qty": 0.004851327
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 2
+        },
+        {
+          "row_id": 36,
+          "fecha": "2024-10-03",
+          "nombre_activo": "Schwab US Dividend Equity ETF",
+          "simbolo_activo": "SCHD",
+          "categoria_activo": "ETF",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 7,48",
+            "usd": 7.48
+          },
+          "acciones_compradas": {
+            "raw": "0,088796030",
+            "qty": 0.08879603
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 2
+        },
+        {
+          "row_id": 37,
+          "fecha": "2024-10-04",
+          "nombre_activo": "Vanguard S&P 500 ETF",
+          "simbolo_activo": "VOO",
+          "categoria_activo": "ETF",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 4,27",
+            "usd": 4.27
+          },
+          "acciones_compradas": {
+            "raw": "0,008137797",
+            "qty": 0.008137797
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 2
+        },
+        {
+          "row_id": 38,
+          "fecha": "2024-12-04",
+          "nombre_activo": "Schwab U.S. Large- Cap Growth ETF",
+          "simbolo_activo": "SCHG",
+          "categoria_activo": "ETF",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 61,36",
+            "usd": 61.36
+          },
+          "acciones_compradas": {
+            "raw": "2,155385063",
+            "qty": 2.155385063
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 2
+        },
+        {
+          "row_id": 39,
+          "fecha": "2024-12-13",
+          "nombre_activo": "Schwab US Dividend Equity ETF",
+          "simbolo_activo": "SCHD",
+          "categoria_activo": "ETF",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 10,12",
+            "usd": 10.12
+          },
+          "acciones_compradas": {
+            "raw": "0,360810039",
+            "qty": 0.360810039
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 2
+        },
+        {
+          "row_id": 40,
+          "fecha": "2024-12-18",
+          "nombre_activo": "VanEck Semiconductor ETF",
+          "simbolo_activo": "SMH",
+          "categoria_activo": "ETF",
+          "tipo": "sell",
+          "aporte_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_compradas": {
+            "raw": null,
+            "qty": null
+          },
+          "rescate_dolares": {
+            "raw": "US $ 560,24",
+            "usd": 560.24
+          },
+          "acciones_vendidas": {
+            "raw": "2,232615662",
+            "qty": 2.232615662
+          },
+          "source_page": 2
+        },
+        {
+          "row_id": 41,
+          "fecha": "2024-12-18",
+          "nombre_activo": "Palantir Technologies Inc",
+          "simbolo_activo": "PLTR",
+          "categoria_activo": "Acciones",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 560,24",
+            "usd": 560.24
+          },
+          "acciones_compradas": {
+            "raw": "7,416468096",
+            "qty": 7.416468096
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 2
+        },
+        {
+          "row_id": 42,
+          "fecha": "2024-12-19",
+          "nombre_activo": "Schwab US Dividend Equity ETF",
+          "simbolo_activo": "SCHD",
+          "categoria_activo": "ETF",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 9,52",
+            "usd": 9.52
+          },
+          "acciones_compradas": {
+            "raw": "0,349871370",
+            "qty": 0.34987137
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 2
+        },
+        {
+          "row_id": 43,
+          "fecha": "2024-12-19",
+          "nombre_activo": "Energy Fuels Inc/Canada",
+          "simbolo_activo": "UUUU",
+          "categoria_activo": "Acciones",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 30,05",
+            "usd": 30.05
+          },
+          "acciones_compradas": {
+            "raw": "5,483793254",
+            "qty": 5.483793254
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 3
+        },
+        {
+          "row_id": 44,
+          "fecha": "2024-12-31",
+          "nombre_activo": "Vanguard S&P 500 ETF",
+          "simbolo_activo": "VOO",
+          "categoria_activo": "ETF",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 4,82",
+            "usd": 4.82
+          },
+          "acciones_compradas": {
+            "raw": "0,008885283",
+            "qty": 0.008885283
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 3
+        },
+        {
+          "row_id": 45,
+          "fecha": "2025-01-01",
+          "nombre_activo": "Invesco Nasdaq 100 ETF",
+          "simbolo_activo": "QQQM",
+          "categoria_activo": "ETF",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 1,15",
+            "usd": 1.15
+          },
+          "acciones_compradas": {
+            "raw": "0,005434012",
+            "qty": 0.005434012
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 3
+        },
+        {
+          "row_id": 46,
+          "fecha": "2025-02-18",
+          "nombre_activo": "Schwab U.S. Large- Cap Growth ETF",
+          "simbolo_activo": "SCHG",
+          "categoria_activo": "ETF",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 64,95",
+            "usd": 64.95
+          },
+          "acciones_compradas": {
+            "raw": "2,252861602",
+            "qty": 2.252861602
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 3
+        },
+        {
+          "row_id": 47,
+          "fecha": "2025-02-18",
+          "nombre_activo": "Schwab US Dividend Equity ETF",
+          "simbolo_activo": "SCHD",
+          "categoria_activo": "ETF",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 40,00",
+            "usd": 40.0
+          },
+          "acciones_compradas": {
+            "raw": "1,432254368",
+            "qty": 1.432254368
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 3
+        },
+        {
+          "row_id": 48,
+          "fecha": "2025-02-21",
+          "nombre_activo": "Palantir Technologies Inc",
+          "simbolo_activo": "PLTR",
+          "categoria_activo": "Acciones",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 31,72",
+            "usd": 31.72
+          },
+          "acciones_compradas": {
+            "raw": "0,307692307",
+            "qty": 0.307692307
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 3
+        },
+        {
+          "row_id": 49,
+          "fecha": "2025-03-03",
+          "nombre_activo": "Palantir Technologies Inc",
+          "simbolo_activo": "PLTR",
+          "categoria_activo": "Acciones",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 50,00",
+            "usd": 50.0
+          },
+          "acciones_compradas": {
+            "raw": "0,561154631",
+            "qty": 0.561154631
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 3
+        },
+        {
+          "row_id": 50,
+          "fecha": "2025-03-03",
+          "nombre_activo": "Vanguard S&P 500 ETF",
+          "simbolo_activo": "VOO",
+          "categoria_activo": "ETF",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 84,71",
+            "usd": 84.71
+          },
+          "acciones_compradas": {
+            "raw": "0,154879877",
+            "qty": 0.154879877
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 3
+        },
+        {
+          "row_id": 51,
+          "fecha": "2025-03-03",
+          "nombre_activo": "Schwab U.S. Large- Cap Growth ETF",
+          "simbolo_activo": "SCHG",
+          "categoria_activo": "ETF",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 84,71",
+            "usd": 84.71
+          },
+          "acciones_compradas": {
+            "raw": "3,109769125",
+            "qty": 3.109769125
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 3
+        },
+        {
+          "row_id": 52,
+          "fecha": "2025-03-03",
+          "nombre_activo": "Schwab US Dividend Equity ETF",
+          "simbolo_activo": "SCHD",
+          "categoria_activo": "ETF",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 42,36",
+            "usd": 42.36
+          },
+          "acciones_compradas": {
+            "raw": "1,477605692",
+            "qty": 1.477605692
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 3
+        },
+        {
+          "row_id": 53,
+          "fecha": "2025-03-04",
+          "nombre_activo": "Schwab U.S. Large- Cap Growth ETF",
+          "simbolo_activo": "SCHG",
+          "categoria_activo": "ETF",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 30,00",
+            "usd": 30.0
+          },
+          "acciones_compradas": {
+            "raw": "1,150836274",
+            "qty": 1.150836274
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 3
+        },
+        {
+          "row_id": 54,
+          "fecha": "2025-03-04",
+          "nombre_activo": "Vanguard S&P 500 ETF",
+          "simbolo_activo": "VOO",
+          "categoria_activo": "ETF",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 30,00",
+            "usd": 30.0
+          },
+          "acciones_compradas": {
+            "raw": "0,056945230",
+            "qty": 0.05694523
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 3
+        },
+        {
+          "row_id": 55,
+          "fecha": "2025-03-04",
+          "nombre_activo": "Palantir Technologies Inc",
+          "simbolo_activo": "PLTR",
+          "categoria_activo": "Acciones",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 44,94",
+            "usd": 44.94
+          },
+          "acciones_compradas": {
+            "raw": "0,557914338",
+            "qty": 0.557914338
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 3
+        },
+        {
+          "row_id": 56,
+          "fecha": "2025-03-07",
+          "nombre_activo": "Vanguard S&P 500 ETF",
+          "simbolo_activo": "VOO",
+          "categoria_activo": "ETF",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 33,00",
+            "usd": 33.0
+          },
+          "acciones_compradas": {
+            "raw": "0,062322710",
+            "qty": 0.06232271
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 3
+        },
+        {
+          "row_id": 57,
+          "fecha": "2025-03-07",
+          "nombre_activo": "Invesco Nasdaq 100 ETF",
+          "simbolo_activo": "QQQM",
+          "categoria_activo": "ETF",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 33,00",
+            "usd": 33.0
+          },
+          "acciones_compradas": {
+            "raw": "0,163274191",
+            "qty": 0.163274191
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 3
+        },
+        {
+          "row_id": 58,
+          "fecha": "2025-03-07",
+          "nombre_activo": "Schwab U.S. Large- Cap Growth ETF",
+          "simbolo_activo": "SCHG",
+          "categoria_activo": "ETF",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 33,00",
+            "usd": 33.0
+          },
+          "acciones_compradas": {
+            "raw": "1,262529650",
+            "qty": 1.26252965
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 3
+        },
+        {
+          "row_id": 59,
+          "fecha": "2025-03-10",
+          "nombre_activo": "Invesco Nasdaq 100 ETF",
+          "simbolo_activo": "QQQM",
+          "categoria_activo": "ETF",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 30,00",
+            "usd": 30.0
+          },
+          "acciones_compradas": {
+            "raw": "0,154328926",
+            "qty": 0.154328926
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 3
+        },
+        {
+          "row_id": 60,
+          "fecha": "2025-03-10",
+          "nombre_activo": "Vanguard S&P 500 ETF",
+          "simbolo_activo": "VOO",
+          "categoria_activo": "ETF",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 50,00",
+            "usd": 50.0
+          },
+          "acciones_compradas": {
+            "raw": "0,097232755",
+            "qty": 0.097232755
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 3
+        },
+        {
+          "row_id": 61,
+          "fecha": "2025-03-10",
+          "nombre_activo": "Schwab U.S. Large- Cap Growth ETF",
+          "simbolo_activo": "SCHG",
+          "categoria_activo": "ETF",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 30,00",
+            "usd": 30.0
+          },
+          "acciones_compradas": {
+            "raw": "1,198083067",
+            "qty": 1.198083067
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 3
+        },
+        {
+          "row_id": 62,
+          "fecha": "2025-03-10",
+          "nombre_activo": "Palantir Technologies Inc",
+          "simbolo_activo": "PLTR",
+          "categoria_activo": "Acciones",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 30,00",
+            "usd": 30.0
+          },
+          "acciones_compradas": {
+            "raw": "0,396458305",
+            "qty": 0.396458305
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 3
+        },
+        {
+          "row_id": 63,
+          "fecha": "2025-03-12",
+          "nombre_activo": "Schwab US Dividend Equity ETF",
+          "simbolo_activo": "SCHD",
+          "categoria_activo": "ETF",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 50,84",
+            "usd": 50.84
+          },
+          "acciones_compradas": {
+            "raw": "1,850881025",
+            "qty": 1.850881025
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 3
+        },
+        {
+          "row_id": 64,
+          "fecha": "2025-03-19",
+          "nombre_activo": "Meta Platforms Inc",
+          "simbolo_activo": "META",
+          "categoria_activo": "Acciones",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 100,00",
+            "usd": 100.0
+          },
+          "acciones_compradas": {
+            "raw": "0,171924105",
+            "qty": 0.171924105
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 3
+        },
+        {
+          "row_id": 65,
+          "fecha": "2025-03-25",
+          "nombre_activo": "Schwab US Dividend Equity ETF",
+          "simbolo_activo": "SCHD",
+          "categoria_activo": "ETF",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 52,08",
+            "usd": 52.08
+          },
+          "acciones_compradas": {
+            "raw": "1,858141858",
+            "qty": 1.858141858
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 3
+        },
+        {
+          "row_id": 66,
+          "fecha": "2025-03-25",
+          "nombre_activo": "Palantir Technologies Inc",
+          "simbolo_activo": "PLTR",
+          "categoria_activo": "Acciones",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 200,00",
+            "usd": 200.0
+          },
+          "acciones_compradas": {
+            "raw": "2,074099040",
+            "qty": 2.07409904
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 3
+        },
+        {
+          "row_id": 67,
+          "fecha": "2025-03-28",
+          "nombre_activo": "Vanguard S&P 500 ETF",
+          "simbolo_activo": "VOO",
+          "categoria_activo": "ETF",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 100,00",
+            "usd": 100.0
+          },
+          "acciones_compradas": {
+            "raw": "0,195792804",
+            "qty": 0.195792804
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 4
+        },
+        {
+          "row_id": 68,
+          "fecha": "2025-03-28",
+          "nombre_activo": "Schwab U.S. Large- Cap Growth ETF",
+          "simbolo_activo": "SCHG",
+          "categoria_activo": "ETF",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 200,00",
+            "usd": 200.0
+          },
+          "acciones_compradas": {
+            "raw": "8,001400280",
+            "qty": 8.00140028
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 4
+        },
+        {
+          "row_id": 69,
+          "fecha": "2025-03-28",
+          "nombre_activo": "Meta Platforms Inc",
+          "simbolo_activo": "META",
+          "categoria_activo": "Acciones",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 100,00",
+            "usd": 100.0
+          },
+          "acciones_compradas": {
+            "raw": "0,173780667",
+            "qty": 0.173780667
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 4
+        },
+        {
+          "row_id": 70,
+          "fecha": "2025-03-28",
+          "nombre_activo": "Palantir Technologies Inc",
+          "simbolo_activo": "PLTR",
+          "categoria_activo": "Acciones",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 129,61",
+            "usd": 129.61
+          },
+          "acciones_compradas": {
+            "raw": "1,530838825",
+            "qty": 1.530838825
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 4
+        },
+        {
+          "row_id": 71,
+          "fecha": "2025-04-02",
+          "nombre_activo": "Invesco Nasdaq 100 ETF",
+          "simbolo_activo": "QQQM",
+          "categoria_activo": "ETF",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 1,26",
+            "usd": 1.26
+          },
+          "acciones_compradas": {
+            "raw": "0,006561816",
+            "qty": 0.006561816
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 4
+        },
+        {
+          "row_id": 72,
+          "fecha": "2025-04-02",
+          "nombre_activo": "NVIDIA Corp",
+          "simbolo_activo": "NVDA",
+          "categoria_activo": "Acciones",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 109,55",
+            "usd": 109.55
+          },
+          "acciones_compradas": {
+            "raw": "1,001114888",
+            "qty": 1.001114888
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 4
+        },
+        {
+          "row_id": 73,
+          "fecha": "2025-04-02",
+          "nombre_activo": "SoFi Technologies Inc",
+          "simbolo_activo": "SOFI",
+          "categoria_activo": "Acciones",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 100,00",
+            "usd": 100.0
+          },
+          "acciones_compradas": {
+            "raw": "8,218910788",
+            "qty": 8.218910788
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 4
+        },
+        {
+          "row_id": 74,
+          "fecha": "2025-04-03",
+          "nombre_activo": "Schwab US Dividend Equity ETF",
+          "simbolo_activo": "SCHD",
+          "categoria_activo": "ETF",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 10,51",
+            "usd": 10.51
+          },
+          "acciones_compradas": {
+            "raw": "0,383997077",
+            "qty": 0.383997077
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 4
+        },
+        {
+          "row_id": 75,
+          "fecha": "2025-04-03",
+          "nombre_activo": "Vanguard S&P 500 ETF",
+          "simbolo_activo": "VOO",
+          "categoria_activo": "ETF",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 5,61",
+            "usd": 5.61
+          },
+          "acciones_compradas": {
+            "raw": "0,011185102",
+            "qty": 0.011185102
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 4
+        },
+        {
+          "row_id": 76,
+          "fecha": "2025-04-03",
+          "nombre_activo": "Schwab U.S. Large- Cap Growth ETF",
+          "simbolo_activo": "SCHG",
+          "categoria_activo": "ETF",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 0,26",
+            "usd": 0.26
+          },
+          "acciones_compradas": {
+            "raw": "0,010652245",
+            "qty": 0.010652245
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 4
+        },
+        {
+          "row_id": 77,
+          "fecha": "2025-04-04",
+          "nombre_activo": "Vanguard S&P 500 ETF",
+          "simbolo_activo": "VOO",
+          "categoria_activo": "ETF",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 200,00",
+            "usd": 200.0
+          },
+          "acciones_compradas": {
+            "raw": "0,424352755",
+            "qty": 0.424352755
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 4
+        },
+        {
+          "row_id": 78,
+          "fecha": "2025-04-04",
+          "nombre_activo": "Schwab US Dividend Equity ETF",
+          "simbolo_activo": "SCHD",
+          "categoria_activo": "ETF",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 200,00",
+            "usd": 200.0
+          },
+          "acciones_compradas": {
+            "raw": "7,861642537",
+            "qty": 7.861642537
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 4
+        },
+        {
+          "row_id": 79,
+          "fecha": "2025-04-04",
+          "nombre_activo": "Schwab U.S. Large- Cap Growth ETF",
+          "simbolo_activo": "SCHG",
+          "categoria_activo": "ETF",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 200,00",
+            "usd": 200.0
+          },
+          "acciones_compradas": {
+            "raw": "8,708140117",
+            "qty": 8.708140117
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 4
+        },
+        {
+          "row_id": 80,
+          "fecha": "2025-04-04",
+          "nombre_activo": "Meta Platforms Inc",
+          "simbolo_activo": "META",
+          "categoria_activo": "Acciones",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 100,00",
+            "usd": 100.0
+          },
+          "acciones_compradas": {
+            "raw": "0,194566913",
+            "qty": 0.194566913
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 4
+        },
+        {
+          "row_id": 81,
+          "fecha": "2025-04-04",
+          "nombre_activo": "Palantir Technologies Inc",
+          "simbolo_activo": "PLTR",
+          "categoria_activo": "Acciones",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 110,74",
+            "usd": 110.74
+          },
+          "acciones_compradas": {
+            "raw": "1,477833827",
+            "qty": 1.477833827
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 4
+        },
+        {
+          "row_id": 82,
+          "fecha": "2025-05-06",
+          "nombre_activo": "NVIDIA Corp",
+          "simbolo_activo": "NVDA",
+          "categoria_activo": "Acciones",
+          "tipo": "sell",
+          "aporte_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_compradas": {
+            "raw": null,
+            "qty": null
+          },
+          "rescate_dolares": {
+            "raw": "US $ 112,97",
+            "usd": 112.97
+          },
+          "acciones_vendidas": {
+            "raw": "1,001114888",
+            "qty": 1.001114888
+          },
+          "source_page": 4
+        },
+        {
+          "row_id": 83,
+          "fecha": "2025-05-08",
+          "nombre_activo": "Schwab US Dividend Equity ETF",
+          "simbolo_activo": "SCHD",
+          "categoria_activo": "ETF",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 112,97",
+            "usd": 112.97
+          },
+          "acciones_compradas": {
+            "raw": "4,369174240",
+            "qty": 4.36917424
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 4
+        },
+        {
+          "row_id": 84,
+          "fecha": "2025-06-03",
+          "nombre_activo": "Schwab US Dividend Equity ETF",
+          "simbolo_activo": "SCHD",
+          "categoria_activo": "ETF",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 149,58",
+            "usd": 149.58
+          },
+          "acciones_compradas": {
+            "raw": "5,653670392",
+            "qty": 5.653670392
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 4
+        },
+        {
+          "row_id": 85,
+          "fecha": "2025-07-01",
+          "nombre_activo": "Meta Platforms Inc",
+          "simbolo_activo": "META",
+          "categoria_activo": "Acciones",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 0,24",
+            "usd": 0.24
+          },
+          "acciones_compradas": {
+            "raw": "0,000327303",
+            "qty": 0.000327303
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 4
+        },
+        {
+          "row_id": 86,
+          "fecha": "2025-07-02",
+          "nombre_activo": "Invesco Nasdaq 100 ETF",
+          "simbolo_activo": "QQQM",
+          "categoria_activo": "ETF",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 1,26",
+            "usd": 1.26
+          },
+          "acciones_compradas": {
+            "raw": "0,005584413",
+            "qty": 0.005584413
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 4
+        },
+        {
+          "row_id": 87,
+          "fecha": "2025-07-02",
+          "nombre_activo": "Robinhood Markets Inc",
+          "simbolo_activo": "HOOD",
+          "categoria_activo": "Acciones",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 321,36",
+            "usd": 321.36
+          },
+          "acciones_compradas": {
+            "raw": "3,216819252",
+            "qty": 3.216819252
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 4
+        },
+        {
+          "row_id": 88,
+          "fecha": "2025-07-03",
+          "nombre_activo": "Schwab U.S. Large- Cap Growth ETF",
+          "simbolo_activo": "SCHG",
+          "categoria_activo": "ETF",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 0,67",
+            "usd": 0.67
+          },
+          "acciones_compradas": {
+            "raw": "0,022821718",
+            "qty": 0.022821718
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 4
+        },
+        {
+          "row_id": 89,
+          "fecha": "2025-07-03",
+          "nombre_activo": "Schwab US Dividend Equity ETF",
+          "simbolo_activo": "SCHD",
+          "categoria_activo": "ETF",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 15,03",
+            "usd": 15.03
+          },
+          "acciones_compradas": {
+            "raw": "0,549181525",
+            "qty": 0.549181525
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 4
+        },
+        {
+          "row_id": 90,
+          "fecha": "2025-07-08",
+          "nombre_activo": "Vanguard S&P 500 ETF",
+          "simbolo_activo": "VOO",
+          "categoria_activo": "ETF",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 6,34",
+            "usd": 6.34
+          },
+          "acciones_compradas": {
+            "raw": "0,011116254",
+            "qty": 0.011116254
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 4
+        },
+        {
+          "row_id": 91,
+          "fecha": "2025-07-08",
+          "nombre_activo": "Robinhood Markets Inc",
+          "simbolo_activo": "HOOD",
+          "categoria_activo": "Acciones",
+          "tipo": "sell",
+          "aporte_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_compradas": {
+            "raw": null,
+            "qty": null
+          },
+          "rescate_dolares": {
+            "raw": "US $ 295,30",
+            "usd": 295.3
+          },
+          "acciones_vendidas": {
+            "raw": "3,216819252",
+            "qty": 3.216819252
+          },
+          "source_page": 5
+        },
+        {
+          "row_id": 92,
+          "fecha": "2025-07-08",
+          "nombre_activo": "SoFi Technologies Inc",
+          "simbolo_activo": "SOFI",
+          "categoria_activo": "Acciones",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 200,00",
+            "usd": 200.0
+          },
+          "acciones_compradas": {
+            "raw": "10,065998278",
+            "qty": 10.065998278
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 5
+        },
+        {
+          "row_id": 93,
+          "fecha": "2025-07-08",
+          "nombre_activo": "Vanguard S&P 500 ETF",
+          "simbolo_activo": "VOO",
+          "categoria_activo": "ETF",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 95,30",
+            "usd": 95.3
+          },
+          "acciones_compradas": {
+            "raw": "0,167076907",
+            "qty": 0.167076907
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 5
+        },
+        {
+          "row_id": 94,
+          "fecha": "2025-07-08",
+          "nombre_activo": "Energy Fuels Inc/Canada",
+          "simbolo_activo": "UUUU",
+          "categoria_activo": "Acciones",
+          "tipo": "sell",
+          "aporte_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_compradas": {
+            "raw": null,
+            "qty": null
+          },
+          "rescate_dolares": {
+            "raw": "US $ 32,58",
+            "usd": 32.58
+          },
+          "acciones_vendidas": {
+            "raw": "5,483793254",
+            "qty": 5.483793254
+          },
+          "source_page": 5
+        },
+        {
+          "row_id": 95,
+          "fecha": "2025-07-08",
+          "nombre_activo": "Schwab US Dividend Equity ETF",
+          "simbolo_activo": "SCHD",
+          "categoria_activo": "ETF",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 32,58",
+            "usd": 32.58
+          },
+          "acciones_compradas": {
+            "raw": "1,191747750",
+            "qty": 1.19174775
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 5
+        },
+        {
+          "row_id": 96,
+          "fecha": "2025-08-04",
+          "nombre_activo": "BigBear.ai Holdings Inc",
+          "simbolo_activo": "BBAI",
+          "categoria_activo": "Acciones",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 100,47",
+            "usd": 100.47
+          },
+          "acciones_compradas": {
+            "raw": "14,115528892",
+            "qty": 14.115528892
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 5
+        },
+        {
+          "row_id": 97,
+          "fecha": "2025-08-04",
+          "nombre_activo": "Palantir Technologies Inc",
+          "simbolo_activo": "PLTR",
+          "categoria_activo": "Acciones",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 60,00",
+            "usd": 60.0
+          },
+          "acciones_compradas": {
+            "raw": "0,349040139",
+            "qty": 0.349040139
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 5
+        },
+        {
+          "row_id": 98,
+          "fecha": "2025-08-11",
+          "nombre_activo": "Robinhood Markets Inc",
+          "simbolo_activo": "HOOD",
+          "categoria_activo": "Acciones",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 150,00",
+            "usd": 150.0
+          },
+          "acciones_compradas": {
+            "raw": "1,280562764",
+            "qty": 1.280562764
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 5
+        },
+        {
+          "row_id": 99,
+          "fecha": "2025-08-21",
+          "nombre_activo": "BigBear.ai Holdings Inc",
+          "simbolo_activo": "BBAI",
+          "categoria_activo": "Acciones",
+          "tipo": "sell",
+          "aporte_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_compradas": {
+            "raw": null,
+            "qty": null
+          },
+          "rescate_dolares": {
+            "raw": "US $ 77,56",
+            "usd": 77.56
+          },
+          "acciones_vendidas": {
+            "raw": "14,115528892",
+            "qty": 14.115528892
+          },
+          "source_page": 5
+        },
+        {
+          "row_id": 100,
+          "fecha": "2025-08-21",
+          "nombre_activo": "Energy Fuels Inc/Canada",
+          "simbolo_activo": "UUUU",
+          "categoria_activo": "Acciones",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 77,56",
+            "usd": 77.56
+          },
+          "acciones_compradas": {
+            "raw": "8,562155001",
+            "qty": 8.562155001
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 5
+        },
+        {
+          "row_id": 101,
+          "fecha": "2025-09-12",
+          "nombre_activo": "Invesco S&P 500 Momentum ETF",
+          "simbolo_activo": "SPMO",
+          "categoria_activo": "ETF",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 363,00",
+            "usd": 363.0
+          },
+          "acciones_compradas": {
+            "raw": "3,016809984",
+            "qty": 3.016809984
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 5
+        },
+        {
+          "row_id": 102,
+          "fecha": "2025-09-16",
+          "nombre_activo": "SPDR Gold Shares",
+          "simbolo_activo": "GLD",
+          "categoria_activo": "ETF",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 308,40",
+            "usd": 308.4
+          },
+          "acciones_compradas": {
+            "raw": "0,908266283",
+            "qty": 0.908266283
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 5
+        },
+        {
+          "row_id": 103,
+          "fecha": "2025-09-16",
+          "nombre_activo": "SoFi Technologies Inc",
+          "simbolo_activo": "SOFI",
+          "categoria_activo": "Acciones",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 150,00",
+            "usd": 150.0
+          },
+          "acciones_compradas": {
+            "raw": "5,485463521",
+            "qty": 5.485463521
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 5
+        },
+        {
+          "row_id": 104,
+          "fecha": "2025-09-16",
+          "nombre_activo": "Berkshire Hathaway Inc",
+          "simbolo_activo": "BRK.B",
+          "categoria_activo": "Acciones",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 250,00",
+            "usd": 250.0
+          },
+          "acciones_compradas": {
+            "raw": "0,509366226",
+            "qty": 0.509366226
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 5
+        },
+        {
+          "row_id": 105,
+          "fecha": "2025-09-23",
+          "nombre_activo": "Energy Fuels Inc/Canada",
+          "simbolo_activo": "UUUU",
+          "categoria_activo": "Acciones",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 157,27",
+            "usd": 157.27
+          },
+          "acciones_compradas": {
+            "raw": "9,545978755",
+            "qty": 9.545978755
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 5
+        },
+        {
+          "row_id": 106,
+          "fecha": "2025-10-01",
+          "nombre_activo": "Invesco Nasdaq 100 ETF",
+          "simbolo_activo": "QQQM",
+          "categoria_activo": "ETF",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 1,21",
+            "usd": 1.21
+          },
+          "acciones_compradas": {
+            "raw": "0,004922300",
+            "qty": 0.0049223
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 5
+        },
+        {
+          "row_id": 107,
+          "fecha": "2025-10-01",
+          "nombre_activo": "Invesco S&P 500 Momentum ETF",
+          "simbolo_activo": "SPMO",
+          "categoria_activo": "ETF",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 0,50",
+            "usd": 0.5
+          },
+          "acciones_compradas": {
+            "raw": "0,004160426",
+            "qty": 0.004160426
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 5
+        },
+        {
+          "row_id": 108,
+          "fecha": "2025-10-02",
+          "nombre_activo": "Meta Platforms Inc",
+          "simbolo_activo": "META",
+          "categoria_activo": "Acciones",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 0,24",
+            "usd": 0.24
+          },
+          "acciones_compradas": {
+            "raw": "0,000332175",
+            "qty": 0.000332175
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 5
+        },
+        {
+          "row_id": 109,
+          "fecha": "2025-10-02",
+          "nombre_activo": "Schwab US Dividend Equity ETF",
+          "simbolo_activo": "SCHD",
+          "categoria_activo": "ETF",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 15,42",
+            "usd": 15.42
+          },
+          "acciones_compradas": {
+            "raw": "0,561748633",
+            "qty": 0.561748633
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 5
+        },
+        {
+          "row_id": 110,
+          "fecha": "2025-10-02",
+          "nombre_activo": "Schwab U.S. Large- Cap Growth ETF",
+          "simbolo_activo": "SCHG",
+          "categoria_activo": "ETF",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 0,71",
+            "usd": 0.71
+          },
+          "acciones_compradas": {
+            "raw": "0,022008679",
+            "qty": 0.022008679
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 5
+        },
+        {
+          "row_id": 111,
+          "fecha": "2025-10-06",
+          "nombre_activo": "Vanguard S&P 500 ETF",
+          "simbolo_activo": "VOO",
+          "categoria_activo": "ETF",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 6,58",
+            "usd": 6.58
+          },
+          "acciones_compradas": {
+            "raw": "0,010657078",
+            "qty": 0.010657078
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 5
+        },
+        {
+          "row_id": 112,
+          "fecha": "2025-10-07",
+          "nombre_activo": "Advanced Micro Devices Inc",
+          "simbolo_activo": "AMD",
+          "categoria_activo": "Acciones",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 311,54",
+            "usd": 311.54
+          },
+          "acciones_compradas": {
+            "raw": "1,464568113",
+            "qty": 1.464568113
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 5
+        },
+        {
+          "row_id": 113,
+          "fecha": "2025-10-16",
+          "nombre_activo": "SPDR Gold Shares",
+          "simbolo_activo": "GLD",
+          "categoria_activo": "ETF",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 150,59",
+            "usd": 150.59
+          },
+          "acciones_compradas": {
+            "raw": "0,383979886",
+            "qty": 0.383979886
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 5
+        },
+        {
+          "row_id": 114,
+          "fecha": "2025-10-16",
+          "nombre_activo": "Berkshire Hathaway Inc",
+          "simbolo_activo": "BRK.B",
+          "categoria_activo": "Acciones",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 115,00",
+            "usd": 115.0
+          },
+          "acciones_compradas": {
+            "raw": "0,234183453",
+            "qty": 0.234183453
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 5
+        },
+        {
+          "row_id": 115,
+          "fecha": "2025-10-16",
+          "nombre_activo": "Invesco S&P 500 Momentum ETF",
+          "simbolo_activo": "SPMO",
+          "categoria_activo": "ETF",
+          "tipo": "sell",
+          "aporte_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_compradas": {
+            "raw": null,
+            "qty": null
+          },
+          "rescate_dolares": {
+            "raw": "US $ 363,33",
+            "usd": 363.33
+          },
+          "acciones_vendidas": {
+            "raw": "3,020970410",
+            "qty": 3.02097041
+          },
+          "source_page": 6
+        },
+        {
+          "row_id": 116,
+          "fecha": "2025-10-16",
+          "nombre_activo": "SPDR Gold Shares",
+          "simbolo_activo": "GLD",
+          "categoria_activo": "ETF",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 250,00",
+            "usd": 250.0
+          },
+          "acciones_compradas": {
+            "raw": "0,634189404",
+            "qty": 0.634189404
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 6
+        },
+        {
+          "row_id": 117,
+          "fecha": "2025-10-20",
+          "nombre_activo": "Applied Digital Corp",
+          "simbolo_activo": "APLD",
+          "categoria_activo": "Acciones",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 150,33",
+            "usd": 150.33
+          },
+          "acciones_compradas": {
+            "raw": "4,219231524",
+            "qty": 4.219231524
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 6
+        },
+        {
+          "row_id": 118,
+          "fecha": "2025-10-20",
+          "nombre_activo": "Energy Fuels Inc/Canada",
+          "simbolo_activo": "UUUU",
+          "categoria_activo": "Acciones",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 44,00",
+            "usd": 44.0
+          },
+          "acciones_compradas": {
+            "raw": "2,017507176",
+            "qty": 2.017507176
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 6
+        },
+        {
+          "row_id": 119,
+          "fecha": "2025-10-21",
+          "nombre_activo": "SPDR Gold Shares",
+          "simbolo_activo": "GLD",
+          "categoria_activo": "ETF",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 119,00",
+            "usd": 119.0
+          },
+          "acciones_compradas": {
+            "raw": "0,312585369",
+            "qty": 0.312585369
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 6
+        },
+        {
+          "row_id": 120,
+          "fecha": "2025-10-24",
+          "nombre_activo": "Meta Platforms Inc",
+          "simbolo_activo": "META",
+          "categoria_activo": "Acciones",
+          "tipo": "sell",
+          "aporte_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_compradas": {
+            "raw": null,
+            "qty": null
+          },
+          "rescate_dolares": {
+            "raw": "US $ 199,99",
+            "usd": 199.99
+          },
+          "acciones_vendidas": {
+            "raw": "0,271289439",
+            "qty": 0.271289439
+          },
+          "source_page": 6
+        },
+        {
+          "row_id": 121,
+          "fecha": "2025-10-24",
+          "nombre_activo": "SoFi Technologies Inc",
+          "simbolo_activo": "SOFI",
+          "categoria_activo": "Acciones",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 199,99",
+            "usd": 199.99
+          },
+          "acciones_compradas": {
+            "raw": "6,844297360",
+            "qty": 6.84429736
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 6
+        },
+        {
+          "row_id": 122,
+          "fecha": "2025-11-14",
+          "nombre_activo": "Robinhood Markets Inc",
+          "simbolo_activo": "HOOD",
+          "categoria_activo": "Acciones",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 117,61",
+            "usd": 117.61
+          },
+          "acciones_compradas": {
+            "raw": "0,935595755",
+            "qty": 0.935595755
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 6
+        },
+        {
+          "row_id": 123,
+          "fecha": "2025-11-20",
+          "nombre_activo": "NVIDIA Corp",
+          "simbolo_activo": "NVDA",
+          "categoria_activo": "Acciones",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 200,00",
+            "usd": 200.0
+          },
+          "acciones_compradas": {
+            "raw": "1,035003829",
+            "qty": 1.035003829
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 6
+        },
+        {
+          "row_id": 124,
+          "fecha": "2025-12-09",
+          "nombre_activo": "NVIDIA Corp",
+          "simbolo_activo": "NVDA",
+          "categoria_activo": "Acciones",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 54,06",
+            "usd": 54.06
+          },
+          "acciones_compradas": {
+            "raw": "0,292235172",
+            "qty": 0.292235172
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 6
+        },
+        {
+          "row_id": 125,
+          "fecha": "2025-12-10",
+          "nombre_activo": "Meta Platforms Inc",
+          "simbolo_activo": "META",
+          "categoria_activo": "Acciones",
+          "tipo": "sell",
+          "aporte_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_compradas": {
+            "raw": null,
+            "qty": null
+          },
+          "rescate_dolares": {
+            "raw": "US $ 175,27",
+            "usd": 175.27
+          },
+          "acciones_vendidas": {
+            "raw": "0,269641724",
+            "qty": 0.269641724
+          },
+          "source_page": 6
+        },
+        {
+          "row_id": 126,
+          "fecha": "2025-12-10",
+          "nombre_activo": "NVIDIA Corp",
+          "simbolo_activo": "NVDA",
+          "categoria_activo": "Acciones",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 175,27",
+            "usd": 175.27
+          },
+          "acciones_compradas": {
+            "raw": "0,957613042",
+            "qty": 0.957613042
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 6
+        },
+        {
+          "row_id": 127,
+          "fecha": "2025-12-17",
+          "nombre_activo": "Schwab US Dividend Equity ETF",
+          "simbolo_activo": "SCHD",
+          "categoria_activo": "ETF",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 16,61",
+            "usd": 16.61
+          },
+          "acciones_compradas": {
+            "raw": "0,603385643",
+            "qty": 0.603385643
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 6
+        },
+        {
+          "row_id": 128,
+          "fecha": "2025-12-17",
+          "nombre_activo": "Schwab U.S. Large- Cap Growth ETF",
+          "simbolo_activo": "SCHG",
+          "categoria_activo": "ETF",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 0,76",
+            "usd": 0.76
+          },
+          "acciones_compradas": {
+            "raw": "0,023509032",
+            "qty": 0.023509032
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 6
+        },
+        {
+          "row_id": 129,
+          "fecha": "2025-12-19",
+          "nombre_activo": "Applied Digital Corp",
+          "simbolo_activo": "APLD",
+          "categoria_activo": "Acciones",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 65,56",
+            "usd": 65.56
+          },
+          "acciones_compradas": {
+            "raw": "2,389212827",
+            "qty": 2.389212827
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 6
+        },
+        {
+          "row_id": 130,
+          "fecha": "2025-12-30",
+          "nombre_activo": "Vanguard S&P 500 ETF",
+          "simbolo_activo": "VOO",
+          "categoria_activo": "ETF",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 6,72",
+            "usd": 6.72
+          },
+          "acciones_compradas": {
+            "raw": "0,010628538",
+            "qty": 0.010628538
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 6
+        },
+        {
+          "row_id": 131,
+          "fecha": "2025-12-31",
+          "nombre_activo": "Invesco Nasdaq 100 ETF",
+          "simbolo_activo": "QQQM",
+          "categoria_activo": "ETF",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 1,30",
+            "usd": 1.3
+          },
+          "acciones_compradas": {
+            "raw": "0,005097639",
+            "qty": 0.005097639
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 6
+        },
+        {
+          "row_id": 132,
+          "fecha": "2026-01-30",
+          "nombre_activo": "Palantir Technologies Inc",
+          "simbolo_activo": "PLTR",
+          "categoria_activo": "Acciones",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 300,00",
+            "usd": 300.0
+          },
+          "acciones_compradas": {
+            "raw": "2,062033886",
+            "qty": 2.062033886
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 6
+        },
+        {
+          "row_id": 133,
+          "fecha": "2026-01-30",
+          "nombre_activo": "Tesla Inc",
+          "simbolo_activo": "TSLA",
+          "categoria_activo": "Acciones",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 171,00",
+            "usd": 171.0
+          },
+          "acciones_compradas": {
+            "raw": "0,395877319",
+            "qty": 0.395877319
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 6
+        },
+        {
+          "row_id": 134,
+          "fecha": "2026-01-30",
+          "nombre_activo": "Alphabet Inc",
+          "simbolo_activo": "GOOGL",
+          "categoria_activo": "Acciones",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 120,00",
+            "usd": 120.0
+          },
+          "acciones_compradas": {
+            "raw": "0,355448131",
+            "qty": 0.355448131
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 6
+        },
+        {
+          "row_id": 135,
+          "fecha": "2026-02-06",
+          "nombre_activo": "Alphabet Inc",
+          "simbolo_activo": "GOOGL",
+          "categoria_activo": "Acciones",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 200,00",
+            "usd": 200.0
+          },
+          "acciones_compradas": {
+            "raw": "0,614461977",
+            "qty": 0.614461977
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 6
+        },
+        {
+          "row_id": 136,
+          "fecha": "2026-02-06",
+          "nombre_activo": "Palantir Technologies Inc",
+          "simbolo_activo": "PLTR",
+          "categoria_activo": "Acciones",
+          "tipo": "buy",
+          "aporte_dolares": {
+            "raw": "US $ 139,74",
+            "usd": 139.74
+          },
+          "acciones_compradas": {
+            "raw": "1,031946475",
+            "qty": 1.031946475
+          },
+          "rescate_dolares": {
+            "raw": null,
+            "usd": null
+          },
+          "acciones_vendidas": {
+            "raw": null,
+            "qty": null
+          },
+          "source_page": 6
+        }
+      ]
+    },
+    "dividendos_recibidos": {
+      "columns": [
+        "fecha",
+        "nombre_activo",
+        "simbolo_activo",
+        "categoria_activo",
+        "monto_bruto",
+        "monto_impuestos",
+        "monto_neto"
+      ],
+      "rows": [
+        {
+          "row_id": 1,
+          "fecha": "2023-10-03",
+          "nombre_activo": "Vanguard S&P 500 ETF",
+          "simbolo_activo": "VOO",
+          "categoria_activo": "ETF",
+          "monto_bruto": {
+            "raw": "US $ 0,43",
+            "usd": 0.43
+          },
+          "monto_impuestos": {
+            "raw": "US $ 0,12",
+            "usd": 0.12
+          },
+          "monto_neto": {
+            "raw": "US $ 0,31",
+            "usd": 0.31
+          },
+          "source_page": 7
+        },
+        {
+          "row_id": 2,
+          "fecha": "2023-12-26",
+          "nombre_activo": "Vanguard S&P 500 ETF",
+          "simbolo_activo": "VOO",
+          "categoria_activo": "ETF",
+          "monto_bruto": {
+            "raw": "US $ 3,16",
+            "usd": 3.16
+          },
+          "monto_impuestos": {
+            "raw": "US $ 0,94",
+            "usd": 0.94
+          },
+          "monto_neto": {
+            "raw": "US $ 2,22",
+            "usd": 2.22
+          },
+          "source_page": 7
+        },
+        {
+          "row_id": 3,
+          "fecha": "2024-03-25",
+          "nombre_activo": "Schwab US Dividend Equity ETF",
+          "simbolo_activo": "SCHD",
+          "categoria_activo": "ETF",
+          "monto_bruto": {
+            "raw": "US $ 1,86",
+            "usd": 1.86
+          },
+          "monto_impuestos": {
+            "raw": "US $ 0,27",
+            "usd": 0.27
+          },
+          "monto_neto": {
+            "raw": "US $ 1,59",
+            "usd": 1.59
+          },
+          "source_page": 7
+        },
+        {
+          "row_id": 4,
+          "fecha": "2024-03-27",
+          "nombre_activo": "Vanguard S&P 500 ETF",
+          "simbolo_activo": "VOO",
+          "categoria_activo": "ETF",
+          "monto_bruto": {
+            "raw": "US $ 3,24",
+            "usd": 3.24
+          },
+          "monto_impuestos": {
+            "raw": "US $ 0,48",
+            "usd": 0.48
+          },
+          "monto_neto": {
+            "raw": "US $ 2,76",
+            "usd": 2.76
+          },
+          "source_page": 7
+        },
+        {
+          "row_id": 5,
+          "fecha": "2024-06-28",
+          "nombre_activo": "Invesco Nasdaq 100 ETF",
+          "simbolo_activo": "QQQM",
+          "categoria_activo": "ETF",
+          "monto_bruto": {
+            "raw": "US $ 0,57",
+            "usd": 0.57
+          },
+          "monto_impuestos": {
+            "raw": "US $ 0,08",
+            "usd": 0.08
+          },
+          "monto_neto": {
+            "raw": "US $ 0,49",
+            "usd": 0.49
+          },
+          "source_page": 7
+        },
+        {
+          "row_id": 6,
+          "fecha": "2024-07-01",
+          "nombre_activo": "Schwab US Dividend Equity ETF",
+          "simbolo_activo": "SCHD",
+          "categoria_activo": "ETF",
+          "monto_bruto": {
+            "raw": "US $ 4,69",
+            "usd": 4.69
+          },
+          "monto_impuestos": {
+            "raw": "US $ 0,70",
+            "usd": 0.7
+          },
+          "monto_neto": {
+            "raw": "US $ 3,99",
+            "usd": 3.99
+          },
+          "source_page": 7
+        },
+        {
+          "row_id": 7,
+          "fecha": "2024-07-02",
+          "nombre_activo": "Vanguard S&P 500 ETF",
+          "simbolo_activo": "VOO",
+          "categoria_activo": "ETF",
+          "monto_bruto": {
+            "raw": "US $ 4,14",
+            "usd": 4.14
+          },
+          "monto_impuestos": {
+            "raw": "US $ 0,62",
+            "usd": 0.62
+          },
+          "monto_neto": {
+            "raw": "US $ 3,52",
+            "usd": 3.52
+          },
+          "source_page": 7
+        },
+        {
+          "row_id": 8,
+          "fecha": "2024-09-27",
+          "nombre_activo": "Invesco Nasdaq 100 ETF",
+          "simbolo_activo": "QQQM",
+          "categoria_activo": "ETF",
+          "monto_bruto": {
+            "raw": "US $ 1,12",
+            "usd": 1.12
+          },
+          "monto_impuestos": {
+            "raw": "US $ 0,16",
+            "usd": 0.16
+          },
+          "monto_neto": {
+            "raw": "US $ 0,96",
+            "usd": 0.96
+          },
+          "source_page": 7
+        },
+        {
+          "row_id": 9,
+          "fecha": "2024-09-30",
+          "nombre_activo": "Schwab US Dividend Equity ETF",
+          "simbolo_activo": "SCHD",
+          "categoria_activo": "ETF",
+          "monto_bruto": {
+            "raw": "US $ 8,79",
+            "usd": 8.79
+          },
+          "monto_impuestos": {
+            "raw": "US $ 1,31",
+            "usd": 1.31
+          },
+          "monto_neto": {
+            "raw": "US $ 7,48",
+            "usd": 7.48
+          },
+          "source_page": 7
+        },
+        {
+          "row_id": 10,
+          "fecha": "2024-10-01",
+          "nombre_activo": "Vanguard S&P 500 ETF",
+          "simbolo_activo": "VOO",
+          "categoria_activo": "ETF",
+          "monto_bruto": {
+            "raw": "US $ 5,02",
+            "usd": 5.02
+          },
+          "monto_impuestos": {
+            "raw": "US $ 0,75",
+            "usd": 0.75
+          },
+          "monto_neto": {
+            "raw": "US $ 4,27",
+            "usd": 4.27
+          },
+          "source_page": 7
+        },
+        {
+          "row_id": 11,
+          "fecha": "2024-12-16",
+          "nombre_activo": "Schwab U.S. Large-Cap Growth ETF",
+          "simbolo_activo": "SCHG",
+          "categoria_activo": "ETF",
+          "monto_bruto": {
+            "raw": "US $ 0,07",
+            "usd": 0.07
+          },
+          "monto_impuestos": {
+            "raw": "US $ 0,01",
+            "usd": 0.01
+          },
+          "monto_neto": {
+            "raw": "US $ 0,06",
+            "usd": 0.06
+          },
+          "source_page": 7
+        },
+        {
+          "row_id": 12,
+          "fecha": "2024-12-16",
+          "nombre_activo": "Schwab US Dividend Equity ETF",
+          "simbolo_activo": "SCHD",
+          "categoria_activo": "ETF",
+          "monto_bruto": {
+            "raw": "US $ 11,20",
+            "usd": 11.2
+          },
+          "monto_impuestos": {
+            "raw": "US $ 1,68",
+            "usd": 1.68
+          },
+          "monto_neto": {
+            "raw": "US $ 9,52",
+            "usd": 9.52
+          },
+          "source_page": 7
+        },
+        {
+          "row_id": 13,
+          "fecha": "2024-12-26",
+          "nombre_activo": "Vanguard S&P 500 ETF",
+          "simbolo_activo": "VOO",
+          "categoria_activo": "ETF",
+          "monto_bruto": {
+            "raw": "US $ 5,67",
+            "usd": 5.67
+          },
+          "monto_impuestos": {
+            "raw": "US $ 0,85",
+            "usd": 0.85
+          },
+          "monto_neto": {
+            "raw": "US $ 4,82",
+            "usd": 4.82
+          },
+          "source_page": 7
+        },
+        {
+          "row_id": 14,
+          "fecha": "2024-12-27",
+          "nombre_activo": "Invesco Nasdaq 100 ETF",
+          "simbolo_activo": "QQQM",
+          "categoria_activo": "ETF",
+          "monto_bruto": {
+            "raw": "US $ 1,35",
+            "usd": 1.35
+          },
+          "monto_impuestos": {
+            "raw": "US $ 0,20",
+            "usd": 0.2
+          },
+          "monto_neto": {
+            "raw": "US $ 1,15",
+            "usd": 1.15
+          },
+          "source_page": 7
+        },
+        {
+          "row_id": 15,
+          "fecha": "2025-03-28",
+          "nombre_activo": "Invesco Nasdaq 100 ETF",
+          "simbolo_activo": "QQQM",
+          "categoria_activo": "ETF",
+          "monto_bruto": {
+            "raw": "US $ 1,48",
+            "usd": 1.48
+          },
+          "monto_impuestos": {
+            "raw": "US $ 0,22",
+            "usd": 0.22
+          },
+          "monto_neto": {
+            "raw": "US $ 1,26",
+            "usd": 1.26
+          },
+          "source_page": 7
+        },
+        {
+          "row_id": 16,
+          "fecha": "2025-03-31",
+          "nombre_activo": "Schwab U.S. Large-Cap Growth ETF",
+          "simbolo_activo": "SCHG",
+          "categoria_activo": "ETF",
+          "monto_bruto": {
+            "raw": "US $ 0,30",
+            "usd": 0.3
+          },
+          "monto_impuestos": {
+            "raw": "US $ 0,04",
+            "usd": 0.04
+          },
+          "monto_neto": {
+            "raw": "US $ 0,26",
+            "usd": 0.26
+          },
+          "source_page": 7
+        },
+        {
+          "row_id": 17,
+          "fecha": "2025-03-31",
+          "nombre_activo": "Schwab US Dividend Equity ETF",
+          "simbolo_activo": "SCHD",
+          "categoria_activo": "ETF",
+          "monto_bruto": {
+            "raw": "US $ 12,36",
+            "usd": 12.36
+          },
+          "monto_impuestos": {
+            "raw": "US $ 1,85",
+            "usd": 1.85
+          },
+          "monto_neto": {
+            "raw": "US $ 10,51",
+            "usd": 10.51
+          },
+          "source_page": 7
+        },
+        {
+          "row_id": 18,
+          "fecha": "2025-03-31",
+          "nombre_activo": "Vanguard S&P 500 ETF",
+          "simbolo_activo": "VOO",
+          "categoria_activo": "ETF",
+          "monto_bruto": {
+            "raw": "US $ 6,60",
+            "usd": 6.6
+          },
+          "monto_impuestos": {
+            "raw": "US $ 0,99",
+            "usd": 0.99
+          },
+          "monto_neto": {
+            "raw": "US $ 5,61",
+            "usd": 5.61
+          },
+          "source_page": 7
+        },
+        {
+          "row_id": 19,
+          "fecha": "2025-06-26",
+          "nombre_activo": "Meta Platforms Inc",
+          "simbolo_activo": "META",
+          "categoria_activo": "Acciones",
+          "monto_bruto": {
+            "raw": "US $ 0,28",
+            "usd": 0.28
+          },
+          "monto_impuestos": {
+            "raw": "US $ 0,04",
+            "usd": 0.04
+          },
+          "monto_neto": {
+            "raw": "US $ 0,24",
+            "usd": 0.24
+          },
+          "source_page": 7
+        },
+        {
+          "row_id": 20,
+          "fecha": "2025-06-27",
+          "nombre_activo": "Invesco Nasdaq 100 ETF",
+          "simbolo_activo": "QQQM",
+          "categoria_activo": "ETF",
+          "monto_bruto": {
+            "raw": "US $ 1,48",
+            "usd": 1.48
+          },
+          "monto_impuestos": {
+            "raw": "US $ 0,22",
+            "usd": 0.22
+          },
+          "monto_neto": {
+            "raw": "US $ 1,26",
+            "usd": 1.26
+          },
+          "source_page": 7
+        },
+        {
+          "row_id": 21,
+          "fecha": "2025-06-30",
+          "nombre_activo": "Schwab US Dividend Equity ETF",
+          "simbolo_activo": "SCHD",
+          "categoria_activo": "ETF",
+          "monto_bruto": {
+            "raw": "US $ 17,68",
+            "usd": 17.68
+          },
+          "monto_impuestos": {
+            "raw": "US $ 2,65",
+            "usd": 2.65
+          },
+          "monto_neto": {
+            "raw": "US $ 15,03",
+            "usd": 15.03
+          },
+          "source_page": 7
+        },
+        {
+          "row_id": 22,
+          "fecha": "2025-06-30",
+          "nombre_activo": "Schwab U.S. Large-Cap Growth ETF",
+          "simbolo_activo": "SCHG",
+          "categoria_activo": "ETF",
+          "monto_bruto": {
+            "raw": "US $ 0,78",
+            "usd": 0.78
+          },
+          "monto_impuestos": {
+            "raw": "US $ 0,11",
+            "usd": 0.11
+          },
+          "monto_neto": {
+            "raw": "US $ 0,67",
+            "usd": 0.67
+          },
+          "source_page": 7
+        },
+        {
+          "row_id": 23,
+          "fecha": "2025-07-02",
+          "nombre_activo": "Vanguard S&P 500 ETF",
+          "simbolo_activo": "VOO",
+          "categoria_activo": "ETF",
+          "monto_bruto": {
+            "raw": "US $ 7,45",
+            "usd": 7.45
+          },
+          "monto_impuestos": {
+            "raw": "US $ 1,11",
+            "usd": 1.11
+          },
+          "monto_neto": {
+            "raw": "US $ 6,34",
+            "usd": 6.34
+          },
+          "source_page": 7
+        },
+        {
+          "row_id": 24,
+          "fecha": "2025-09-26",
+          "nombre_activo": "Invesco Nasdaq 100 ETF",
+          "simbolo_activo": "QQQM",
+          "categoria_activo": "ETF",
+          "monto_bruto": {
+            "raw": "US $ 1,42",
+            "usd": 1.42
+          },
+          "monto_impuestos": {
+            "raw": "US $ 0,21",
+            "usd": 0.21
+          },
+          "monto_neto": {
+            "raw": "US $ 1,21",
+            "usd": 1.21
+          },
+          "source_page": 7
+        },
+        {
+          "row_id": 25,
+          "fecha": "2025-09-26",
+          "nombre_activo": "Invesco S&P 500 Momentum ETF",
+          "simbolo_activo": "SPMO",
+          "categoria_activo": "ETF",
+          "monto_bruto": {
+            "raw": "US $ 0,58",
+            "usd": 0.58
+          },
+          "monto_impuestos": {
+            "raw": "US $ 0,08",
+            "usd": 0.08
+          },
+          "monto_neto": {
+            "raw": "US $ 0,50",
+            "usd": 0.5
+          },
+          "source_page": 8
+        },
+        {
+          "row_id": 26,
+          "fecha": "2025-09-29",
+          "nombre_activo": "Schwab US Dividend Equity ETF",
+          "simbolo_activo": "SCHD",
+          "categoria_activo": "ETF",
+          "monto_bruto": {
+            "raw": "US $ 18,14",
+            "usd": 18.14
+          },
+          "monto_impuestos": {
+            "raw": "US $ 2,72",
+            "usd": 2.72
+          },
+          "monto_neto": {
+            "raw": "US $ 15,42",
+            "usd": 15.42
+          },
+          "source_page": 8
+        },
+        {
+          "row_id": 27,
+          "fecha": "2025-09-29",
+          "nombre_activo": "Meta Platforms Inc",
+          "simbolo_activo": "META",
+          "categoria_activo": "Acciones",
+          "monto_bruto": {
+            "raw": "US $ 0,28",
+            "usd": 0.28
+          },
+          "monto_impuestos": {
+            "raw": "US $ 0,04",
+            "usd": 0.04
+          },
+          "monto_neto": {
+            "raw": "US $ 0,24",
+            "usd": 0.24
+          },
+          "source_page": 8
+        },
+        {
+          "row_id": 28,
+          "fecha": "2025-09-29",
+          "nombre_activo": "Schwab U.S. Large-Cap Growth ETF",
+          "simbolo_activo": "SCHG",
+          "categoria_activo": "ETF",
+          "monto_bruto": {
+            "raw": "US $ 0,83",
+            "usd": 0.83
+          },
+          "monto_impuestos": {
+            "raw": "US $ 0,12",
+            "usd": 0.12
+          },
+          "monto_neto": {
+            "raw": "US $ 0,71",
+            "usd": 0.71
+          },
+          "source_page": 8
+        },
+        {
+          "row_id": 29,
+          "fecha": "2025-10-01",
+          "nombre_activo": "Vanguard S&P 500 ETF",
+          "simbolo_activo": "VOO",
+          "categoria_activo": "ETF",
+          "monto_bruto": {
+            "raw": "US $ 7,74",
+            "usd": 7.74
+          },
+          "monto_impuestos": {
+            "raw": "US $ 1,16",
+            "usd": 1.16
+          },
+          "monto_neto": {
+            "raw": "US $ 6,58",
+            "usd": 6.58
+          },
+          "source_page": 8
+        },
+        {
+          "row_id": 30,
+          "fecha": "2025-12-15",
+          "nombre_activo": "Schwab US Dividend Equity ETF",
+          "simbolo_activo": "SCHD",
+          "categoria_activo": "ETF",
+          "monto_bruto": {
+            "raw": "US $ 19,54",
+            "usd": 19.54
+          },
+          "monto_impuestos": {
+            "raw": "US $ 2,93",
+            "usd": 2.93
+          },
+          "monto_neto": {
+            "raw": "US $ 16,61",
+            "usd": 16.61
+          },
+          "source_page": 8
+        },
+        {
+          "row_id": 31,
+          "fecha": "2025-12-15",
+          "nombre_activo": "Schwab U.S. Large-Cap Growth ETF",
+          "simbolo_activo": "SCHG",
+          "categoria_activo": "ETF",
+          "monto_bruto": {
+            "raw": "US $ 0,89",
+            "usd": 0.89
+          },
+          "monto_impuestos": {
+            "raw": "US $ 0,13",
+            "usd": 0.13
+          },
+          "monto_neto": {
+            "raw": "US $ 0,76",
+            "usd": 0.76
+          },
+          "source_page": 8
+        },
+        {
+          "row_id": 32,
+          "fecha": "2025-12-24",
+          "nombre_activo": "Vanguard S&P 500 ETF",
+          "simbolo_activo": "VOO",
+          "categoria_activo": "ETF",
+          "monto_bruto": {
+            "raw": "US $ 7,90",
+            "usd": 7.9
+          },
+          "monto_impuestos": {
+            "raw": "US $ 1,18",
+            "usd": 1.18
+          },
+          "monto_neto": {
+            "raw": "US $ 6,72",
+            "usd": 6.72
+          },
+          "source_page": 8
+        },
+        {
+          "row_id": 33,
+          "fecha": "2025-12-26",
+          "nombre_activo": "Invesco Nasdaq 100 ETF",
+          "simbolo_activo": "QQQM",
+          "categoria_activo": "ETF",
+          "monto_bruto": {
+            "raw": "US $ 1,52",
+            "usd": 1.52
+          },
+          "monto_impuestos": {
+            "raw": "US $ 0,22",
+            "usd": 0.22
+          },
+          "monto_neto": {
+            "raw": "US $ 1,30",
+            "usd": 1.3
+          },
+          "source_page": 8
+        },
+        {
+          "row_id": 34,
+          "fecha": "2025-12-26",
+          "nombre_activo": "NVIDIA Corp",
+          "simbolo_activo": "NVDA",
+          "categoria_activo": "Acciones",
+          "monto_bruto": {
+            "raw": "US $ 0,01",
+            "usd": 0.01
+          },
+          "monto_impuestos": {
+            "raw": "US $ 0,00",
+            "usd": 0.0
+          },
+          "monto_neto": {
+            "raw": "US $ 0,01",
+            "usd": 0.01
+          },
+          "source_page": 8
+        }
+      ]
+    },
+    "splits": {
+      "columns": [
+        "fecha",
+        "nombre_activo",
+        "simbolo_activo",
+        "categoria_activo",
+        "acciones_iniciales",
+        "acciones_finales",
+        "ratio"
+      ],
+      "rows": [
+        {
+          "fecha": "2024-10-11",
+          "nombre_activo": "Schwab US Dividend Equity ETF",
+          "simbolo_activo": "SCHD",
+          "categoria_activo": "ETF",
+          "acciones_iniciales": {
+            "raw": "14,112906418",
+            "qty": 14.112906418
+          },
+          "acciones_finales": {
+            "raw": "42,338719254",
+            "qty": 42.338719254
+          },
+          "ratio": {
+            "raw": "3,000000000",
+            "value": 3.0
+          },
+          "source_page": 8
+        }
+      ]
+    }
+  },
+  "summary": {
+    "transaction_rows": 136,
+    "dividend_rows": 34,
+    "split_rows": 1
+  }
+}

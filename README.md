@@ -1,185 +1,115 @@
-# FastAPI + PostgreSQL Template
+# AI Finance Management
 
-Production-ready FastAPI template with vertical slice architecture, optimized for AI-assisted development.
+Personal finance analytics application built with FastAPI and PostgreSQL, designed to evolve from a contract-first PDF/data ingestion pipeline into a full analytics product.
 
-**Zero config • Type-safe • AI-coding-optimized**
+Current MVP direction:
+
+- ingest broker PDFs and API data
+- normalize transactions into canonical JSON + database records
+- validate extraction against golden sets
+- expose analytics APIs for a React frontend
+
+## Current Focus
+
+The active MVP does **not** include authentication or AI features yet.
+
+In scope now:
+
+- PDF upload and extraction
+- canonical transaction JSON generation
+- verification against golden sets
+- PostgreSQL persistence
+- KPI and portfolio analytics
+- basic grouped-table frontend
+
+Deferred:
+
+- auth and user management
+- GenAI features, agents, and enrichment
+- advanced UI/UX polish
+- Supabase migration
+
+## Golden Set
+
+The first extraction contract lives in:
+
+- `app/golden_sets/dataset_1/202602_stocks.pdf`
+- `app/golden_sets/dataset_1/202602_stocks.json`
+
+This dataset is the initial source of truth for the PDF extraction pipeline.
+
+## Documentation
+
+Start here:
+
+- [`docs/prd.md`](docs/prd.md)
+- [`docs/backlog-sprints.md`](docs/backlog-sprints.md)
+- [`docs/roadmap.md`](docs/roadmap.md)
+- [`docs/decisions.md`](docs/decisions.md)
+- [`docs/references.md`](docs/references.md)
+
+Reference guides:
+
+- [`docs/reference-guides/golden-set-contract.md`](docs/reference-guides/golden-set-contract.md)
+- [`docs/reference-guides/pdf-extraction-guide.md`](docs/reference-guides/pdf-extraction-guide.md)
+- [`docs/reference-guides/validation-baseline.md`](docs/reference-guides/validation-baseline.md)
 
 ## Quick Start
 
 ```bash
-# 1. Use this template (GitHub) or clone
-git clone <your-repo>
-cd <your-project>
-
-# 2. Install dependencies
+cp .env.example .env
 uv sync
-
-# 3. Start services
-docker-compose up -d
-
-# 4. Run migrations
+docker-compose up -d db
 uv run alembic upgrade head
-
-# 5. Start development
 uv run uvicorn app.main:app --reload --port 8123
 ```
 
-Visit `http://localhost:8123/docs` for Swagger UI.
+API docs: `http://localhost:8123/docs`
 
-## What's Inside
-
-**Core Infrastructure**
-
-- FastAPI with async/await
-- PostgreSQL (Docker/Supabase/Neon/Railway)
-- SQLAlchemy + Alembic migrations
-- Pydantic settings with .env support
-
-**Developer Experience**
-
-- Strict type checking (MyPy + Pyright)
-- Ruff linting & formatting
-- Structured logging with request correlation
-- Health check endpoints
-- Docker multi-stage builds
-
-**AI Optimization**
-
-- Grep-able event logging
-- Consistent naming patterns
-- Shared utilities (pagination, timestamps)
-- Self-correcting feedback loops
-
-## Project Structure
-
-```
-app/
-├── core/           # Infrastructure (config, database, logging, middleware)
-├── shared/         # Cross-feature utilities (pagination, timestamps)
-├── examples/       # Example feature slice (delete in your project)
-└── main.py         # FastAPI application
-```
-
-## Customization
-
-1. Update `name` in `pyproject.toml`
-2. Update `APP_NAME` in `.env.example`
-3. Copy `.env.example` to `.env`
-4. Update database name/credentials
-5. Delete `app/examples/` (demo feature)
-6. Build your first feature slice
-
-## Database Providers
-
-Works with any PostgreSQL provider:
+## Validation Commands
 
 ```bash
-# Docker (default)
-DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5433/mydb
-
-# Supabase
-DATABASE_URL=postgresql+asyncpg://postgres:[PASSWORD]@db.[REF].supabase.co:5432/postgres
-
-# Neon
-DATABASE_URL=postgresql+asyncpg://[USER]:[PASSWORD]@[HOST].neon.tech/[DB]?sslmode=require
-
-# Railway
-DATABASE_URL=postgresql+asyncpg://postgres:[PASSWORD]@[HOST].railway.app:[PORT]/railway
-```
-
-## Commands
-
-```bash
-# Development
-uv run uvicorn app.main:app --reload --port 8123
-
-# Testing
-uv run pytest -v                    # All tests
-uv run pytest -v -m integration     # Integration tests only
-
-# Type checking
+uv run pytest -v
+uv run pytest -v -m integration
 uv run mypy app/
 uv run pyright app/
-
-# Linting
 uv run ruff check .
-uv run ruff format .
-
-# Database
-uv run alembic revision --autogenerate -m "description"
-uv run alembic upgrade head
-uv run alembic downgrade -1
-
-# Docker
-docker-compose up -d                # Start services
-docker-compose logs -f app          # View logs
-docker-compose down                 # Stop services
 ```
 
-## Slash Commands
+## Architecture
 
-Built-in Claude Code commands:
+Current structure:
 
-- `/commit` - Create atomic commits with proper messages
-- `/validate` - Run full validation suite (tests, types, linting, docker)
-- `/check-ignore-comments` - Analyze type suppressions
+```text
+app/
+├── core/                    # Shared infrastructure
+├── shared/                  # Shared schemas and utilities
+├── golden_sets/             # Source-of-truth datasets for extraction validation
+└── main.py                  # FastAPI entry point
+```
 
-## Features
+Target MVP architecture:
 
-- Type safety: Strict mode, zero suppressions
-- Testing: 34 tests, <0.3s execution
-- Logging: JSON structured, request correlation
-- CORS: Configured for local development
-- Migrations: Alembic with async support
-- Health checks: `/health`, `/health/db`, `/health/ready`
-- Docker: Multi-stage builds, hot reload
-- Pagination: Shared utilities, consistent patterns
-- Timestamps: Automatic tracking on all models
+```text
+backend (FastAPI) + db (PostgreSQL) + frontend (React)
+```
 
-## Architecture Principles
-
-**Vertical Slice**
-
-- Features own their database models, logic, and routes
-- Core infrastructure (config, database, logging) is shared
-- Shared utilities extracted when used by 3+ features
-
-**AI-Friendly**
-
-- Grep-able structured logging: `logger.info("feature.action.status")`
-- Type hints everywhere: AI understands contracts
-- Consistent patterns: Predictable code generation
-- Fast feedback: Linting/typing catches errors immediately
+All three services will run via `docker-compose` in local development.
 
 ## Tech Stack
 
-**Backend**
-
 - Python 3.12+
-- FastAPI 0.120+
-- SQLAlchemy 2.0+ (async)
-- Pydantic 2.0+
-
-**Database**
-
-- PostgreSQL 18 (any provider)
-- Alembic migrations
-- asyncpg driver
-
-**Dev Tools**
-
-- uv (package manager)
-- Ruff (linting/formatting)
-- MyPy + Pyright (type checking)
-- pytest (testing)
-- Docker + Docker Compose
-
-## Requirements
-
-- Python 3.12+
-- uv (or pip)
-- Docker + Docker Compose
-- PostgreSQL 18+ (via Docker or cloud provider)
+- FastAPI
+- SQLAlchemy async
+- PostgreSQL 18
+- Alembic
+- Pydantic Settings
+- structlog
+- pytest
+- MyPy
+- Pyright
+- Ruff
+- Docker Compose
 
 ## License
 

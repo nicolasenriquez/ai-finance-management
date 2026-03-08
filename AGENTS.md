@@ -1,6 +1,12 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Codex when working with code in this repository.
+
+## Instruction Precedence
+
+- Canonical repository behavior instructions live only in this file.
+- `openspec/project.md` provides project context and should not define agent behavior policy.
+- If guidance conflicts, follow: system/developer instructions > `AGENTS.md` > `openspec/project.md`.
 
 ## Project Overview
 
