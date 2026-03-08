@@ -44,6 +44,11 @@ class Settings(BaseSettings):
     # PDF preflight
     pdf_preflight_min_text_chars: int = 20
 
+    # PDF ingestion
+    pdf_upload_storage_root: str = ".data/pdf_uploads"
+    pdf_upload_max_bytes: int = 10 * 1024 * 1024
+    pdf_upload_max_pages: int = 50
+
 
 @lru_cache
 def get_settings() -> Settings:

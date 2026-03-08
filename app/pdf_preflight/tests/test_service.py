@@ -50,7 +50,7 @@ def _build_empty_password_encrypted_pdf_bytes() -> bytes:
 
     writer = PdfWriter()
     writer.add_blank_page(width=200, height=200)
-    writer.encrypt(user_password="", owner_password="secret")
+    writer.encrypt("", "secret")
 
     from io import BytesIO
 

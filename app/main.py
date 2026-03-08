@@ -23,6 +23,7 @@ from app.core.exceptions import setup_exception_handlers
 from app.core.health import router as health_router
 from app.core.logging import get_logger, setup_logging
 from app.core.middleware import setup_middleware
+from app.pdf_ingestion.routes import router as pdf_ingestion_router
 from app.pdf_preflight.routes import router as pdf_preflight_router
 
 settings = get_settings()
@@ -77,6 +78,7 @@ setup_exception_handlers(app)
 # Include routers
 app.include_router(health_router)
 app.include_router(pdf_preflight_router)
+app.include_router(pdf_ingestion_router)
 
 
 @app.get("/")

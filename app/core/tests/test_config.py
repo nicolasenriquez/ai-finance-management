@@ -37,6 +37,9 @@ def test_settings_defaults() -> None:
         assert settings.log_level == "INFO"
         assert settings.api_prefix == "/api"
         assert settings.pdf_preflight_min_text_chars == 20
+        assert settings.pdf_upload_storage_root == ".data/pdf_uploads"
+        assert settings.pdf_upload_max_bytes == 10 * 1024 * 1024
+        assert settings.pdf_upload_max_pages == 50
         assert "http://localhost:3000" in settings.allowed_origins
         assert "http://localhost:8123" in settings.allowed_origins
 
@@ -52,6 +55,9 @@ def test_settings_from_environment() -> None:
             "LOG_LEVEL": "DEBUG",
             "API_PREFIX": "/v1",
             "PDF_PREFLIGHT_MIN_TEXT_CHARS": "35",
+            "PDF_UPLOAD_STORAGE_ROOT": ".data/custom_uploads",
+            "PDF_UPLOAD_MAX_BYTES": "2048",
+            "PDF_UPLOAD_MAX_PAGES": "5",
             "DATABASE_URL": "postgresql+asyncpg://test:test@localhost:5432/test",
         },
     ):
@@ -63,6 +69,9 @@ def test_settings_from_environment() -> None:
         assert settings.log_level == "DEBUG"
         assert settings.api_prefix == "/v1"
         assert settings.pdf_preflight_min_text_chars == 35
+        assert settings.pdf_upload_storage_root == ".data/custom_uploads"
+        assert settings.pdf_upload_max_bytes == 2048
+        assert settings.pdf_upload_max_pages == 5
 
 
 def test_allowed_origins_parsing() -> None:
