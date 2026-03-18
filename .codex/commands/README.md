@@ -2,260 +2,208 @@
 
 This folder contains repo-local commands for working effectively in this codebase with Codex.
 
-These commands are designed to follow:
-
-- the repository rules in `AGENTS.md`
-- the MVP and delivery guidance in `docs/`
+These commands align with:
+- repository rules in `AGENTS.md`
+- product and delivery guidance in `docs/`
 - the OpenSpec workflow used in this repository
-
-The commands are not random shortcuts. Together they form a practical workflow for:
-
-- understanding the repo
-- choosing the right next step
-- planning work with OpenSpec
-- executing changes safely
-- validating the result honestly
 
 ## Recommended Flow
 
-Use the commands in this order most of the time:
+Use this sequence most of the time:
 
 ```text
 /prime
 /next-step
 /plan <change description>
-/execute <change-name>
+/explain <change-name> <task-selector>   # optional learning/review step
+/execute <change-name> [task-selector]
 /validate
 /commit [optional intent]
 ```
 
 Mental model:
-
-- `/prime` = understand the repo
-- `/next-step` = choose the best next implementation step
-- `/plan` = investigate, then create or refine the OpenSpec change artifact by artifact
-- `/execute` = implement the change task by task
-- `/validate` = prove what actually works now
-- `/commit` = package verified work and push it to `origin main`
+- `/prime` = understand current repo and OpenSpec runtime
+- `/next-step` = pick the highest-leverage next implementation step
+- `/plan` = produce an execution-ready plan from OpenSpec artifacts
+- `/explain` = explain task slices before coding (read-only)
+- `/execute` = implement task slices with explicit validation
+- `/validate` = report what actually passes, fails, or is blocked
+- `/commit` = package verified work into clean commits
 
 ## OpenSpec Relationship
 
-This repo uses OpenSpec as the planning and change-management system.
+This repo uses OpenSpec as planning and change-management source of truth.
 
 That means:
+- planning artifacts live under `openspec/changes/<change>/`
+- execution should run from OpenSpec apply instructions
+- validation should account for whether scope is repo-wide or change-specific
 
-- planning artifacts should live under `openspec/changes/<change>/`
-- execution should preferably happen from an OpenSpec change
-- validation should understand whether it is validating the whole repo or a specific change
-
-You can also use the official OpenSpec commands and skills directly when that is a better fit:
-
-- `/openspec-proposal`
-- `/openspec-apply`
-- `/openspec-archive`
-
-Repo-local commands exist to make the workflow more natural for this codebase and to add repo-specific rules on top of OpenSpec.
+You can also use official OpenSpec skills directly when better fit:
+- `$openspec-propose`
+- `$openspec-apply-change`
+- `$openspec-archive-change`
+- `$openspec-explore`
 
 ## Commands
 
 ### `/prime`
 
 Use when:
-
 - starting a new session
 - returning after context loss
-- before planning anything non-trivial
-- before asking for a codebase review or architecture diagnosis
+- before planning or implementation
 
 What it does:
-
-- reads repo state
-- reads the source-of-truth docs
-- checks OpenSpec state
-- identifies validation prerequisites
-- recommends the next best command
+- checks repo state and constraints
+- checks OpenSpec runtime state (`status` + `apply`)
+- reports alignment risks/blockers
+- recommends one best next command
 
 Examples:
 
 ```text
 /prime
-/prime pdf extraction pipeline
-/prime validation baseline
-/prime openspec workflow state
+/prime scope=docs mode=quick
+/prime change=add-pdf-ingestion-without-persistence
 ```
 
 ### `/next-step`
 
 Use when:
-
-- you want help deciding what to build next
-- you want a localized next feature for testing the command workflow
-- you want a scored recommendation from the roadmap and current codebase reality
+- deciding what to build next
+- needing a scored recommendation grounded in docs + code
 
 What it does:
-
-- reviews roadmap, backlog, PRD, and codebase state
-- proposes top candidate next steps
-- scores them
-- recommends one winner
-- ends with the exact next command to run
+- evaluates candidate next steps
+- scores top options
+- recommends one winner and exact next command
 
 Examples:
 
 ```text
 /next-step
 /next-step pdf pipeline
-/next-step validation
 ```
 
 ### `/plan`
 
 Use when:
-
-- you know what change you want to build
-- you want to create or refine an OpenSpec change
-- you want proposal/design/tasks before implementation
+- turning an active OpenSpec change into execution-ready implementation planning
+- reviewing readiness and quality before coding
 
 What it does:
-
-- reads repo guidance first
-- starts with an investigative pass before writing artifacts
-- uses OpenSpec as the planning source of truth
-- creates or updates the relevant change in `openspec/changes/`
-- works artifact by artifact instead of fast-forwarding by default
-- pauses for user approval between artifacts
-- ensures tasks are concrete, execution-ready, and can include adjacent planning notes without breaking checkbox parsing
+- reads OpenSpec `status` and `instructions apply`
+- runs task quality gate (`Pass | Advisory Gap | Fail`)
+- checks design open questions before phased planning
+- outputs phased execution plan + validation matrix
 
 Examples:
 
 ```text
-/plan add pdf preflight analysis
-/plan implement canonical transaction normalizer
+/plan
+/plan add-pdf-ingestion-without-persistence
+```
+
+### `/explain`
+
+Use when:
+- you want task-level implementation understanding before coding
+- you want a minimality review for a selected task slice
+
+What it does:
+- explains selected task(s) with architecture-aware rationale
+- distinguishes planned vs implemented behavior
+- can include representative code-shape diffs without editing files
+
+Examples:
+
+```text
+/explain add-pdf-ingestion-without-persistence 2.1
+/explain openspec/changes/add-pdf-ingestion-without-persistence/tasks.md 2.1-2.3 depth=deep
 ```
 
 ### `/execute`
 
 Use when:
-
-- an OpenSpec change is ready for implementation
-- you want to implement task by task from `proposal`, `design`, and `tasks`
+- an OpenSpec change is implementation-ready
+- you want task-by-task execution with selectors
 
 What it does:
-
-- reads OpenSpec apply instructions
-- loads task context
-- implements in order
-- validates continuously
-- reports blockers honestly
+- resolves change or direct `tasks.md` path
+- supports selectors like `1.1`, `1.1-1.3`, `2.*`
+- supports `preflight=auto|off`
+- runs task-local proof first, broader checks on change completion
 
 Examples:
 
 ```text
-/execute add-pdf-preflight-analysis
-/execute
+/execute add-pdf-ingestion-without-persistence
+/execute add-pdf-ingestion-without-persistence 2.1-2.2
+/execute openspec/changes/add-pdf-ingestion-without-persistence/tasks.md 3.* preflight=off
 ```
-
-If no change is specified, the command should infer it only when that is unambiguous.
 
 ### `/validate`
 
 Use when:
-
-- you want to validate the current repo state
-- you want to validate the current or targeted OpenSpec change
-- you want a clear PASS / FAIL / BLOCKED result with next action
+- you want baseline validation for repo or active change
+- you need clear `PASS | PARTIAL PASS | FAIL | BLOCKED`
 
 What it does:
-
-- determines validation scope first
-- runs the relevant repo baseline
-- includes environment-dependent checks when needed
-- distinguishes passed, failed, blocked, and skipped checks
-- recommends the next action
+- establishes validation scope first
+- runs only justified checks
+- reports passed/failed/blocked/skipped with evidence
 
 Examples:
 
 ```text
 /validate
-/validate add-pdf-preflight-analysis
-/validate validation baseline
+/validate add-pdf-ingestion-without-persistence
 ```
 
 ### `/commit`
 
 Use when:
-
-- you have completed and validated a coherent unit of work
-- you want help creating a clean commit and pushing it to `origin main`
+- you have completed and validated coherent work
+- you want clean commit grouping and safe push flow
 
 What it does:
-
-- inspects repo state and the real diff
-- stages only the intended atomic set of files
-- generates a descriptive conventional commit message from diff plus user intent
-- asks for human approval before creating the commit
-- supports splitting one goal into 2-3 atomic commit groups when needed
-- asks for human approval before each commit and again before the final push to `origin main`
-- creates commits only after approval
-- pushes once after all planned commit groups are finished
+- inspects real diff
+- stages intended atomic file groups
+- proposes descriptive conventional commit message
+- asks for approval before commit(s) and push
 
 Examples:
 
 ```text
 /commit
-/commit add pdf preflight analysis
-/commit docs for codex command workflow
+/commit add pdf ingestion docs
 ```
 
 ### `/check-ingore-comments`
 
 Use when:
-
-- you want to audit `noqa`, `type: ignore`, or `pyright: ignore` usage
+- auditing `noqa`, `type: ignore`, or `pyright: ignore` usage
 
 What it does:
-
-- finds suppression comments
+- finds suppressions
 - explains why they exist
-- recommends whether to keep, remove, or refactor them
+- recommends keep/remove/refactor
 
 Note:
-
-- the filename currently uses `ingore` instead of `ignore`
+- filename currently uses `ingore` instead of `ignore`
 
 ## Best Practices
 
-- Start broad with `/prime` before jumping into implementation.
-- Use `/next-step` when you are unsure what to build next.
-- Use `/plan` before `/execute` for anything non-trivial.
-- Treat `/plan` as approval-gated by default: investigate first, then review each artifact before continuing.
-- Treat OpenSpec artifacts as the planning source of truth.
-- Use `/validate` to report reality, not optimism.
-- Use `/commit` after validation, not before it.
-- Treat `/commit` as approval-gated: approve each commit, then approve one final push.
-- Prefer small, localized changes for the first end-to-end workflow trials.
-
-## Good Example Session
-
-For this repository, a strong example is:
-
-```text
-/prime pdf preflight analysis
-/next-step pdf pipeline
-/plan add pdf preflight analysis
-/execute add-pdf-preflight-analysis
-/validate add-pdf-preflight-analysis
-/commit add pdf preflight analysis
-```
-
-That is a good workflow trial because it is:
-
-- aligned with the roadmap
-- small enough to implement safely
-- large enough to exercise all major commands
+- Run `/prime` before non-trivial planning/execution.
+- Use `/next-step` when direction is unclear.
+- Use `/plan` before `/execute` for non-trivial changes.
+- Use `/explain` when you want to review a slice before coding it.
+- Keep `/execute` runs task-scoped and validation-backed.
+- Use `/validate` for reality-based status, not optimistic status.
+- Use `/commit` only after validations are acceptable for scope.
 
 ## Notes
 
-- These commands should stay aligned with real repo state.
-- If the workflow changes, update the command file and `.codex/commands/README.md` together in the same change.
-- Prefer repo reality over stale assumptions like old test counts or outdated architecture descriptions.
+- Keep command docs aligned with real repo structure and workflow.
+- If command behavior changes, update this README in the same change.

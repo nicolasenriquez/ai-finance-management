@@ -1,220 +1,241 @@
-Create or refine an implementation plan using OpenSpec as the primary planning system.
+Build a repository-fit OpenSpec implementation plan before coding.
 
-Input: `@ARGUMENTS`
+Input: `@ARGUMENTS` (optional change name)
 
-This command is the repo-local planning wrapper around OpenSpec. The canonical planning artifacts for this repository must live in `openspec/changes/<change>/`.
+This command is planning-only. It must not implement production code.
 
-This command is intentionally approval-gated. It must not fast-forward through all artifacts in one turn unless the user explicitly asks for that behavior.
+## Objective
 
-Do not create ad hoc plan files unless the user explicitly asks for them.
+Convert approved OpenSpec artifacts into a low-risk implementation plan that respects:
+- test-first discipline
+- investigation before implementation
+- task-level traceability using concise notes
+- fail-fast behavior
+- architecture boundaries in this repo
+- documentation and validation obligations
 
-## Goal
+## Input
 
-Turn the user's request into an OpenSpec change that is:
-- minimal
-- surgical
-- aligned with this repo's rules
-- reviewed by the user artifact by artifact before implementation
+Optional argument:
+- `<change-name>`
 
-## OpenSpec-first rule
-
-Use OpenSpec artifacts as the planning source of truth.
-
-This local `/plan` command is not the fast-forward proposal path. It should support a collaborative planning loop where the user participates in each artifact before continuing.
-
-If the user explicitly wants a one-shot proposal, they should use the official OpenSpec fast-forward workflow instead.
-
-## Planning stance
-
-Default to an investigative planning pass first.
-
-That means:
-- inspect the repo and docs
-- clarify scope
-- identify likely capabilities and risks
-- surface open questions early
-- avoid writing artifacts until the request is understood well enough
-
-Do not rush into artifact creation just because a change name can be derived.
-
-## Workflow
-
-### 1. Investigate the request first
-
-If `@ARGUMENTS` is missing or too vague, ask the user what change they want to build.
-
-Derive:
-- a short plain-English scope statement
-- a proposed kebab-case OpenSpec change name
-- likely capability names
-- likely open questions
-- whether the request is narrow enough for a minimal, surgical implementation
-
-Before writing anything, tell the user:
-- your interpretation of the scope
-- the proposed change name
-- the likely artifact sequence
-- the first open questions that could affect planning quality
-
-If the scope is still unclear, stop and resolve that first.
-
-### 2. Prime relevant context before planning
-
-Read the planning context before creating or updating artifacts:
-
-- `AGENTS.md`
-- `README.md`
-- `docs/prd.md`
-- `docs/decisions.md`
-- `docs/references.md`
-- `docs/reference-guides/validation-baseline.md`
-- `openspec/config.yaml`
-- `openspec/project.md` if it exists
-
-Also inspect the current repository state:
-
-```bash
-git status --short --branch
-openspec list --json
-```
-
-### 3. Resolve whether the change already exists
-
-If an active OpenSpec change already matches the requested work:
-- continue that change
-- do not create a duplicate
-- tell the user you are continuing it
-
-Otherwise create one:
-
-```bash
-openspec new change "<name>"
-```
-
-After creating or selecting the change, tell the user:
-- change name
-- change path
-- whether this is a new change or an existing one
-
-### 4. Build artifacts one at a time
-
-Use the OpenSpec CLI to determine artifact order and requirements:
-
-```bash
-openspec status --change "<name>" --json
-```
-
-For the next ready artifact only:
-
-```bash
-openspec instructions <artifact-id> --change "<name>" --json
-```
-
-Read dependency artifacts before writing the next artifact.
-
-Default artifact order for `spec-driven` work:
-1. `proposal`
-2. `specs`
-3. `design`
-4. `tasks`
-
-If the schema or CLI output requires a different order, follow the schema.
-
-Do not create more than one artifact in the same approval cycle unless the user explicitly asks to continue without review.
-
-### 5. Pause after each artifact
-
-After creating or updating a single artifact:
-
-- summarize what was added or changed
-- list open questions, risks, and decisions made
-- state whether the next artifact is now unlocked
-- stop and ask the user whether to:
-  - approve and continue
-  - revise this artifact
-  - stop here
-
-Do not continue automatically to the next artifact.
-
-If the artifact introduces unresolved questions that materially affect downstream artifacts, stop and resolve them before proceeding.
-
-### 6. Apply repository planning standards
-
-While generating artifacts, make sure the plan follows this repo's rules:
-
-- stay inside current MVP scope unless the user explicitly expands it
-- keep implementations minimal, surgical, and auditable
-- preserve ledger-first and contract-first thinking
-- prefer vertical-slice boundaries over cross-cutting sprawl
-- keep transaction ledger, market data, and derived analytics separate
-- require deterministic validation for extraction and persistence work
-- preserve strict typing, structured logging, and the repo's conventions
-- do not introduce new dependencies, config, routes, or storage behavior unless necessary
-
-For every proposed implementation:
-- justify why it is necessary
-- prefer the smallest viable design
-- avoid speculative abstractions
-
-### 7. Make tasks execution-ready and history-friendly
-
-When creating `tasks.md`:
-
-- tasks must remain checkbox-based and parser-safe
-- keep tasks atomic, ordered, and scoped to concrete files or systems
-- tie each task to a validation step
-- prefer tasks that tell the executor:
-  - what file or area to touch
-  - what pattern to mirror
-  - what gotcha to avoid
-  - how to validate completion
-
-In addition, add `Notes` sections that are useful for both humans and AI agents.
-
-Notes should:
-- add context not obvious from the task description
-- explain why a task exists
-- record constraints, assumptions, or design rationale
-- help reconstruct the history of the change later
-
-Do not put notes inside checkbox lines.
-Keep notes adjacent to tasks, for example:
-
-```md
-## 1. Configuration
-
-- [ ] 1.1 Add settings ...
-- [ ] 1.2 Define schemas ...
-
-### Notes
-- `1.1`: Keep defaults conservative and configurable.
-- `1.2`: Reuse nested preflight output and avoid absolute storage paths.
-```
-
-### 8. Report readiness honestly
-
-Only say the change is ready for implementation when:
-- all required artifacts are complete
-- the user has approved the final planning artifact
-- known open questions are either resolved or intentionally deferred in writing
-
-At the end of each `/plan` step, report:
-- change name
-- change path
-- artifact created or updated this step
-- major decisions made
-- open questions or risks
-- whether the next artifact is ready
-- whether the change is ready for `/execute <change-name>`
+If no argument is provided:
+- run `openspec list --json`
+- if only one clearly relevant active change exists, use it
+- if multiple active changes are plausible, ask the user to choose
 
 ## Guardrails
 
-- OpenSpec artifacts are the planning source of truth.
-- Do not skip reading repository docs before planning.
-- Do not create duplicate active changes for the same work.
-- Do not fast-forward through all artifacts unless the user explicitly asks.
-- Do not push vague tasks downstream.
-- If something is unclear, capture it as a decision, note, or explicit follow-up.
-- Prefer an investigative pass before artifact generation.
-- Keep all planning aligned with current repo scope and architecture.
-- Keep every implementation proposal minimal and surgical by default.
+- Do not modify application code during planning.
+- Do not modify OpenSpec artifacts unless the user explicitly asks.
+- Use OpenSpec CLI JSON output as source of truth.
+- Prefer minimal, incremental work over broad refactors.
+- Follow repository architecture and typing rules from `AGENTS.md`.
+- Call out fail-fast requirements when external dependencies/config are in scope.
+- Include relevant docs and validation obligations explicitly.
+- Treat unresolved `Open Questions` in `design.md` as planning-critical inputs.
+
+## Task Quality Gate
+
+Evaluate task quality with:
+- `Pass`
+- `Advisory Gap`
+- `Fail`
+
+Checks:
+1. Investigation-first structure
+- `Pass`: explicit investigation section or equivalent early discovery task
+- `Advisory Gap`: no explicit section, but plan is still low-risk
+- `Fail`: missing investigation and meaningful unknowns remain
+2. Notes on tasks
+- `Pass`: tasks include concise, useful notes where needed
+- `Advisory Gap`: notes are sparse but plan remains executable
+- `Fail`: intent or constraints are ambiguous without notes
+3. Test-first intent
+- tasks begin with failing or baseline-locking tests when behavior changes
+4. Scope discipline
+- tasks are grouped into coherent units (`app`, `docs`, `verification`, `infra` as needed)
+5. Documentation coverage
+- changed behavior/contracts include docs updates where needed
+6. Verification coverage
+- explicit validation tasks and evidence expectations exist
+7. Architecture/governance fit
+- artifacts align with strict typing, logging conventions, and repository structure
+
+If any gate is `Fail`:
+- stop planning
+- output `Task Refinement Needed`
+- list minimum artifact edits required before safe execution
+
+If any gate is `Advisory Gap`:
+- planning may continue
+- recommend minimum refinements before `/execute`
+
+## Process
+
+### 1) Select the Target Change
+
+Run:
+
+```bash
+openspec list --json
+```
+
+### 2) Confirm Workflow State
+
+Run:
+
+```bash
+openspec status --change "<change-name>" --json
+openspec instructions apply --change "<change-name>" --json
+```
+
+Use:
+- `status` for artifact readiness
+- `apply` for implementation progress and pending task inventory
+
+If `apply.state` is `blocked`, stop and recommend completing artifacts first.
+
+### 3) Load Planning Context
+
+Read:
+- files from `contextFiles` in `openspec instructions apply`
+- `AGENTS.md`
+- `README.md`
+- `openspec/config.yaml`
+- `docs/reference-guides/validation-baseline.md`
+- relevant domain docs (`docs/prd.md`, `docs/decisions.md`) when needed
+
+### 4) Review Design Open Questions
+
+Inspect `design.md` for an `Open Questions` section.
+
+Rules:
+- if `design.md` is absent: `Open Questions Review: Pass (no design.md)`
+- if section absent: `Open Questions Review: Pass (none listed)`
+- if section says none/closed: `Open Questions Review: Pass`
+- if unresolved questions exist: `Open Questions Review: Decision Needed`
+
+When unresolved questions exist:
+- stop before phased planning
+- list one bullet per question with:
+  - `Why:`
+  - `Affects:`
+  - `Recommendation:`
+- end with `Planning Paused Pending Design Decisions`
+
+### 5) Run the Task Quality Gate
+
+Apply the quality checks above.
+
+If any gate is `Fail`, stop.
+
+### 6) Build Task Decomposition
+
+Decompose into work units, for example:
+- `app`
+- `shared`
+- `docs`
+- `infra`
+- `verification`
+
+For each unit identify:
+- dependencies
+- likely files/modules touched
+- risk level: `Low` | `Medium` | `High`
+
+### 7) Build Validation Matrix
+
+Choose smallest commands that still meet repository expectations.
+
+Typical commands:
+- OpenSpec/docs:
+  - `openspec validate --specs --all`
+- App code:
+  - `uv run ruff check .`
+  - `uv run pyright app/`
+  - `uv run mypy app/`
+  - targeted `uv run pytest -v <path-or-node>`
+- Integration/db only when needed:
+  - `docker-compose up -d db`
+  - `uv run alembic upgrade head`
+  - `uv run pytest -v -m integration`
+
+### 8) Build the Phased Plan
+
+For each phase include:
+- goal
+- tasks covered
+- likely touched areas
+- risks and mitigations
+- exact validation commands
+- exit criteria
+
+### 9) Recommend Best Next Action
+
+Usually:
+- `/execute <change-name> <first-task-or-bundle>`
+
+Fallbacks:
+- `/explain <change-name> <task-selector>` for walkthrough-first
+- `$openspec-apply-change` as implementation skill fallback
+
+## Output Format
+
+### 1) Change Snapshot
+- change name
+- schema
+- apply state
+- progress
+- implementation readiness
+
+### 2) Design Open Questions Review
+- Status: `Pass` | `Decision Needed`
+- if `Decision Needed`: list question bullets (`Why`, `Affects`, `Recommendation`) and stop
+
+### 3) Task Quality Gate
+- Investigation-first structure: `Pass` | `Advisory Gap` | `Fail`
+- Notes on tasks: `Pass` | `Advisory Gap` | `Fail`
+- Test-first intent: `Pass` | `Advisory Gap` | `Fail`
+- Documentation coverage: `Pass` | `Advisory Gap` | `Fail`
+- Verification coverage: `Pass` | `Advisory Gap` | `Fail`
+- Architecture/governance fit: `Pass` | `Advisory Gap` | `Fail`
+
+### 4) Task Decomposition
+- ordered work units
+- dependencies
+- risk level per unit
+
+### 5) Phased Plan
+- one phase at a time with goal, touched areas, validations, exit criteria
+
+### 6) Validation Matrix
+- exact commands
+- when to run them
+- expected evidence
+
+### 7) Documentation Checklist
+- docs to update for changed behavior/contracts
+- spec/delta alignment checks as relevant
+
+### 8) Recommended Next Command
+- one exact next command
+- one fallback command
+
+### 9) Confidence
+- `High` | `Medium` | `Low`
+- short reason
+
+### 10) Open Questions
+- only blockers requiring user input
+
+## Definition of Done
+
+Planning is complete when:
+- one target change is selected
+- artifact readiness and apply progress were both checked
+- design open questions were reviewed before phased planning
+- unresolved design questions pause planning
+- quality gate status is explicit
+- phased execution + validation are explicit
+- one clear next command is recommended

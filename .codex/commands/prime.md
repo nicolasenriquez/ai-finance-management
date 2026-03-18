@@ -1,137 +1,181 @@
-Prime the agent with repository context before planning or implementation.
+Prime the agent with current repository, governance, and OpenSpec runtime context before planning or implementation.
 
-Optional focus: `@ARGUMENTS`
+Optional arguments: `@ARGUMENTS`
 
-This command is the repo-local priming wrapper. It should respect the Agentic Coding course mindset, but it must be OpenSpec-aware because this repository uses OpenSpec as its planning system.
+Supported argument style:
+- `scope=app|docs|openspec|all` (default: `all`)
+- `mode=quick|full` (default: `full`)
+- `change=<change-name>` (optional)
 
-When relevant, use the thinking posture from `.codex/skills/openspec-explore/SKILL.md`: investigate deeply, ground in the actual codebase, and do not implement during priming.
+If no arguments are provided, use `scope=all` and `mode=full`.
 
-Do not write code during `/prime`.
+This command is read-only. Do not modify files.
 
-## Goal
+## Objective
 
-Build a concise, evidence-backed understanding of:
-
-- the current repository state
-- the source-of-truth docs and constraints
-- the current OpenSpec state
-- the files and systems most relevant to the user's next task
-
-## Workflow
-
-### 1. Inspect repository state
-
-Run:
-
-```bash
-git status --short --branch
-git log -10 --oneline
-rg --files . | sort
-```
-
-Use this to identify:
-
-- active branch
-- dirty files
-- recent implementation focus
-- major directories and current command surface
-
-### 2. Read repository source-of-truth context
-
-Read these first:
-
-- `AGENTS.md`
-- `README.md`
-- `docs/prd.md`
-- `docs/decisions.md`
-- `docs/reference-guides/validation-baseline.md`
-- `pyproject.toml`
-- `app/main.py`
-- `app/core/config.py`
-- `app/core/database.py`
-- `app/core/logging.py`
-
-If `@ARGUMENTS` points to a specific feature, also read the most relevant feature or test files for that area.
-
-### 3. Inspect OpenSpec state
-
-OpenSpec is part of the repo workflow, so always check it during priming.
-
-Run:
-
-```bash
-openspec list --json
-```
-
-Then:
-
-- read `openspec/config.yaml`
-- if `openspec/project.md` exists, read it as legacy context that may still contain useful project details
-- if there is one clearly relevant active change, run:
-
-```bash
-openspec status --change "<name>" --json
-```
-
-and read the existing change artifacts before summarizing
-
-### 4. Identify the validation baseline
-
-Extract the actual repo validation gates and prerequisites:
-
-- linting
-- type checking
-- unit tests
-- integration tests
-- local server checks
-- Docker and database prerequisites
-
-Be explicit about blockers or prerequisites such as:
-
-- required `.env`
-- required `DATABASE_URL`
-- PostgreSQL or Docker Compose requirements
-
-### 5. Produce a concise priming report
-
-Return a scannable report with these sections:
-
-#### Project Overview
-
-- what the app does now
-- current MVP scope
-- primary stack
-
-#### Architecture
-
-- current structure
-- important shared systems
-- important constraints
-
-#### Workflow State
-
-- branch and repo status
-- active OpenSpec changes
-- whether OpenSpec context is fully migrated to `openspec/config.yaml` or still split with `openspec/project.md`
-
-#### Validation Baseline
-
-- commands that matter
-- prerequisites to get them green
-- obvious current risks
-
-#### Next Best Command
-
-Recommend the next command based on the state:
-
-- `/plan <change description>` if the user needs a new or updated OpenSpec change
-- `/execute <change-name>` if an OpenSpec change is ready for implementation
-- `/openspec-proposal`, `/openspec-apply`, or `/openspec-archive` if the official OpenSpec command is a better fit
-- the `openspec-explore` skill if the requirements are still too fuzzy for planning
+Build an accurate, current understanding of:
+- repository rules and delivery expectations
+- active OpenSpec change state
+- the single best next action right now
 
 ## Guardrails
 
-- Be repo-specific. Do not give generic priming summaries.
-- Prefer evidence from files and commands over assumptions.
-- Do not implement or edit files.
-- Keep the report concise but useful enough that the next planning or execution step can start immediately.
+- Do not edit files.
+- Do not run destructive git commands.
+- Prefer repository docs plus OpenSpec CLI JSON as source of truth.
+- Treat valid JSON as authoritative even when stderr/banner text is noisy.
+- If required JSON cannot be produced, stop and report the blocker clearly.
+
+## Process
+
+### 0) Preflight
+
+Run a read-only preflight:
+
+```bash
+pwd
+git rev-parse --abbrev-ref HEAD
+git status --short
+git log --oneline -10
+```
+
+Validate:
+- repo root is accessible
+- `openspec/` exists
+- `openspec/config.yaml` exists
+
+If `openspec/` is missing, recommend `/plan <change description>` and report initialization as blocking.
+
+### 1) Load Governance and Architecture Context
+
+Always read:
+- `AGENTS.md`
+- `README.md`
+- `openspec/config.yaml`
+
+Read based on scope:
+- `scope=app|all`:
+  - `app/main.py`
+  - `app/core/config.py`
+  - `app/core/database.py`
+  - `app/core/logging.py`
+- `scope=docs|all`:
+  - `docs/prd.md`
+  - `docs/decisions.md`
+  - `docs/reference-guides/validation-baseline.md`
+  - `docs/roadmap.md`
+  - `docs/backlog-sprints.md`
+- `scope=openspec|all`:
+  - current change artifacts selected in Step 2
+
+If `openspec/project.md` exists, treat it as useful legacy context, not the primary source of behavior policy.
+
+### 2) Get Authoritative OpenSpec Runtime State
+
+Run:
+
+```bash
+openspec schemas --json
+openspec list --json
+```
+
+Status rules:
+- if `change=<change-name>` is provided:
+  - run `openspec status --change "<change-name>" --json`
+  - run `openspec instructions apply --change "<change-name>" --json`
+- if no change is provided:
+  - inspect candidates from `openspec list --json`
+  - run `openspec status --change "<name>" --json` for the most relevant active change(s)
+  - run `openspec instructions apply --change "<best-candidate>" --json` for the best candidate
+
+Use `openspec instructions proposal --change "<name>" --json` only when artifact diagnosis is needed.
+
+### 3) Routing Logic
+
+Use these rules in order:
+1. `new`
+- no relevant active change exists
+2. `continue`
+- artifacts are incomplete or `apply.state` is `blocked`
+3. `apply`
+- artifacts are complete and apply state is `ready`
+4. `verify`
+- apply state is `all_done` and the change needs conformance review
+5. `archive`
+- verification evidence exists and change is closure-ready
+
+Important:
+- do not use `status.isComplete` alone to infer implementation completion
+- use `openspec instructions apply` state and task progress as runtime truth
+
+### 4) Mode Depth
+
+`mode=full`:
+- inspect `.codex/skills/openspec-*/SKILL.md` for lifecycle alignment
+- check command-doc drift in `.codex/commands/README.md`
+- verify quality gates and docs obligations relevant to the candidate change
+
+`mode=quick`:
+- read only essential governance files and OpenSpec JSON
+- skip deep skill inspection unless anomalies appear
+
+Auto-escalate `quick` to `full` if confidence drops to `Medium`/`Low` or runtime signals disagree.
+
+### 5) Diagnose Workflow Health
+
+Check for:
+- active changes and real task progress
+- mismatch between command expectations and artifact/task shape
+- missing validation or documentation obligations relevant to current scope
+
+Classify issues as:
+- `non-blocking`
+- `blocking`
+
+## Output Format
+
+### 1) Snapshot
+- repo purpose
+- stack
+- branch and recent activity
+
+### 2) Rules That Matter
+- key constraints from `AGENTS.md`
+- quality gates from docs/commands
+- documentation obligations that affect next work
+
+### 3) OpenSpec State
+- schema(s)
+- active changes
+- artifact readiness
+- apply progress/state for the relevant candidate
+
+### 4) Alignment Check
+- whether repo rules and current change state align
+- inconsistencies or risks
+- `non-blocking` vs `blocking`
+
+### 5) Recommended Next Command
+- one exact next command
+- why it is the best next move
+- one fallback command
+- when relevant, include skill fallback:
+  - `/plan <change>` -> `$openspec-explore` (for clarification)
+  - `/execute <change> [selector]` -> `$openspec-apply-change`
+  - archive step -> `$openspec-archive-change`
+
+### 6) Confidence
+- `High` | `Medium` | `Low`
+- short reason
+
+### 7) Open Questions
+- only real blockers or ambiguities requiring user input
+
+## Definition of Done
+
+This command is complete when:
+- no files were changed
+- governance and OpenSpec runtime were analyzed from repository truth
+- routing used `openspec instructions apply` for implementation readiness
+- one clear next command was recommended
+- confidence and blockers were stated explicitly
