@@ -22,6 +22,21 @@ Use this structure for new entries:
 
 `type` guidance: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`.
 
+## 2026-03-19
+
+### feat(pdf-canonical): add dataset 1 canonical normalization and verification slices
+- Summary: Implemented `pdf_normalization` and `pdf_verification` service/route slices to convert extracted dataset 1 rows into typed canonical records and produce deterministic mismatch reports against the checked-in golden contract.
+- Why: Freeze trusted canonical contracts and verification evidence before starting PostgreSQL persistence and deduplication work.
+- Files: `app/pdf_normalization/{schemas.py,service.py,routes.py,tests/test_service.py}`, `app/pdf_verification/{schemas.py,service.py,routes.py,tests/test_service.py}`, `app/main.py`, `openspec/changes/add-dataset-1-canonical-normalization-and-verification/tasks.md`.
+- Validation: `uv run pytest -v app/pdf_normalization/tests app/pdf_verification/tests` (pass), `uv run mypy app/` (pass), `uv run pyright app/` (0 errors), `uv run ruff check .` (pass), `uv run black . --check --diff` (pass), `uv run bandit -c pyproject.toml -r app --severity-level medium --confidence-level medium` (no issues).
+- Notes: Verification record pairing now uses deterministic fallback identity (`table_name` + `row_index` + `source_page`) so `splits` rows reconcile even when golden rows omit `row_id`.
+
+### docs(reference-guides): record canonical baseline completion and persistence boundary
+- Summary: Updated extraction and validation reference guides to reflect that extraction, normalization, and verification are implemented for dataset 1 while persistence remains pending.
+- Why: Keep operational docs aligned with delivered behavior and avoid stale guidance that still marks canonical processing as unimplemented.
+- Files: `docs/reference-guides/pdf-extraction-guide.md`, `docs/reference-guides/validation-baseline.md`.
+- Validation: Documentation reviewed against current `app/pdf_extraction`, `app/pdf_normalization`, `app/pdf_verification` implementations and task checklist status.
+
 ## 2026-03-18
 
 ### chore(validation): integrate Black and Bandit as required baseline gates

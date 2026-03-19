@@ -6,6 +6,13 @@ This project uses validation as a delivery gate, not as a best-effort check.
 
 The first baseline validates the repository itself before feature work. Later baselines validate extraction correctness against golden sets.
 
+Current implementation status:
+
+- dataset 1 extraction is implemented
+- dataset 1 canonical normalization is implemented
+- dataset 1 verification reporting is implemented
+- PostgreSQL persistence and deduplication validation are still pending
+
 ## Repository Baseline
 
 Expected commands:
@@ -40,9 +47,10 @@ docker-compose ps
 
 For each golden set dataset:
 
-- run extraction
-- compare against expected JSON
-- generate verification report
+- run extraction from stored upload
+- run canonical normalization from stored upload
+- run verification report generation from stored upload
+- compare verification result and mismatch evidence against expected contract
 - fail the build if required fields mismatch
 
 ## Validation Levels

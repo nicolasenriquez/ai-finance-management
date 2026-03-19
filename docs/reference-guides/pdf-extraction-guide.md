@@ -4,7 +4,7 @@
 
 Build a deterministic pipeline that converts broker PDFs into canonical JSON suitable for validation and persistence.
 
-## Current Implementation Status (Sprint 1.3)
+## Current Implementation Status (Sprints 1.3-2.2)
 
 - Implemented endpoint: `POST /api/pdf/extract`
 - Input boundary: stored `storage_key` under configured upload root
@@ -19,11 +19,15 @@ Build a deterministic pipeline that converts broker PDFs into canonical JSON sui
   - footer artifact filtering
   - per-row `source_page` provenance
   - explicit fail-fast errors for missing storage files, invalid keys, and unsupported extraction shapes
-- Explicitly not in current slice:
-  - canonical field mapping
-  - numeric/date normalization
-  - schema validation reporting
+- Downstream canonical validation slices now implemented on top of extraction:
+  - `POST /api/pdf/normalize`
+  - `POST /api/pdf/verify`
+  - deterministic canonical mapping and typed parsing for dataset 1
+  - machine-readable mismatch evidence against golden set
+- Explicitly not in current scope:
   - persistence
+  - transaction fingerprinting/deduplication
+  - ledger and analytics APIs
 
 ## Primary Strategy
 
@@ -34,6 +38,9 @@ Build a deterministic pipeline that converts broker PDFs into canonical JSON sui
 - validate output against a golden set before persistence
 
 ## Pipeline Stages
+
+Stages 1-3 are implemented in ingestion/preflight/extraction. Stages 4-6 are now implemented in
+dedicated normalization and verification slices, while persistence remains pending.
 
 ### 1. Ingest
 
