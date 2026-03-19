@@ -16,6 +16,8 @@ uv run pytest -v -m integration
 uv run mypy app/
 uv run pyright app/
 uv run ruff check .
+uv run black . --check --diff
+uv run bandit -c pyproject.toml -r app --severity-level medium --confidence-level medium
 ```
 
 Expected service checks:
@@ -45,9 +47,11 @@ For each golden set dataset:
 
 ## Validation Levels
 
-### Level 1: Syntax and Type Safety
+### Level 1: Static Analysis, Security, and Type Safety
 
 - Ruff
+- Black
+- Bandit
 - MyPy
 - Pyright
 

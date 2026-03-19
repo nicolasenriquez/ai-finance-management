@@ -23,9 +23,7 @@ def _count_non_whitespace_characters(text: str) -> int:
     return sum(1 for character in text if not character.isspace())
 
 
-def analyze_pdf(
-    document_bytes: bytes, *, min_text_chars: int
-) -> PdfPreflightResult:
+def analyze_pdf(document_bytes: bytes, *, min_text_chars: int) -> PdfPreflightResult:
     """Analyze PDF extractability before running extraction.
 
     Args:

@@ -8,6 +8,7 @@ dependencies = [
     "alembic>=1.17.1",
     "asyncpg>=0.30.0",
     "fastapi>=0.120.1",
+    "pdfplumber>=0.11.7",
     "pypdf>=6.0.0",
     "pydantic-settings>=2.11.0",
     "python-multipart>=0.0.20",
@@ -19,6 +20,8 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "bandit[toml]>=1.8.1",
+    "black>=26.0.0",
     "httpx>=0.28.1",
     "mypy>=1.18.2",
     "pyright>=1.1.407",
@@ -73,6 +76,31 @@ ignore = [
 quote-style = "double"
 indent-style = "space"
 line-ending = "auto"
+
+[tool.black]
+line-length = 100
+target-version = ["py312"]
+include = "\\.pyi?$"
+exclude = '''
+/(
+    \.git
+  | \.venv
+  | \.mypy_cache
+  | \.pytest_cache
+  | \.ruff_cache
+  | __pycache__
+)/
+'''
+
+[tool.bandit]
+exclude_dirs = [
+    "tests",
+    "alembic/versions",
+    ".venv",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".ruff_cache",
+]
 
 [tool.ruff.lint.isort]
 known-first-party = ["app"]

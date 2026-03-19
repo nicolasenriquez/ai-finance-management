@@ -103,6 +103,8 @@ When target `tasks.md` has no remaining `- [ ]`, run final checks for touched sc
   - `openspec validate --specs --all`
 - app code touched:
   - `uv run ruff check .`
+  - `uv run black . --check --diff`
+  - `uv run bandit -c pyproject.toml -r app --severity-level medium --confidence-level medium`
   - `uv run pyright app/`
   - `uv run mypy app/`
   - targeted or broader `uv run pytest -v`

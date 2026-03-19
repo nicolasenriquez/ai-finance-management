@@ -54,6 +54,15 @@ Reference guides:
 - [`docs/reference-guides/pdf-extraction-guide.md`](docs/reference-guides/pdf-extraction-guide.md)
 - [`docs/reference-guides/validation-baseline.md`](docs/reference-guides/validation-baseline.md)
 
+Engineering standards:
+
+- [`docs/ruff-standard.md`](docs/ruff-standard.md)
+- [`docs/black-standard.md`](docs/black-standard.md)
+- [`docs/bandit-standard.md`](docs/bandit-standard.md)
+- [`docs/mypy-standard.md`](docs/mypy-standard.md)
+- [`docs/pyright-standard.md`](docs/pyright-standard.md)
+- [`docs/pytest-standard.md`](docs/pytest-standard.md)
+
 ## Quick Start
 
 ```bash
@@ -74,6 +83,8 @@ uv run pytest -v -m integration
 uv run mypy app/
 uv run pyright app/
 uv run ruff check .
+uv run black . --check --diff
+uv run bandit -c pyproject.toml -r app --severity-level medium --confidence-level medium
 ```
 
 ## Architecture
@@ -109,6 +120,8 @@ All three services will run via `docker-compose` in local development.
 - MyPy
 - Pyright
 - Ruff
+- Black
+- Bandit
 - Docker Compose
 
 ## License

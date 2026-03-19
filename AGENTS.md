@@ -22,6 +22,15 @@ FastAPI + PostgreSQL application using **vertical slice architecture**, optimize
 
 - Don't build features until they're actually needed
 
+**Fail-Fast + TDD First (CRITICAL)**
+
+- Start with a failing test when behavior is changing (unit first, then integration when required)
+- Implement the smallest code change needed to make the test pass
+- Refactor only after tests are green and behavior is locked
+- Do not add silent production fallbacks for missing external dependencies (DB, services, config, queues, model providers)
+- Surface failures explicitly with structured logs and clear error responses
+- Treat masked errors as defects; prefer explicit failure over hidden degradation
+
 **Vertical Slice Architecture**
 
 - Each feature owns its database models, schemas, routes, and business logic
@@ -86,8 +95,18 @@ uv run pyright app/
 # Check linting
 uv run ruff check .
 
+# Check formatting gate
+uv run black . --check --diff
+
 # Auto-format code
-uv run ruff format .
+uv run black .
+```
+
+### Security scanning must be green
+
+```bash
+# Scan application code for security issues
+uv run bandit -c pyproject.toml -r app --severity-level medium --confidence-level medium
 ```
 
 ### Database Migrations
@@ -257,6 +276,15 @@ Agent tool docstrings guide **when to use the tool and how** for LLM reasoning.
 - Use `@pytest.mark.integration` for tests requiring real database
 - Fast unit tests preferred (<1s total execution time)
 - Test fixtures in `app/tests/conftest.py`
+- Follow TDD-first for behavior changes: fail test -> minimal implementation -> green -> refactor
+- Keep fail-fast semantics in tests and production behavior (no silent fallback paths)
+
+**Changelog Discipline (CRITICAL)**
+
+- Maintain `CHANGELOG.md` as the canonical delivery history for both humans and AI agents
+- Add an entry for every meaningful change (feature, fix, behavior change, docs/process update)
+- Use a structured format with at least: date, type/scope, summary, files touched, validation evidence
+- Keep entries concise, factual, and grep-friendly
 
 **Logging Best Practices**
 

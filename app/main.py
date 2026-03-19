@@ -23,6 +23,7 @@ from app.core.exceptions import setup_exception_handlers
 from app.core.health import router as health_router
 from app.core.logging import get_logger, setup_logging
 from app.core.middleware import setup_middleware
+from app.pdf_extraction.routes import router as pdf_extraction_router
 from app.pdf_ingestion.routes import router as pdf_ingestion_router
 from app.pdf_preflight.routes import router as pdf_preflight_router
 
@@ -79,6 +80,7 @@ setup_exception_handlers(app)
 app.include_router(health_router)
 app.include_router(pdf_preflight_router)
 app.include_router(pdf_ingestion_router)
+app.include_router(pdf_extraction_router)
 
 
 @app.get("/")
@@ -105,7 +107,7 @@ if __name__ == "__main__":
     # host configuration (e.g., --host 127.0.0.1) instead of running this file directly.
     uvicorn.run(
         "app.main:app",
-        host="0.0.0.0",  # noqa: S104
+        host="0.0.0.0",  # noqa: S104  # nosec B104
         port=8123,
         reload=True,
     )

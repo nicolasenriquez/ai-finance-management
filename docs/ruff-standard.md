@@ -1,14 +1,14 @@
-# Ruff Standard: Linting and Formatting Configuration
+# Ruff Standard: Linting Configuration
 
 ## Overview
 
-This project uses **Ruff** as the primary linting and formatting tool. Ruff is an extremely fast Python linter and formatter written in Rust, replacing multiple tools (Flake8, isort, Black, etc.) with a single, performant solution.
+This project uses **Ruff** as the primary linting tool. Ruff is an extremely fast Python linter written in Rust and replaces multiple lint tools (Flake8 plugins, isort, pyupgrade, and others) with one performant command.
 
 **Why Ruff:**
 - ⚡️ 10-100x faster than traditional Python linters
 - 🔧 Auto-fixes most issues automatically
-- 📦 Replaces 10+ tools with one
-- 🎯 AI-friendly: consistent, deterministic formatting
+- 📦 Replaces many lint-only tools with one
+- 🎯 AI-friendly: deterministic rule enforcement and output
 
 ## Configuration
 
@@ -177,7 +177,7 @@ uv run ruff check app/ --fix
 uv run ruff check . --fix --diff
 ```
 
-### Format Code
+### Format Code (optional local convenience)
 
 ```bash
 # Format all files
@@ -186,15 +186,15 @@ uv run ruff format .
 # Format specific file
 uv run ruff format app/main.py
 
-# Check formatting without applying
-uv run ruff format . --check
+# Note: repository formatting gate is Black, not `ruff format --check`
 ```
 
 ### Combined Workflow
 
 ```bash
-# Run both linting and formatting
-uv run ruff check . --fix && uv run ruff format .
+# Lint + required formatter gate
+uv run ruff check .
+uv run black . --check --diff
 ```
 
 ## Common Issues and Fixes
@@ -328,7 +328,8 @@ Requirements:
 - Follow existing code patterns in app/
 - Ensure type hints on all functions (ANN rules)
 - Use timezone-aware datetimes (DTZ rules)
-- Run `uv run ruff check . --fix && uv run ruff format .`
+- Run `uv run ruff check . --fix`
+- Run `uv run black . --check --diff`
 - All Ruff checks must pass
 ```
 
@@ -337,11 +338,11 @@ Requirements:
 | Tool | Replaced By Ruff | Notes |
 |------|------------------|-------|
 | Flake8 | ✅ Yes | Ruff implements most Flake8 rules |
-| Black | ✅ Yes | `ruff format` matches Black output |
+| Black | ❌ No | Black is the required formatter gate in this repo |
 | isort | ✅ Yes | `I` rules handle import sorting |
 | pyupgrade | ✅ Yes | `UP` rules modernize syntax |
 | pydocstyle | ⚠️ Partial | `D` rules available but not enabled |
-| Bandit | ⚠️ Partial | `S` rules cover security checks |
+| Bandit | ⚠️ Partial | Keep dedicated Bandit gate for depth/reporting |
 | MyPy | ❌ No | Type checking requires MyPy/Pyright |
 | Pylint | ⚠️ Partial | Most checks covered, some Pylint-specific missing |
 
@@ -386,7 +387,7 @@ uv sync --upgrade
 - Add blanket ignores to hide problems
 - Skip Ruff checks during rapid prototyping (debt accumulates)
 - Ignore security rules (S) without explicit justification
-- Mix Ruff with other formatters (conflicts)
+- Use multiple mandatory formatter gates without a single authority
 
 ## Troubleshooting
 
@@ -411,7 +412,7 @@ Expected for re-exports. Already ignored via per-file rules.
 
 ### Conflicts with Black
 
-Don't use Black alongside Ruff. Use `ruff format` instead.
+Use Black as the required formatter authority and Ruff for linting. Avoid dual mandatory formatter checks (`black --check` and `ruff format --check`) in the same gate.
 
 ## Resources
 

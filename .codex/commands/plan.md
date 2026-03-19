@@ -9,6 +9,8 @@ This command is planning-only. It must not implement production code.
 Convert approved OpenSpec artifacts into a low-risk implementation plan that respects:
 - test-first discipline
 - investigation before implementation
+- explicit blind-spot analysis before coding
+- explicit blast-radius diagnosis before coding
 - task-level traceability using concise notes
 - fail-fast behavior
 - architecture boundaries in this repo
@@ -34,6 +36,9 @@ If no argument is provided:
 - Call out fail-fast requirements when external dependencies/config are in scope.
 - Include relevant docs and validation obligations explicitly.
 - Treat unresolved `Open Questions` in `design.md` as planning-critical inputs.
+- Diagnose blast radius explicitly for new routes, configs, contracts, schemas, dependencies, persistence boundaries, and operator workflow.
+- Call out likely blind spots explicitly, especially where current changes can propagate risk into later backlog items or future slices.
+- Treat `CHANGELOG.md` as a required documentation target whenever the change affects behavior, contracts, workflow, or delivery policy.
 
 ## Task Quality Gate
 
@@ -61,6 +66,14 @@ Checks:
 - explicit validation tasks and evidence expectations exist
 7. Architecture/governance fit
 - artifacts align with strict typing, logging conventions, and repository structure
+8. Blind-spot coverage
+- `Pass`: artifacts identify likely hidden risks, ambiguities, or downstream contract traps
+- `Advisory Gap`: likely blind spots exist but are low-risk and called out during planning
+- `Fail`: meaningful blind spots remain unexamined and could invalidate implementation order or contract shape
+9. Blast-radius coverage
+- `Pass`: affected files, modules, configs, contracts, docs, and future workflow dependencies are called out explicitly
+- `Advisory Gap`: impact is mostly understood but one or two edges still need confirmation
+- `Fail`: implementation could propagate into adjacent slices or operator workflow without an explicit impact map
 
 If any gate is `Fail`:
 - stop planning
@@ -130,7 +143,25 @@ Apply the quality checks above.
 
 If any gate is `Fail`, stop.
 
-### 6) Build Task Decomposition
+### 6) Diagnose Blast Radius and Blind Spots
+
+Before phased planning, produce an explicit diagnosis covering:
+- files/modules likely touched now
+- configs, env vars, routes, schemas, and dependencies likely touched now
+- contracts or docs that this change can invalidate downstream
+- later backlog items or future slices that depend on this contract
+- security or trust boundaries introduced by the change
+- likely blind spots or ambiguous assumptions that could cause rework
+
+Classify each finding as:
+- `blocking`
+- `non-blocking`
+
+If a `blocking` blind spot or blast-radius uncertainty exists:
+- stop planning
+- state the minimum artifact refinement needed before `/execute`
+
+### 7) Build Task Decomposition
 
 Decompose into work units, for example:
 - `app`
@@ -144,7 +175,7 @@ For each unit identify:
 - likely files/modules touched
 - risk level: `Low` | `Medium` | `High`
 
-### 7) Build Validation Matrix
+### 8) Build Validation Matrix
 
 Choose smallest commands that still meet repository expectations.
 
@@ -153,6 +184,8 @@ Typical commands:
   - `openspec validate --specs --all`
 - App code:
   - `uv run ruff check .`
+  - `uv run black . --check --diff`
+  - `uv run bandit -c pyproject.toml -r app --severity-level medium --confidence-level medium`
   - `uv run pyright app/`
   - `uv run mypy app/`
   - targeted `uv run pytest -v <path-or-node>`
@@ -161,7 +194,7 @@ Typical commands:
   - `uv run alembic upgrade head`
   - `uv run pytest -v -m integration`
 
-### 8) Build the Phased Plan
+### 9) Build the Phased Plan
 
 For each phase include:
 - goal
@@ -171,7 +204,7 @@ For each phase include:
 - exact validation commands
 - exit criteria
 
-### 9) Recommend Best Next Action
+### 10) Recommend Best Next Action
 
 Usually:
 - `/execute <change-name> <first-task-or-bundle>`
@@ -200,33 +233,42 @@ Fallbacks:
 - Documentation coverage: `Pass` | `Advisory Gap` | `Fail`
 - Verification coverage: `Pass` | `Advisory Gap` | `Fail`
 - Architecture/governance fit: `Pass` | `Advisory Gap` | `Fail`
+- Blind-spot coverage: `Pass` | `Advisory Gap` | `Fail`
+- Blast-radius coverage: `Pass` | `Advisory Gap` | `Fail`
 
-### 4) Task Decomposition
+### 4) Blast Radius and Blind Spots
+- current-slice impact map
+- downstream impact map
+- `blocking` vs `non-blocking`
+- minimum refinements required before `/execute` when blocking issues exist
+
+### 5) Task Decomposition
 - ordered work units
 - dependencies
 - risk level per unit
 
-### 5) Phased Plan
+### 6) Phased Plan
 - one phase at a time with goal, touched areas, validations, exit criteria
 
-### 6) Validation Matrix
+### 7) Validation Matrix
 - exact commands
 - when to run them
 - expected evidence
 
-### 7) Documentation Checklist
+### 8) Documentation Checklist
 - docs to update for changed behavior/contracts
+- whether `CHANGELOG.md` must be updated now
 - spec/delta alignment checks as relevant
 
-### 8) Recommended Next Command
+### 9) Recommended Next Command
 - one exact next command
 - one fallback command
 
-### 9) Confidence
+### 10) Confidence
 - `High` | `Medium` | `Low`
 - short reason
 
-### 10) Open Questions
+### 11) Open Questions
 - only blockers requiring user input
 
 ## Definition of Done
@@ -237,5 +279,7 @@ Planning is complete when:
 - design open questions were reviewed before phased planning
 - unresolved design questions pause planning
 - quality gate status is explicit
+- blind spots and blast radius were diagnosed explicitly
 - phased execution + validation are explicit
+- documentation obligations explicitly include whether `CHANGELOG.md` must change
 - one clear next command is recommended

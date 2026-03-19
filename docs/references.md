@@ -31,6 +31,8 @@ Current product truth for the extraction MVP:
 - Pandera: https://pandera.readthedocs.io/en/stable/dataframe_schemas.html
 - Great Expectations: https://docs.greatexpectations.io/
 - pytest parametrization: https://docs.pytest.org/en/stable/how-to/parametrize.html
+- Bandit docs: https://bandit.readthedocs.io/
+- Black docs: https://black.readthedocs.io/
 
 ## Portfolio and Analytics Reference Repositories
 

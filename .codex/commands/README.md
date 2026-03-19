@@ -96,6 +96,7 @@ What it does:
 - reads OpenSpec `status` and `instructions apply`
 - runs task quality gate (`Pass | Advisory Gap | Fail`)
 - checks design open questions before phased planning
+- requires explicit blind-spot analysis and blast-radius diagnosis
 - outputs phased execution plan + validation matrix
 
 Examples:
@@ -151,7 +152,7 @@ Use when:
 
 What it does:
 - establishes validation scope first
-- runs only justified checks
+- runs only justified checks from the baseline toolchain (`ruff`, `black`, `bandit`, `pyright`, `mypy`, `pytest`)
 - reports passed/failed/blocked/skipped with evidence
 
 Examples:

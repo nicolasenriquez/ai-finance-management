@@ -76,6 +76,8 @@ Core baseline:
 
 ```bash
 uv run ruff check .
+uv run black . --check --diff
+uv run bandit -c pyproject.toml -r app --severity-level medium --confidence-level medium
 uv run pyright app/
 uv run mypy app/
 uv run pytest -v
@@ -151,6 +153,8 @@ Use these sections:
 ### Results
 
 - `ruff`
+- `black`
+- `bandit`
 - `pyright`
 - `mypy`
 - `pytest`

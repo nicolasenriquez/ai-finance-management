@@ -32,6 +32,8 @@ Definition of Done:
 - run MyPy
 - run Pyright
 - run Ruff
+- run Black (check mode)
+- run Bandit (app security scan)
 - validate health endpoints and local Docker flow
 
 Definition of Done:

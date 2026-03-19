@@ -72,7 +72,9 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
             )
 
             # Add request ID to response headers
-            response.headers["X-Request-ID"] = get_request_id()  # pyright: ignore[reportUnknownMemberType]
+            response.headers["X-Request-ID"] = (
+                get_request_id()
+            )  # pyright: ignore[reportUnknownMemberType]
             return response
 
         except Exception as e:

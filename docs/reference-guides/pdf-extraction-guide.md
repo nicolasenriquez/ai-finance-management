@@ -4,6 +4,27 @@
 
 Build a deterministic pipeline that converts broker PDFs into canonical JSON suitable for validation and persistence.
 
+## Current Implementation Status (Sprint 1.3)
+
+- Implemented endpoint: `POST /api/pdf/extract`
+- Input boundary: stored `storage_key` under configured upload root
+- Engine: `pdfplumber`
+- Implemented table outputs for dataset 1:
+  - `compra_venta_activos`
+  - `dividendos_recibidos`
+  - `splits`
+- Implemented behavior:
+  - deterministic table and row emission order
+  - repeated-header removal
+  - footer artifact filtering
+  - per-row `source_page` provenance
+  - explicit fail-fast errors for missing storage files, invalid keys, and unsupported extraction shapes
+- Explicitly not in current slice:
+  - canonical field mapping
+  - numeric/date normalization
+  - schema validation reporting
+  - persistence
+
 ## Primary Strategy
 
 - use `pdfplumber` as the first extraction engine

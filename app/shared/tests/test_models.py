@@ -54,7 +54,9 @@ async def test_timestamp_mixin_sets_timestamps_on_creation(db_session: AsyncSess
     assert before <= test_instance.updated_at <= after  # pyright: ignore[reportGeneralTypeIssues]
 
     # Verify created_at and updated_at are approximately the same (within 1ms)
-    time_diff = abs((test_instance.created_at - test_instance.updated_at).total_seconds())  # pyright: ignore[reportGeneralTypeIssues]
+    time_diff = abs(
+        (test_instance.created_at - test_instance.updated_at).total_seconds()
+    )  # pyright: ignore[reportGeneralTypeIssues]
     assert time_diff < 0.001  # Less than 1 millisecond difference
 
 
@@ -82,10 +84,14 @@ async def test_timestamp_mixin_updates_updated_at_on_modification(
     await db_session.refresh(test_instance)
 
     # Verify created_at didn't change
-    assert test_instance.created_at == original_created_at  # pyright: ignore[reportGeneralTypeIssues]
+    assert (
+        test_instance.created_at == original_created_at
+    )  # pyright: ignore[reportGeneralTypeIssues]
 
     # Verify updated_at changed
-    assert test_instance.updated_at > original_updated_at  # pyright: ignore[reportGeneralTypeIssues]
+    assert (
+        test_instance.updated_at > original_updated_at
+    )  # pyright: ignore[reportGeneralTypeIssues]
 
 
 @pytest.mark.asyncio
