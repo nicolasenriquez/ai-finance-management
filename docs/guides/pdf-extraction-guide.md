@@ -4,7 +4,7 @@
 
 Build a deterministic pipeline that converts broker PDFs into canonical JSON suitable for validation and persistence.
 
-## Current Implementation Status (Sprints 1.3-2.2)
+## Current Implementation Status (Sprints 1.3-2.4)
 
 - Implemented endpoint: `POST /api/pdf/extract`
 - Input boundary: stored `storage_key` under configured upload root
@@ -22,12 +22,13 @@ Build a deterministic pipeline that converts broker PDFs into canonical JSON sui
 - Downstream canonical validation slices now implemented on top of extraction:
   - `POST /api/pdf/normalize`
   - `POST /api/pdf/verify`
+  - `POST /api/pdf/persist`
   - deterministic canonical mapping and typed parsing for dataset 1
   - machine-readable mismatch evidence against golden set
+  - PostgreSQL persistence with deterministic fingerprints and duplicate-safe reruns
 - Explicitly not in current scope:
-  - persistence
-  - transaction fingerprinting/deduplication
   - ledger and analytics APIs
+  - multi-source canonical reconciliation across independent ingestion systems
 
 ## Primary Strategy
 
@@ -35,12 +36,12 @@ Build a deterministic pipeline that converts broker PDFs into canonical JSON sui
 - treat the PDF as the source of truth
 - preserve raw values exactly
 - normalize only in a separate parsing layer
-- validate output against a golden set before persistence
+- validate output against a golden set before and during persistence
 
 ## Pipeline Stages
 
-Stages 1-3 are implemented in ingestion/preflight/extraction. Stages 4-6 are now implemented in
-dedicated normalization and verification slices, while persistence remains pending.
+Stages 1-3 are implemented in ingestion/preflight/extraction. Stages 4-6 are implemented in
+dedicated normalization and verification slices. Stage 7 persistence is also implemented.
 
 ### 1. Ingest
 
@@ -82,6 +83,13 @@ dedicated normalization and verification slices, while persistence remains pendi
 - produce deterministic JSON
 - preserve ordering or define stable sort rules explicitly
 - record engine and extraction metadata
+
+### 7. Persist
+
+- persist deduplicated `source_document` metadata using SHA-256 identity
+- create `import_job` rows only for successful committed persistence requests
+- insert canonical records with deterministic versioned fingerprints and skip duplicates safely
+- keep replay anchored to stored PDF bytes plus durable ingestion metadata manifests
 
 ## Common Blind Spots
 

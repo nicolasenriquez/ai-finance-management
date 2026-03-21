@@ -24,6 +24,20 @@ Use this structure for new entries:
 
 ## 2026-03-21
 
+### feat(pdf-persistence): persist canonical dataset 1 records in PostgreSQL with duplicate-safe reruns
+- Summary: Implemented `pdf_persistence` end-to-end with transactional source-document reuse/create, success-only `import_job` auditing, and canonical-record insert-or-skip behavior keyed by deterministic versioned fingerprints.
+- Why: Complete the persistence boundary required before ledger modeling and analytics phases while preserving fail-fast behavior and rerun safety.
+- Files: `app/pdf_persistence/{models.py,schemas.py,service.py,routes.py,tests/test_*.py}`, `alembic/versions/c8b0721b0977_add_pdf_persistence_schema.py`, `app/main.py`, `openspec/changes/add-postgres-persistence-for-canonical-pdf-records/tasks.md`.
+- Validation: `UV_CACHE_DIR=/tmp/uv uv run alembic upgrade head` (pass), `UV_CACHE_DIR=/tmp/uv uv run pytest -v app/pdf_persistence/tests` (13 passed), `UV_CACHE_DIR=/tmp/uv uv run pytest -v -m integration` (14 passed, 111 deselected), `UV_CACHE_DIR=/tmp/uv uv run mypy app/` (pass), `UV_CACHE_DIR=/tmp/uv uv run pyright app/` (0 errors), `UV_CACHE_DIR=/tmp/uv uv run ty check app` (pass), `UV_CACHE_DIR=/tmp/uv uv run ruff check .` (pass), `UV_CACHE_DIR=/tmp/uv uv run black . --check --diff` (pass), `UV_CACHE_DIR=/tmp/uv uv run bandit -c pyproject.toml -r app --severity-level high --confidence-level high` (no issues).
+- Notes: Replay for this phase remains dependent on stored PDFs plus ingestion metadata manifests; v1 multi-source reconciliation remains deferred by design.
+
+### docs(guides): update persistence reference guidance after 2.x-4.1 completion
+- Summary: Updated baseline and extraction/golden-set guides to reflect implemented persistence behavior, including duplicate-safe reprocessing, success-only `import_job` rows, and replay/source-of-truth boundaries.
+- Why: Remove stale guidance that still marked persistence as pending and make the implemented contract explicit for operators and AI agents.
+- Files: `docs/guides/validation-baseline.md`, `docs/guides/pdf-extraction-guide.md`, `docs/guides/golden-set-contract.md`, `CHANGELOG.md`.
+- Validation: `openspec validate --specs --all --json` confirms this change validates; existing unrelated spec-format failures remain in `spec/pdf-ingestion` and `spec/pdf-preflight-analysis` (missing required `## Purpose`/`## Requirements` sections).
+- Notes: The pre-existing OpenSpec spec-validation issue remains unresolved and should be handled in a separate documentation/spec-format cleanup change.
+
 ### docs(commands): make commit-local force single all-in local commit
 - Summary: Updated `.codex/commands/commit-local.md` to always stage full working tree (`git add -A`) and create one local commit, even when scope is mixed, while still stopping before any push.
 - Why: Align command behavior with user expectation for an explicit all-in local packaging command.

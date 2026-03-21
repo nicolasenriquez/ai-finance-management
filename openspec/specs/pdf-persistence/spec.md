@@ -1,5 +1,8 @@
-## ADDED Requirements
+# pdf-persistence Specification
 
+## Purpose
+TBD - created by archiving change add-postgres-persistence-for-canonical-pdf-records. Update Purpose after archive.
+## Requirements
 ### Requirement: PDF persistence stores deduplicated source-document metadata for a stored upload
 The system SHALL provide a persistence capability that accepts a stored PDF `storage_key`, resolves the uploaded document metadata, and stores a single deduplicated source-document record in PostgreSQL using the uploaded file SHA-256 hash as the document idempotency key.
 
@@ -14,6 +17,12 @@ The system SHALL provide a persistence capability that accepts a stored PDF `sto
 - **THEN** the system reuses the existing source-document record
 - **THEN** the system does not create a duplicate source-document row
 - **THEN** the existing source-document row remains the canonical record for first-seen metadata
+- **THEN** the persistence result indicates that the document already existed
+
+#### Scenario: Same PDF bytes from a later storage key preserve first-seen metadata
+- **WHEN** a client requests persistence for stored PDF bytes whose SHA-256 hash already exists but whose `storage_key` differs from the first-seen upload
+- **THEN** the system reuses the existing source-document record
+- **THEN** the existing source-document record keeps the first-seen filename and `storage_key`
 - **THEN** the persistence result indicates that the document already existed
 
 ### Requirement: PDF persistence stores canonical dataset 1 records with duplicate-safe behavior
@@ -31,6 +40,21 @@ The system SHALL persist trusted canonical dataset 1 records in PostgreSQL using
 - **THEN** the system does not create extra rows for records with matching deterministic fingerprints
 - **THEN** the persistence result reports how many canonical records were skipped as duplicates
 
+#### Scenario: Concurrent duplicate persistence requests do not create duplicate rows
+- **WHEN** two persistence requests attempt to store the same source document or canonical records concurrently
+- **THEN** the system does not create duplicate `source_document` rows
+- **THEN** the system does not create duplicate canonical-record rows
+- **THEN** the resulting behavior is determined by database uniqueness enforcement and explicit created-versus-reused result reporting
+
+### Requirement: PDF persistence stores versioned canonical identity metadata
+The system SHALL store explicit fingerprint and canonical-schema version metadata for every persisted canonical record so future normalization changes remain auditable and rerun behavior stays explainable.
+
+#### Scenario: Persisted record includes fingerprint and schema versions
+- **WHEN** the system stores a canonical dataset 1 record
+- **THEN** the stored row includes a `fingerprint_version`
+- **THEN** the stored row includes a `canonical_schema_version`
+- **THEN** the stored row remains attributable to the source-specific persistence contract that created it
+
 ### Requirement: PDF persistence preserves raw values, canonical payload, and provenance for audit
 The system SHALL preserve the normalized canonical payload, raw source values, and provenance metadata for every stored canonical record so later debugging, replay, and ledger derivation remain explainable.
 
@@ -40,7 +64,7 @@ The system SHALL preserve the normalized canonical payload, raw source values, a
 - **THEN** the stored row includes raw source values from normalization
 - **THEN** the stored row includes provenance such as `table_name`, `row_id`, `row_index`, and `source_page`
 
-### Requirement: PDF persistence records an explicit import job for each persistence attempt
+### Requirement: PDF persistence records an explicit import job for each successful committed persistence request
 The system SHALL create an import-job record for every successful committed persistence request so reruns remain auditable even when the source document and canonical records already exist.
 
 #### Scenario: Persistence attempt is auditable
@@ -67,3 +91,9 @@ The system SHALL reuse trusted normalization output before writing to PostgreSQL
 - **THEN** the system reports an explicit failure
 - **THEN** the system rolls back the persistence transaction
 - **THEN** the database does not contain a partial import from the failed request
+
+#### Scenario: Source replay remains anchored to stored ingestion assets
+- **WHEN** a persistence request succeeds
+- **THEN** the stored PDF and durable ingestion metadata manifest remain the replay source of truth for this phase
+- **THEN** persisted canonical rows serve as trusted audit output rather than a replacement for source-file retention
+

@@ -50,8 +50,12 @@ When mismatches happen, the report must include:
 Golden-set processing must be idempotent:
 
 - the same PDF must not create duplicate document records
-- the same extracted rows must not create duplicate transaction records
+- the same canonical rows must not create duplicate persisted records
+- successful committed persistence requests must produce auditable `import_job` rows
+- failed persistence attempts must not leave partial source-document, import-job, or canonical-record state
 - row fingerprints or natural keys must remain stable across reruns unless the contract itself changes
+- replay remains anchored to stored PDF bytes plus durable ingestion metadata manifests
+- cross-source reconciliation is deferred in v1 (dataset 1 single-source contract)
 
 ## Change Management Rule
 

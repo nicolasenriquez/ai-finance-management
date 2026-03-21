@@ -26,6 +26,7 @@ from app.core.middleware import setup_middleware
 from app.pdf_extraction.routes import router as pdf_extraction_router
 from app.pdf_ingestion.routes import router as pdf_ingestion_router
 from app.pdf_normalization.routes import router as pdf_normalization_router
+from app.pdf_persistence.routes import router as pdf_persistence_router
 from app.pdf_preflight.routes import router as pdf_preflight_router
 from app.pdf_verification.routes import router as pdf_verification_router
 
@@ -84,6 +85,7 @@ app.include_router(pdf_preflight_router)
 app.include_router(pdf_ingestion_router)
 app.include_router(pdf_extraction_router)
 app.include_router(pdf_normalization_router)
+app.include_router(pdf_persistence_router)
 app.include_router(pdf_verification_router)
 
 

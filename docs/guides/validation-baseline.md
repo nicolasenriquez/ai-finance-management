@@ -11,7 +11,7 @@ Current implementation status:
 - dataset 1 extraction is implemented
 - dataset 1 canonical normalization is implemented
 - dataset 1 verification reporting is implemented
-- PostgreSQL persistence and deduplication validation are still pending
+- PostgreSQL persistence and duplicate-safe reprocessing are implemented
 
 ## Repository Baseline
 
@@ -39,9 +39,13 @@ curl -s http://localhost:8123/health/ready
 Expected infrastructure checks:
 
 ```bash
+# Option A: Docker Compose
 docker-compose up -d db
 docker-compose up -d --build
 docker-compose ps
+
+# Option B: local PostgreSQL app/service
+uv run alembic upgrade head
 ```
 
 ## Extraction Baseline
@@ -51,6 +55,7 @@ For each golden set dataset:
 - run extraction from stored upload
 - run canonical normalization from stored upload
 - run verification report generation from stored upload
+- run persistence from stored upload
 - compare verification result and mismatch evidence against expected contract
 - fail the build if required fields mismatch
 
@@ -96,3 +101,7 @@ For persistence phases, validation must also confirm:
 
 - rerunning the same source does not create duplicate document records
 - rerunning the same source does not create duplicate transaction rows
+- rerunning the same source creates a new successful `import_job` row only when the full request commits
+- same-hash uploads from a different `storage_key` reuse the original `source_document` row and keep first-seen metadata
+- persistence replay remains anchored to stored PDFs plus ingestion metadata manifests
+- v1 scope remains single-source (dataset 1 PDF); multi-source reconciliation is intentionally deferred
