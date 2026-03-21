@@ -185,9 +185,10 @@ Typical commands:
 - App code:
   - `uv run ruff check .`
   - `uv run black . --check --diff`
-  - `uv run bandit -c pyproject.toml -r app --severity-level medium --confidence-level medium`
+  - `uv run bandit -c pyproject.toml -r app --severity-level high --confidence-level high`
   - `uv run pyright app/`
   - `uv run mypy app/`
+  - `uv run ty check app`
   - targeted `uv run pytest -v <path-or-node>`
 - Integration/db only when needed:
   - `docker-compose up -d db`

@@ -4,9 +4,9 @@
 
 ### Item 0.1: Freeze product and delivery documents
 
-- Review and approve `docs/prd.md`
-- Review and approve `docs/decisions.md`
-- Review and approve `docs/roadmap.md`
+- Review and approve `docs/product/prd.md`
+- Review and approve `docs/product/decisions.md`
+- Review and approve `docs/product/roadmap.md`
 
 Definition of Done:
 
@@ -31,6 +31,7 @@ Definition of Done:
 - run integration tests
 - run MyPy
 - run Pyright
+- run ty
 - run Ruff
 - run Black (check mode)
 - run Bandit (app security scan)

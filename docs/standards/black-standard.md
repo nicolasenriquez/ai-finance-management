@@ -15,7 +15,7 @@ Black should be used to keep style changes mechanical, reproducible, and separat
 
 ## Gate Philosophy
 
-If Black is enabled as a required validation gate:
+Black is a required validation gate in this repository.
 
 - Treat Black as formatter authority for Python files.
 - Keep Ruff focused on linting/security/type-adjacent rules.
@@ -101,9 +101,11 @@ To avoid formatting drift:
 
 1. `uv run ruff check .`
 2. `uv run black . --check --diff`
-3. `uv run mypy app/`
-4. `uv run pyright app/`
-5. `uv run pytest -v`
+3. `uv run bandit -c pyproject.toml -r app --severity-level high --confidence-level high`
+4. `uv run mypy app/`
+5. `uv run pyright app/`
+6. `uv run ty check app`
+7. `uv run pytest -v`
 
 Add integration/runtime checks only when scope requires them.
 
@@ -157,4 +159,4 @@ Run formatting in a dedicated commit before logic changes to keep reviews focuse
 
 ---
 
-**Last Updated:** 2026-03-18
+**Last Updated:** 2026-03-21

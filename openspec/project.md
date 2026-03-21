@@ -40,9 +40,9 @@ Deferred:
 
 ## Source of Truth Assets
 
-- `docs/prd.md`
-- `docs/decisions.md`
-- `docs/roadmap.md`
+- `docs/product/prd.md`
+- `docs/product/decisions.md`
+- `docs/product/roadmap.md`
 - `app/golden_sets/dataset_1/202602_stocks.pdf`
 - `app/golden_sets/dataset_1/202602_stocks.json`
 

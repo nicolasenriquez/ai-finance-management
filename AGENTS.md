@@ -53,7 +53,7 @@ FastAPI + PostgreSQL application using **vertical slice architecture**, optimize
 - Structured logging: Use `domain.component.action_state` pattern (hybrid dotted namespace)
   - Format: `{domain}.{component}.{action}_{state}`
   - Examples: `user.registration_started`, `product.create_completed`, `agent.tool.execution_failed`
-  - See `docs/logging-standard.md` for complete event taxonomy
+  - See `docs/standards/logging-standard.md` for complete event taxonomy
 - Request correlation: All logs include `request_id` automatically via context vars
 - Consistent verbose naming: Predictable patterns for AI code generation
 
@@ -87,7 +87,15 @@ uv run mypy app/
 
 # Pyright (strict mode)
 uv run pyright app/
+
+# ty (strict repo gate)
+uv run ty check app
 ```
+
+Reference standards:
+- `docs/standards/mypy-standard.md`
+- `docs/standards/pyright-standard.md`
+- `docs/standards/ty-standard.md`
 
 ### Linting & Formatting must be green
 
@@ -102,12 +110,19 @@ uv run black . --check --diff
 uv run black .
 ```
 
+Reference standards:
+- `docs/standards/ruff-standard.md`
+- `docs/standards/black-standard.md`
+
 ### Security scanning must be green
 
 ```bash
 # Scan application code for security issues
-uv run bandit -c pyproject.toml -r app --severity-level medium --confidence-level medium
+uv run bandit -c pyproject.toml -r app --severity-level high --confidence-level high
 ```
+
+Reference standard:
+- `docs/standards/bandit-standard.md`
 
 ### Database Migrations
 
@@ -177,7 +192,7 @@ app/
 - Logger: `from app.core.logging import get_logger; logger = get_logger(__name__)`
 - Event naming: Hybrid dotted namespace pattern `domain.component.action_state`
   - Examples: `user.registration_completed`, `database.connection_initialized`, `request.http_received`
-  - Detailed taxonomy: See `docs/logging-standard.md`
+  - Detailed taxonomy: See `docs/standards/logging-standard.md`
 - Exception logging: Always include `exc_info=True` for stack traces
 
 **Event Pattern Guidelines:**

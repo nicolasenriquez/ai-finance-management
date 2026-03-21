@@ -16,8 +16,8 @@ Most relevant course modules for this project:
 
 Current product truth for the extraction MVP:
 
-- `docs/prd.md`
-- `docs/decisions.md`
+- `docs/product/prd.md`
+- `docs/product/decisions.md`
 - `app/golden_sets/dataset_1/202602_stocks.pdf`
 - `app/golden_sets/dataset_1/202602_stocks.json`
 
@@ -33,6 +33,8 @@ Current product truth for the extraction MVP:
 - pytest parametrization: https://docs.pytest.org/en/stable/how-to/parametrize.html
 - Bandit docs: https://bandit.readthedocs.io/
 - Black docs: https://black.readthedocs.io/
+- ty docs: https://docs.astral.sh/ty/
+- ty repository: https://github.com/astral-sh/ty
 
 ## Portfolio and Analytics Reference Repositories
 

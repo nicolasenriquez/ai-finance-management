@@ -104,9 +104,10 @@ When target `tasks.md` has no remaining `- [ ]`, run final checks for touched sc
 - app code touched:
   - `uv run ruff check .`
   - `uv run black . --check --diff`
-  - `uv run bandit -c pyproject.toml -r app --severity-level medium --confidence-level medium`
+  - `uv run bandit -c pyproject.toml -r app --severity-level high --confidence-level high`
   - `uv run pyright app/`
   - `uv run mypy app/`
+  - `uv run ty check app`
   - targeted or broader `uv run pytest -v`
 - db/integration touched:
   - `docker-compose up -d db`

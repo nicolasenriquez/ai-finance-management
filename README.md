@@ -42,26 +42,28 @@ This dataset is the initial source of truth for the PDF extraction pipeline.
 
 Start here:
 
-- [`docs/prd.md`](docs/prd.md)
-- [`docs/backlog-sprints.md`](docs/backlog-sprints.md)
-- [`docs/roadmap.md`](docs/roadmap.md)
-- [`docs/decisions.md`](docs/decisions.md)
-- [`docs/references.md`](docs/references.md)
+- [`docs/README.md`](docs/README.md)
+- [`docs/product/prd.md`](docs/product/prd.md)
+- [`docs/product/backlog-sprints.md`](docs/product/backlog-sprints.md)
+- [`docs/product/roadmap.md`](docs/product/roadmap.md)
+- [`docs/product/decisions.md`](docs/product/decisions.md)
+- [`docs/references/references.md`](docs/references/references.md)
 
 Reference guides:
 
-- [`docs/reference-guides/golden-set-contract.md`](docs/reference-guides/golden-set-contract.md)
-- [`docs/reference-guides/pdf-extraction-guide.md`](docs/reference-guides/pdf-extraction-guide.md)
-- [`docs/reference-guides/validation-baseline.md`](docs/reference-guides/validation-baseline.md)
+- [`docs/guides/golden-set-contract.md`](docs/guides/golden-set-contract.md)
+- [`docs/guides/pdf-extraction-guide.md`](docs/guides/pdf-extraction-guide.md)
+- [`docs/guides/validation-baseline.md`](docs/guides/validation-baseline.md)
 
 Engineering standards:
 
-- [`docs/ruff-standard.md`](docs/ruff-standard.md)
-- [`docs/black-standard.md`](docs/black-standard.md)
-- [`docs/bandit-standard.md`](docs/bandit-standard.md)
-- [`docs/mypy-standard.md`](docs/mypy-standard.md)
-- [`docs/pyright-standard.md`](docs/pyright-standard.md)
-- [`docs/pytest-standard.md`](docs/pytest-standard.md)
+- [`docs/standards/ruff-standard.md`](docs/standards/ruff-standard.md)
+- [`docs/standards/black-standard.md`](docs/standards/black-standard.md)
+- [`docs/standards/bandit-standard.md`](docs/standards/bandit-standard.md)
+- [`docs/standards/ty-standard.md`](docs/standards/ty-standard.md)
+- [`docs/standards/mypy-standard.md`](docs/standards/mypy-standard.md)
+- [`docs/standards/pyright-standard.md`](docs/standards/pyright-standard.md)
+- [`docs/standards/pytest-standard.md`](docs/standards/pytest-standard.md)
 
 ## Quick Start
 
@@ -78,13 +80,14 @@ API docs: `http://localhost:8123/docs`
 ## Validation Commands
 
 ```bash
-uv run pytest -v
-uv run pytest -v -m integration
-uv run mypy app/
-uv run pyright app/
 uv run ruff check .
 uv run black . --check --diff
-uv run bandit -c pyproject.toml -r app --severity-level medium --confidence-level medium
+uv run bandit -c pyproject.toml -r app --severity-level high --confidence-level high
+uv run mypy app/
+uv run pyright app/
+uv run ty check app
+uv run pytest -v
+uv run pytest -v -m integration
 ```
 
 ## Architecture

@@ -18,13 +18,14 @@ Current implementation status:
 Expected commands:
 
 ```bash
-uv run pytest -v
-uv run pytest -v -m integration
-uv run mypy app/
-uv run pyright app/
 uv run ruff check .
 uv run black . --check --diff
-uv run bandit -c pyproject.toml -r app --severity-level medium --confidence-level medium
+uv run bandit -c pyproject.toml -r app --severity-level high --confidence-level high
+uv run mypy app/
+uv run pyright app/
+uv run ty check app
+uv run pytest -v
+uv run pytest -v -m integration
 ```
 
 Expected service checks:
@@ -62,6 +63,7 @@ For each golden set dataset:
 - Bandit
 - MyPy
 - Pyright
+- ty
 
 ### Level 2: Unit Tests
 

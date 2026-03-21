@@ -423,6 +423,6 @@ Use Black as the required formatter authority and Ruff for linting. Avoid dual m
 
 ---
 
-**Last Updated:** 2025-10-29
+**Last Updated:** 2026-03-21
 **Ruff Version:** 0.14.2+
 **Python Version:** 3.12+

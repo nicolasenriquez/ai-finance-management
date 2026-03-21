@@ -35,4 +35,4 @@ Notes: Integration DB tests are not required unless the implementation unexpecte
 Notes: Validation results: `pytest app/pdf_extraction/tests` (6 passed), `mypy app/` (pass), `pyright app/` (0 errors), `ruff check .` (pass).
 - [x] 3.2 Update `CHANGELOG.md` and any affected extraction contract docs to record the new raw extraction capability and its current scope limits
 Notes: Make the delivery history explicit that this slice adds raw extraction only, with normalization and persistence still pending.
-Notes: Added extraction delivery entry in `CHANGELOG.md` and updated `docs/reference-guides/pdf-extraction-guide.md` with implemented scope and current limits.
+Notes: Added extraction delivery entry in `CHANGELOG.md` and updated `docs/guides/pdf-extraction-guide.md` with implemented scope and current limits.

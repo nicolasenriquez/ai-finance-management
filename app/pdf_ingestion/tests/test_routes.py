@@ -9,6 +9,7 @@ from pypdf import PdfWriter
 
 from app.main import app
 from app.pdf_ingestion.routes import settings as ingestion_settings
+from app.pdf_ingestion.service import build_metadata_storage_key
 
 
 def _build_blank_pdf_bytes(page_count: int = 1) -> bytes:
@@ -68,6 +69,7 @@ def test_ingest_endpoint_uploads_pdf_and_returns_preflight(
     assert not Path(body["storage_key"]).is_absolute()
     assert body["preflight"]["status"] == "extractable"
     assert (ingest_storage / body["storage_key"]).exists()
+    assert (ingest_storage / build_metadata_storage_key(body["storage_key"])).exists()
 
 
 def test_ingest_endpoint_rejects_non_pdf_content_type(

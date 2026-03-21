@@ -18,6 +18,7 @@ Use this sequence most of the time:
 /explain <change-name> <task-selector>   # optional learning/review step
 /execute <change-name> [task-selector]
 /validate
+/commit-local [optional intent]
 /commit [optional intent]
 ```
 
@@ -28,6 +29,7 @@ Mental model:
 - `/explain` = explain task slices before coding (read-only)
 - `/execute` = implement task slices with explicit validation
 - `/validate` = report what actually passes, fails, or is blocked
+- `/commit-local` = create a local commit and stop before push
 - `/commit` = package verified work into clean commits
 
 ## OpenSpec Relationship
@@ -152,7 +154,7 @@ Use when:
 
 What it does:
 - establishes validation scope first
-- runs only justified checks from the baseline toolchain (`ruff`, `black`, `bandit`, `pyright`, `mypy`, `pytest`)
+- runs only justified checks from the baseline toolchain (`ruff`, `black`, `bandit`, `pyright`, `mypy`, `ty`, `pytest`)
 - reports passed/failed/blocked/skipped with evidence
 
 Examples:
@@ -181,6 +183,25 @@ Examples:
 /commit add pdf ingestion docs
 ```
 
+### `/commit-local`
+
+Use when:
+- you want one clean local commit but will push manually later
+- you want the command to stage the full coherent working tree and stop after commit creation
+
+What it does:
+- inspects staged, unstaged, and untracked changes together
+- stages the intended full local change with `git add -A`
+- proposes a descriptive conventional commit message
+- creates the local commit and stops before push
+
+Examples:
+
+```text
+/commit-local
+/commit-local finalize docs reorganization
+```
+
 ### `/check-ingore-comments`
 
 Use when:
@@ -202,6 +223,7 @@ Note:
 - Use `/explain` when you want to review a slice before coding it.
 - Keep `/execute` runs task-scoped and validation-backed.
 - Use `/validate` for reality-based status, not optimistic status.
+- Use `/commit-local` when the commit should be created now but pushing will be manual.
 - Use `/commit` only after validations are acceptable for scope.
 
 ## Notes

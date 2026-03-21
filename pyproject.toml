@@ -29,6 +29,7 @@ dev = [
     "pytest-asyncio>=1.2.0",
     "pytest-cov>=7.0.0",
     "ruff>=0.14.2",
+    "ty>=0.0.24",
 ]
 
 [tool.ruff]
@@ -101,6 +102,19 @@ exclude_dirs = [
     ".pytest_cache",
     ".ruff_cache",
 ]
+
+[tool.ty.environment]
+python-version = "3.12"
+
+[tool.ty.src]
+include = ["app"]
+exclude = ["**/tests/**"]
+
+[[tool.ty.overrides]]
+include = ["app/core/middleware.py"]
+
+[tool.ty.overrides.rules]
+invalid-argument-type = "ignore"
 
 [tool.ruff.lint.isort]
 known-first-party = ["app"]

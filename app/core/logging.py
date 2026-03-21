@@ -15,7 +15,7 @@ Event Naming Pattern:
         - database.connection_initialized
         - agent.tool.execution_started
 
-    See docs/logging-standard.md for complete taxonomy.
+    See docs/standards/logging-standard.md for complete taxonomy.
 """
 
 import logging
@@ -140,6 +140,6 @@ def get_logger(name: str) -> WrappedLogger:
         ...                 error="Invalid credentials",
         ...                 exc_info=True)
 
-    See docs/logging-standard.md for complete event taxonomy and guidelines.
+    See docs/standards/logging-standard.md for complete event taxonomy and guidelines.
     """
     return structlog.get_logger(name)

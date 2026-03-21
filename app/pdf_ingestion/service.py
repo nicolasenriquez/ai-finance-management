@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from hashlib import sha256
 from io import BytesIO
 from pathlib import Path
@@ -98,6 +99,120 @@ def build_storage_key(document_id: str) -> str:
     return f"{document_id}.pdf"
 
 
+def build_metadata_storage_key(storage_key: str) -> str:
+    """Build the sidecar metadata key for a stored PDF.
+
+    Args:
+        storage_key: Relative PDF storage key under the upload root.
+
+    Returns:
+        Relative storage key for the adjacent JSON metadata manifest.
+    """
+    return str(Path(storage_key).with_suffix(".metadata.json"))
+
+
+def _resolve_storage_path(*, storage_key: str, storage_root: Path) -> Path:
+    """Resolve and validate a PDF storage key inside the configured upload root."""
+    normalized_key = storage_key.strip()
+    if not normalized_key:
+        raise PdfIngestionClientError(
+            "Storage key is required for stored ingestion metadata.",
+            status_code=400,
+        )
+
+    key_path = Path(normalized_key)
+    if key_path.is_absolute():
+        raise PdfIngestionClientError(
+            "Storage key must be a relative path.",
+            status_code=400,
+        )
+
+    root_resolved = storage_root.resolve()
+    candidate = (root_resolved / key_path).resolve()
+    if not candidate.is_relative_to(root_resolved):
+        raise PdfIngestionClientError(
+            "Storage key must remain inside the configured upload root.",
+            status_code=400,
+        )
+
+    if candidate.suffix.lower() != ".pdf":
+        raise PdfIngestionClientError(
+            "Storage key must point to a PDF file.",
+            status_code=400,
+        )
+
+    if not candidate.is_file():
+        raise PdfIngestionClientError(
+            "Stored PDF was not found for the provided storage key.",
+            status_code=404,
+        )
+
+    return candidate
+
+
+def _write_ingestion_manifest(
+    *,
+    ingestion_result: PdfIngestionResult,
+    storage_root: Path,
+) -> None:
+    """Persist a durable metadata manifest adjacent to the stored PDF."""
+    manifest_path = storage_root / build_metadata_storage_key(ingestion_result.storage_key)
+    manifest_payload = json.dumps(
+        ingestion_result.model_dump(mode="json"),
+        ensure_ascii=True,
+        indent=2,
+        sort_keys=True,
+    )
+    manifest_path.write_text(f"{manifest_payload}\n", encoding="utf-8")
+
+
+def load_ingestion_result_from_storage(
+    *,
+    storage_key: str,
+    storage_root: Path,
+) -> PdfIngestionResult:
+    """Load durable ingestion metadata for a stored PDF.
+
+    Args:
+        storage_key: Relative key under the configured PDF upload storage root.
+        storage_root: Base directory where accepted PDFs are stored.
+
+    Returns:
+        The persisted ingestion metadata for the stored PDF.
+
+    Raises:
+        PdfIngestionClientError: If the storage key or metadata manifest is invalid.
+    """
+    storage_path = _resolve_storage_path(storage_key=storage_key, storage_root=storage_root)
+    manifest_path = storage_path.with_suffix(".metadata.json")
+    if not manifest_path.is_file():
+        raise PdfIngestionClientError(
+            "Stored PDF metadata was not found for the provided storage key.",
+            status_code=404,
+        )
+
+    try:
+        return PdfIngestionResult.model_validate_json(manifest_path.read_text(encoding="utf-8"))
+    except OSError as exc:
+        raise PdfIngestionClientError(
+            "Stored PDF metadata could not be read.",
+            status_code=500,
+        ) from exc
+    except ValueError as exc:
+        logger.error(
+            "pdf_ingestion.metadata_load_failed",
+            storage_key=storage_key,
+            storage_path=str(storage_path),
+            metadata_path=str(manifest_path),
+            error=str(exc),
+            exc_info=True,
+        )
+        raise PdfIngestionClientError(
+            "Stored PDF metadata is invalid for the provided storage key.",
+            status_code=500,
+        ) from exc
+
+
 def ingest_pdf_bytes(
     *,
     document_bytes: bytes,
@@ -147,16 +262,15 @@ def ingest_pdf_bytes(
             status_code=422,
         )
 
-    document_id = uuid4().hex
-    storage_key = build_storage_key(document_id)
-    storage_path = storage_root / storage_key
-    storage_path.parent.mkdir(parents=True, exist_ok=True)
-    storage_path.write_bytes(document_bytes)
-
     try:
         preflight_result = analyze_pdf(document_bytes, min_text_chars=min_text_chars)
     except PdfPreflightError as exc:
         raise PdfIngestionClientError(str(exc), status_code=400) from exc
+
+    document_id = uuid4().hex
+    storage_key = build_storage_key(document_id)
+    storage_path = storage_root / storage_key
+    storage_path.parent.mkdir(parents=True, exist_ok=True)
 
     response_page_count = page_count if page_count is not None else preflight_result.page_count
     response = PdfIngestionResult(
@@ -169,6 +283,22 @@ def ingest_pdf_bytes(
         storage_key=storage_key,
         preflight=preflight_result,
     )
+
+    storage_path.write_bytes(document_bytes)
+    try:
+        _write_ingestion_manifest(ingestion_result=response, storage_root=storage_root)
+    except OSError as exc:
+        try:
+            storage_path.unlink(missing_ok=True)
+            storage_path.with_suffix(".metadata.json").unlink(missing_ok=True)
+        except OSError:
+            logger.error(
+                "pdf_ingestion.metadata_cleanup_failed",
+                storage_key=response.storage_key,
+                metadata_key=build_metadata_storage_key(response.storage_key),
+                exc_info=True,
+            )
+        raise OSError("Failed to persist PDF ingestion metadata manifest.") from exc
 
     logger.info(
         "pdf_ingestion.upload_completed",

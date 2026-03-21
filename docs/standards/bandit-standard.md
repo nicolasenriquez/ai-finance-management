@@ -17,7 +17,7 @@ Bandit analyzes Python AST patterns for common security risks and should be trea
 
 - Primary scan target: `app/`
 - Exclude test and cache directories from blocking scans.
-- Default enforcement: block on Medium+ severity and Medium+ confidence findings.
+- Default enforcement: block on High severity and High confidence findings.
 - Security exceptions require explicit, local justification.
 
 ## Installation
@@ -63,7 +63,7 @@ Notes:
 ### Security Gate (blocking)
 
 ```bash
-uv run bandit -c pyproject.toml -r app --severity-level medium --confidence-level medium
+uv run bandit -c pyproject.toml -r app --severity-level high --confidence-level high
 ```
 
 ### Full visibility scan (non-filtered)
@@ -113,10 +113,11 @@ Rules:
 Recommended validation order:
 
 1. `uv run ruff check .`
-2. `uv run bandit -c pyproject.toml -r app --severity-level medium --confidence-level medium`
+2. `uv run bandit -c pyproject.toml -r app --severity-level high --confidence-level high`
 3. `uv run mypy app/`
 4. `uv run pyright app/`
-5. `uv run pytest -v`
+5. `uv run ty check app`
+6. `uv run pytest -v`
 
 For DB-dependent slices, keep integration tests as a separate explicit step.
 
@@ -140,7 +141,7 @@ repos:
     rev: "1.8.1"
     hooks:
       - id: bandit
-        args: ["-c", "pyproject.toml", "-r", "app", "--severity-level", "medium", "--confidence-level", "medium"]
+        args: ["-c", "pyproject.toml", "-r", "app", "--severity-level", "high", "--confidence-level", "high"]
         additional_dependencies: ["bandit[toml]"]
 ```
 
@@ -171,4 +172,4 @@ Use Bandit's baseline mode with JSON output, then ratchet policy over time inste
 
 ---
 
-**Last Updated:** 2026-03-18
+**Last Updated:** 2026-03-21
