@@ -1,4 +1,4 @@
-Create one clean local commit from the current working tree and stop before any push.
+Create one single local commit from the current working tree and stop before any push.
 
 Optional input: `@ARGUMENTS`
 
@@ -6,7 +6,7 @@ Use this command as the local packaging step after implementation and validation
 
 ## Goal
 
-Inspect staged, unstaged, and untracked changes, review whether they form one coherent local commit, stage the full intended working tree, generate a descriptive commit message from the real diff plus optional user intent, create the local commit, and stop before any push action.
+Inspect staged, unstaged, and untracked changes, stage the full current working tree as one commit, generate a descriptive commit message from the real diff plus optional user intent, create the local commit, and stop before any push action.
 
 ## Input Rule
 
@@ -43,7 +43,7 @@ git log -10 --oneline
 
 Use this only to keep commit style consistent. Do not copy old messages blindly.
 
-### 3. Review the full working tree
+### 3. Review the full working tree for commit context
 
 Review all current change types together:
 
@@ -51,13 +51,11 @@ Review all current change types together:
 - unstaged tracked changes
 - untracked files
 
-Decide whether they form one coherent local commit.
+Use this review to improve message quality and to report scope honestly. Do not split in this command.
 
-If the working tree is clearly mixed across unrelated goals, stop and explain what should be split out first.
+### 4. Stage the full local change
 
-### 4. Stage the intended full local change
-
-If the working tree is one coherent unit, stage everything intended for the local commit.
+Stage the full working tree for this command.
 
 Run:
 
@@ -73,7 +71,7 @@ git diff --cached --stat
 git diff --cached
 ```
 
-Do not silently exclude files if they are part of the same intended local change.
+Do not silently exclude files.
 
 ### 5. Generate the commit message
 
@@ -131,12 +129,11 @@ The command must end after reporting:
 ## Safeguards
 
 - Refuse to continue if there are no changes.
-- Refuse to continue if the diff appears to contain unrelated work that should be split.
 - Do not invent a commit message without reading the diff.
 - Do not claim validation passed unless it was actually run.
 - Do not run `git push`.
 - Do not ask for push approval because push is outside the scope of this command.
-- Prefer one clean local commit over one noisy local commit.
+- If the staged scope is mixed, explicitly say so in the commit summary/body instead of blocking.
 
 ## Output Format
 
@@ -144,7 +141,7 @@ Use this structure:
 
 ```text
 Commit readiness:
-- ready / blocked
+- ready / blocked (no changes)
 
 Commit summary:
 - <high-level summary>
@@ -169,7 +166,6 @@ Next action:
 
 - Do not invent a commit message without reading the diff.
 - Do not claim validation passed unless it was actually run.
-- Do not create multiple commits unless the diff clearly requires split packaging.
+- Do not create multiple commits in this command.
 - Do not run `git push`.
-- Do not hide mixed or unrelated changes.
-- Prefer one clean local commit over one noisy local commit.
+- Do not hide mixed scope; call it out clearly in the summary/message.

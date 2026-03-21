@@ -186,8 +186,8 @@ Examples:
 ### `/commit-local`
 
 Use when:
-- you want one clean local commit but will push manually later
-- you want the command to stage the full coherent working tree and stop after commit creation
+- you want one single local commit but will push manually later
+- you want the command to stage the full working tree and stop after commit creation
 
 What it does:
 - inspects staged, unstaged, and untracked changes together

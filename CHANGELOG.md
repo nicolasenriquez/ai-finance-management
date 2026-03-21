@@ -24,6 +24,12 @@ Use this structure for new entries:
 
 ## 2026-03-21
 
+### docs(commands): make commit-local force single all-in local commit
+- Summary: Updated `.codex/commands/commit-local.md` to always stage full working tree (`git add -A`) and create one local commit, even when scope is mixed, while still stopping before any push.
+- Why: Align command behavior with user expectation for an explicit all-in local packaging command.
+- Files: `.codex/commands/commit-local.md`, `.codex/commands/README.md`, `CHANGELOG.md`.
+- Validation: Reviewed command workflow and guardrails to confirm mixed scope no longer blocks commit-local execution.
+
 ### docs(commands): add local-only commit-local command
 - Summary: Added `.codex/commands/commit-local.md` as a local-only companion to `/commit` that reviews staged, unstaged, and untracked work, stages the full intended tree, generates a descriptive commit message, creates the commit, and stops before any push.
 - Why: Support the preferred workflow where commit creation can be automated locally while the final `git push` remains a separate manual user action.
