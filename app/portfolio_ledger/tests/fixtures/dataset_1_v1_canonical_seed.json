@@ -1,0 +1,103 @@
+{
+  "source_document": {
+    "sha256": "7f8f4f130264f6202af2a1f7a7fd0e17a2de7d42f4b0f5e6d68c74831f6fbc90",
+    "storage_key": "integration-seed/dataset_1.pdf",
+    "original_filename": "dataset_1_seed.pdf",
+    "content_type": "application/pdf",
+    "file_size_bytes": 125489,
+    "page_count": 9
+  },
+  "canonical_records": [
+    {
+      "event_type": "trade",
+      "event_date": "2025-01-10",
+      "instrument_symbol": "VOO",
+      "trade_side": "buy",
+      "fingerprint": "seed-trade-2025-01-10",
+      "fingerprint_version": "v1",
+      "canonical_schema_version": "dataset_1_v1",
+      "canonical_payload": {
+        "event_type": "trade",
+        "trade_side": "buy",
+        "trade_date": "2025-01-10",
+        "instrument_symbol": "VOO",
+        "aporte_usd": "100.00",
+        "acciones_compradas_qty": "1.000000000",
+        "rescate_usd": null,
+        "acciones_vendidas_qty": null
+      },
+      "raw_values": {
+        "fecha": "2025-01-10",
+        "simbolo_activo": "VOO",
+        "aporte_dolares": "US $ 100,00",
+        "acciones_compradas": "1,000000000",
+        "rescate_dolares": null,
+        "acciones_vendidas": null
+      },
+      "provenance": {
+        "table_name": "compra_venta_activos",
+        "row_index": 1,
+        "source_page": 1
+      }
+    },
+    {
+      "event_type": "dividend",
+      "event_date": "2025-01-15",
+      "instrument_symbol": "VOO",
+      "trade_side": null,
+      "fingerprint": "seed-dividend-2025-01-15",
+      "fingerprint_version": "v1",
+      "canonical_schema_version": "dataset_1_v1",
+      "canonical_payload": {
+        "event_type": "dividend",
+        "dividend_date": "2025-01-15",
+        "instrument_symbol": "VOO",
+        "gross_usd": "5.00",
+        "taxes_usd": "0.50",
+        "net_usd": "4.50"
+      },
+      "raw_values": {
+        "fecha": "2025-01-15",
+        "simbolo_activo": "VOO",
+        "monto_bruto": "US $ 5,00",
+        "impuestos": "US $ 0,50",
+        "monto_neto": "US $ 4,50"
+      },
+      "provenance": {
+        "table_name": "dividendos_recibidos",
+        "row_index": 1,
+        "source_page": 3
+      }
+    },
+    {
+      "event_type": "split",
+      "event_date": "2025-02-10",
+      "instrument_symbol": "VOO",
+      "trade_side": null,
+      "fingerprint": "seed-split-2025-02-10",
+      "fingerprint_version": "v1",
+      "canonical_schema_version": "dataset_1_v1",
+      "canonical_payload": {
+        "event_type": "split",
+        "split_date": "2025-02-10",
+        "instrument_symbol": "VOO",
+        "shares_before_qty": "1.000000000",
+        "shares_after_qty": "2.000000000",
+        "split_ratio_value": "2.00"
+      },
+      "raw_values": {
+        "fecha": "2025-02-10",
+        "simbolo_activo": "VOO",
+        "acciones_antes": "1,000000000",
+        "acciones_despues": "2,000000000",
+        "ratio_split": "2,00"
+      },
+      "provenance": {
+        "table_name": "splits",
+        "row_index": 1,
+        "source_page": 5
+      }
+    }
+  ]
+}
+

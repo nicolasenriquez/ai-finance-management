@@ -7,6 +7,7 @@ from collections.abc import Iterator
 from importlib import import_module
 from pathlib import Path
 from types import ModuleType
+from typing import cast
 
 import pytest
 from fastapi.testclient import TestClient
@@ -85,9 +86,10 @@ def _ingest_pdf(client: TestClient, *, filename: str) -> str:
         },
     )
     assert response.status_code == 201
-    response_payload = response.json()
-    if not isinstance(response_payload, dict):
+    response_payload_raw = response.json()
+    if not isinstance(response_payload_raw, dict):
         pytest.fail("Ingestion response payload must be a JSON object.")
+    response_payload = cast(dict[str, object], response_payload_raw)
     storage_key = response_payload.get("storage_key")
     if not isinstance(storage_key, str):
         pytest.fail("Ingestion response must include string storage_key.")

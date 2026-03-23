@@ -22,13 +22,15 @@
 - Define database models and migrations.
 - Preserve provenance needed for audit and reprocessing.
 - Add deterministic transaction fingerprints and duplicate-safe persistence behavior.
+- Keep the current local PostgreSQL baseline with separated bootstrap and app credentials, while explicitly deferring stricter runtime-role hardening blocked by current software-version constraints.
 
 ## Phase 3: Ledger and Accounting Foundation
 
-- Introduce canonical ledger entities needed for lot derivation.
-- Freeze accounting policy for cost basis, gains, fees, dividends, FX, and corporate actions.
-- Keep market data storage separate from transactions.
-- Define the boundary between source adapters, canonical transactions, and derived analytics.
+- Derive `portfolio_transaction`, `dividend_event`, `corporate_action_event`, `lot`, and `lot_disposition` from persisted canonical records.
+- Freeze `dataset_1_v1` accounting policy: FIFO sell matching, trade USD basis fields, dividend income isolation, and proportional split lot adjustments.
+- Keep fee/FX adjustments explicit as unsupported in v1 rather than inferred.
+- Validate deterministic finance golden cases and duplicate-safe ledger rebuild behavior for reruns and concurrency.
+- Keep market data storage and analytics API work out of this phase.
 
 ## Phase 4: Portfolio Analytics API
 
@@ -51,6 +53,14 @@
 - Reconcile API-driven data with PDF-driven records where needed.
 - Expand analytics scope using the additional data.
 - Keep quote refresh and market data ingestion isolated from ledger mutation.
+
+## Phase 7: Database Hardening and Deployment Readiness
+
+- Revisit PostgreSQL and tooling version constraints that currently block stricter local and shared-environment hardening.
+- Separate admin, migrator, and runtime roles more strictly once the software/runtime baseline allows it cleanly.
+- Harden connection, privilege, and network posture for shared or hosted environments.
+- Prepare TLS-ready PostgreSQL guidance for remote or hosted deployments.
+- Re-validate extension and runtime compatibility before adopting advanced PostgreSQL features in stricter environments.
 
 ## Deferred Phases
 

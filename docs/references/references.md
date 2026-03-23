@@ -36,6 +36,41 @@ Current product truth for the extraction MVP:
 - ty docs: https://docs.astral.sh/ty/
 - ty repository: https://github.com/astral-sh/ty
 
+## Database and PostgreSQL References
+
+Primary authority for database behavior:
+
+- PostgreSQL 18 docs: https://www.postgresql.org/docs/18/
+- PostgreSQL 15 docs index: https://www.postgresql.org/docs/15/index.html
+- PostgreSQL indexes: https://www.postgresql.org/docs/18/indexes.html
+- PostgreSQL multicolumn indexes: https://www.postgresql.org/docs/18/indexes-multicolumn.html
+- PostgreSQL `CREATE INDEX`: https://www.postgresql.org/docs/18/sql-createindex.html
+- PostgreSQL `EXPLAIN`: https://www.postgresql.org/docs/18/using-explain.html
+- PostgreSQL `CREATE EXTENSION`: https://www.postgresql.org/docs/18/sql-createextension.html
+- PostgreSQL routine vacuuming: https://www.postgresql.org/docs/18/routine-vacuuming.html
+- PostgreSQL client authentication: https://www.postgresql.org/docs/18/client-authentication.html
+- PostgreSQL `pg_hba.conf`: https://www.postgresql.org/docs/18/auth-pg-hba-conf.html
+- PostgreSQL password authentication: https://www.postgresql.org/docs/18/auth-password.html
+- PostgreSQL roles: https://www.postgresql.org/docs/18/user-manag.html
+- PostgreSQL `GRANT`: https://www.postgresql.org/docs/18/sql-grant.html
+- PostgreSQL default privileges: https://www.postgresql.org/docs/18/sql-alterdefaultprivileges.html
+- PostgreSQL schemas and privileges: https://www.postgresql.org/docs/18/ddl-schemas.html
+- PostgreSQL function security: https://www.postgresql.org/docs/18/perm-functions.html
+
+Optional extension references:
+
+- `pgvector` release note: https://www.postgresql.org/about/news/pgvector-070-released-2852/
+- `pgvector` project: https://github.com/pgvector/pgvector
+- Tiger Data docs: https://www.tigerdata.com/docs/
+- Self-hosted TimescaleDB docs: https://docs.tigerdata.com/self-hosted/latest
+
+Secondary background only:
+
+- PostgreSQL performance article: https://medium.com/@vikas95prasad/postgresql-performance-optimisation-practical-techniques-that-actually-move-the-needle-ab1eb9f8a830
+- PostgreSQL 7.0 security page, historical only: https://www.postgresql.org/docs/7.0/security.htm
+- Tiger Data PostgreSQL security guide: https://www.tigerdata.com/learn/guide-to-postgresql-security
+- Tiger Data developer security guide: https://dev.to/tigerdata/postgresql-security-best-practices-a-developers-guide-47f7
+
 ## Portfolio and Analytics Reference Repositories
 
 Primary external inspiration for the next project phases:
@@ -79,6 +114,7 @@ Use the repositories by concern rather than trying to copy one full stack direct
 - The course repo defines the delivery workflow and validation philosophy.
 - The golden set defines the extraction contract.
 - The library docs define the implementation details and failure modes of the PDF ETL stack.
+- The PostgreSQL and extension docs define the authoritative behavior for schema, indexing, extensions, and performance work.
 - The portfolio references help define the ledger, pricing, and analytics direction once ingestion is stable.
 
 ## Usage Rule
@@ -88,4 +124,5 @@ When planning implementation:
 - use the course repo for workflow and process structure
 - use the golden set for data correctness
 - use official library docs for technical implementation details
+- use official PostgreSQL and extension docs for database behavior and performance decisions
 - use external portfolio repos for architecture and analytics inspiration only after mapping them to this repo's scope

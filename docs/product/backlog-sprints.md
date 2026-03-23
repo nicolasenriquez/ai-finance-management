@@ -129,6 +129,8 @@ Definition of Done:
 - implement document-level deduplication using file hash
 - implement transaction-level deduplication using deterministic fingerprint or natural key
 - use persistence behavior that only adds missing records
+- keep the local PostgreSQL baseline on separated bootstrap and app credentials
+- explicitly defer stricter runtime-role hardening if blocked by current software-version constraints
 
 Definition of Done:
 
@@ -138,6 +140,7 @@ Definition of Done:
 - reprocessing the same PDF does not create duplicate document records
 - reprocessing the same transaction set does not create duplicate transaction rows
 - duplicate-safe persistence behavior is covered by tests
+- the local database baseline documents any remaining security compromises caused by current software-version constraints
 
 ## Sprint 3: Ledger and Accounting Foundation
 
@@ -242,6 +245,34 @@ Definition of Done:
 
 - API integration does not bypass canonical normalization
 - PDF and API sources can coexist without record-type confusion
+
+## Sprint 6: Database Hardening and Deployment Readiness
+
+### Item 6.1: Revisit PostgreSQL hardening blocked by current version constraints
+
+- review PostgreSQL, Docker, and tooling-version constraints that currently limit stricter hardening
+- decide whether admin, migrator, and runtime roles can be separated more strictly
+- review privilege boundaries required for migrations versus runtime behavior
+- document the accepted target posture for shared or hosted environments
+
+Definition of Done:
+
+- current blockers are documented explicitly
+- target role separation is defined
+- remaining local-security compromises are either removed or intentionally accepted
+
+### Item 6.2: Harden network and connection posture for shared environments
+
+- define remote/shared-environment expectations for TLS
+- define `pg_hba.conf` and network exposure policy
+- define credential rotation and privilege review expectations
+- confirm runtime posture before any hosted PostgreSQL adoption
+
+Definition of Done:
+
+- shared-environment database access rules are documented explicitly
+- TLS and access-control expectations are clear
+- hosted or remote PostgreSQL work has a defined security baseline
 
 ## Exit Criteria for MVP
 

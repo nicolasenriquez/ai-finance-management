@@ -12,7 +12,7 @@ This repository organizes documentation by function so standards, product artifa
   - extraction, validation, and domain-specific guidance
 - `docs/standards/`
   - all repository standards live together here
-  - linting, formatting, security, typing, testing, and logging standards
+  - linting, formatting, security, typing, testing, logging, and database standards
 - `docs/references/`
   - external references and supporting research links
 
@@ -22,6 +22,12 @@ This repository organizes documentation by function so standards, product artifa
 - Backlog: `docs/product/backlog-sprints.md`
 - Validation baseline: `docs/guides/validation-baseline.md`
 - Logging standard: `docs/standards/logging-standard.md`
+- PostgreSQL standard: `docs/standards/postgres-standard.md`
+- PostgreSQL local setup guide: `docs/guides/postgres-local-setup.md`
+- PostgreSQL performance guide: `docs/guides/postgres-performance-guide.md`
+- PostgreSQL security guide: `docs/guides/postgres-security-guide.md`
+- `pgvector` guide: `docs/guides/pgvector-guide.md`
+- TimescaleDB guide: `docs/guides/timescaledb-guide.md`
 - External references: `docs/references/references.md`
 
 ## Maintenance Rule

@@ -1,0 +1,125 @@
+{
+  "fifo_sell": {
+    "policy_version": "dataset_1_v1_fifo",
+    "open_lots": [
+      {
+        "lot_id": "lot-2025-01-10",
+        "remaining_qty": "1.000000000",
+        "total_cost_basis_usd": "100.00",
+        "unit_cost_basis_usd": "100.00"
+      },
+      {
+        "lot_id": "lot-2025-01-20",
+        "remaining_qty": "2.000000000",
+        "total_cost_basis_usd": "260.00",
+        "unit_cost_basis_usd": "130.00"
+      }
+    ],
+    "sell_trade": {
+      "trade_id": "sell-2025-02-01",
+      "sold_qty": "1.500000000",
+      "proceeds_usd": "225.00"
+    },
+    "expected": {
+      "dispositions": [
+        {
+          "lot_id": "lot-2025-01-10",
+          "matched_qty": "1.000000000",
+          "matched_cost_basis_usd": "100.00"
+        },
+        {
+          "lot_id": "lot-2025-01-20",
+          "matched_qty": "0.500000000",
+          "matched_cost_basis_usd": "65.00"
+        }
+      ],
+      "total_matched_basis_usd": "165.00",
+      "realized_gain_usd": "60.00"
+    }
+  },
+  "dividend_income": {
+    "policy_version": "dataset_1_v1_fifo",
+    "open_lots_before": [
+      {
+        "lot_id": "lot-income-1",
+        "remaining_qty": "1.250000000",
+        "total_cost_basis_usd": "150.00",
+        "unit_cost_basis_usd": "120.00"
+      },
+      {
+        "lot_id": "lot-income-2",
+        "remaining_qty": "0.750000000",
+        "total_cost_basis_usd": "90.00",
+        "unit_cost_basis_usd": "120.00"
+      }
+    ],
+    "dividend_event": {
+      "event_id": "dividend-2025-01-15",
+      "event_date": "2025-01-15",
+      "instrument_symbol": "VOO",
+      "gross_usd": "5.00",
+      "taxes_usd": "0.50",
+      "net_usd": "4.50"
+    },
+    "expected": {
+      "income_breakdown": {
+        "gross_usd": "5.00",
+        "taxes_usd": "0.50",
+        "net_usd": "4.50"
+      },
+      "open_lots_after": [
+        {
+          "lot_id": "lot-income-1",
+          "remaining_qty": "1.250000000",
+          "total_cost_basis_usd": "150.00",
+          "unit_cost_basis_usd": "120.00"
+        },
+        {
+          "lot_id": "lot-income-2",
+          "remaining_qty": "0.750000000",
+          "total_cost_basis_usd": "90.00",
+          "unit_cost_basis_usd": "120.00"
+        }
+      ]
+    }
+  },
+  "split_adjustment": {
+    "policy_version": "dataset_1_v1_fifo",
+    "open_lots": [
+      {
+        "lot_id": "lot-a",
+        "remaining_qty": "3.000000000",
+        "total_cost_basis_usd": "300.00",
+        "unit_cost_basis_usd": "100.00"
+      },
+      {
+        "lot_id": "lot-b",
+        "remaining_qty": "1.500000000",
+        "total_cost_basis_usd": "210.00",
+        "unit_cost_basis_usd": "140.00"
+      }
+    ],
+    "split_event": {
+      "event_id": "split-2025-02-10",
+      "shares_before_qty": "1.000000000",
+      "shares_after_qty": "2.000000000",
+      "split_ratio_value": "2.00"
+    },
+    "expected": {
+      "open_lots": [
+        {
+          "lot_id": "lot-a",
+          "remaining_qty": "6.000000000",
+          "total_cost_basis_usd": "300.00",
+          "unit_cost_basis_usd": "50.000000000"
+        },
+        {
+          "lot_id": "lot-b",
+          "remaining_qty": "3.000000000",
+          "total_cost_basis_usd": "210.00",
+          "unit_cost_basis_usd": "70.000000000"
+        }
+      ]
+    }
+  }
+}

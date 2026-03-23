@@ -150,9 +150,30 @@ Implications:
 - source adapters may emit raw or intermediate structures
 - only the normalizer may emit canonical transactions
 - canonical schemas and persistence models should not embed broker-only field names
+
+### ADR-013: Keep PostgreSQL local-first with explicit security boundaries
+
+Status: Accepted
+
+Reason:
+
+- the current MVP is still local-first and single-user, so local Docker PostgreSQL remains the simplest operational baseline
+- local-development convenience must not blur the boundary between safe local defaults and stronger shared-environment requirements
+- documenting database security posture now reduces drift when the project later adopts hosted or shared infrastructure
+
+Implications:
+
+- local Docker PostgreSQL remains the default development path
+- local-only defaults are acceptable only for local-only usage
+- local Docker setup should keep bootstrap/admin and runtime app roles separate
+- shared or remote environments must use least-privilege roles, restricted client access, and TLS
+- the application should not depend on superuser privileges for normal runtime behavior
+- database security rules live in `docs/standards/postgres-standard.md`
+- local operational steps live in `docs/guides/postgres-local-setup.md`
+- database security guidance lives in `docs/guides/postgres-security-guide.md`
 ## Proposed
 
-### ADR-013: Add Camelot or PyMuPDF as secondary validation engines
+### ADR-014: Add Camelot or PyMuPDF as secondary validation engines
 
 Status: Proposed
 
@@ -161,7 +182,7 @@ Reason:
 - cross-engine comparison may help debug extraction mismatches
 - not required for the first pass if pdfplumber is sufficient
 
-### ADR-014: Add Pandera for DataFrame-level validation
+### ADR-015: Add Pandera for DataFrame-level validation
 
 Status: Proposed
 

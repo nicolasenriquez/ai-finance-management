@@ -12,6 +12,7 @@ Current implementation status:
 - dataset 1 canonical normalization is implemented
 - dataset 1 verification reporting is implemented
 - PostgreSQL persistence and duplicate-safe reprocessing are implemented
+- portfolio-ledger foundation and dataset 1 v1 accounting policy are implemented
 
 ## Repository Baseline
 
@@ -82,6 +83,7 @@ For each golden set dataset:
 - persistence flow with PostgreSQL
 - API flow for upload/extract/validate
 - duplicate-ingestion flow for the same PDF and same transaction set
+- portfolio-ledger rebuild duplicate-safety for rerun and concurrent execution
 
 ### Level 4: Manual Verification
 
@@ -101,6 +103,7 @@ For persistence phases, validation must also confirm:
 
 - rerunning the same source does not create duplicate document records
 - rerunning the same source does not create duplicate transaction rows
+- rerunning the same canonical source does not create duplicate portfolio-ledger, lot, or lot-disposition rows
 - rerunning the same source creates a new successful `import_job` row only when the full request commits
 - same-hash uploads from a different `storage_key` reuse the original `source_document` row and keep first-seen metadata
 - persistence replay remains anchored to stored PDFs plus ingestion metadata manifests

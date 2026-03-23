@@ -19,6 +19,24 @@ Keep the portfolio model ledger-first.
 The system of record is the canonical transaction history plus provenance.
 Current holdings, grouped KPI views, and lot contribution reports are derived outputs.
 
+## Current Repository Contract (Phase 3)
+
+As of 2026-03-22, the implemented portfolio-ledger foundation is:
+
+- `source_document` -> `import_job` -> `canonical_pdf_record` -> `portfolio_transaction` / `dividend_event` / `corporate_action_event` -> `lot` / `lot_disposition`
+- Supported canonical event families: `trade`, `dividend`, `split`
+- Frozen accounting policy version: `dataset_1_v1`
+- Sell matching method: FIFO lot matching
+- Trade basis fields: buy uses `aporte_usd`; sell proceeds use `rescate_usd`
+- Dividends are income events and do not mutate lot basis
+- Splits adjust open-lot quantity and per-share basis proportionally while preserving total lot basis
+- Fee, FX, and unsupported corporate-action handling remain explicit unsupported concerns in v1
+
+Current boundary:
+
+- Market data (`price_history`, `fx_rate`) is still separate and not part of ledger truth.
+- Analytics APIs, KPI endpoints, and frontend portfolio views remain Phase 4+ work.
+
 ## Why This Guide Exists
 
 The project needs a clear distinction between:
@@ -182,6 +200,8 @@ Before advanced analytics are treated as trusted, the project must explicitly do
 - split and corporate action handling
 
 This policy should be frozen before claiming correctness for portfolio contribution, performance, or tax-sensitive analytics.
+
+Dataset 1 v1 is now explicitly frozen with FIFO, dividend-income isolation, split proportional adjustment, and explicit unsupported fee/FX inference.
 
 ## Testing Implications
 

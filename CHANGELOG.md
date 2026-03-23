@@ -22,6 +22,97 @@ Use this structure for new entries:
 
 `type` guidance: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`.
 
+## 2026-03-23
+
+### fix(portfolio-ledger): make rebuild state-convergent under canonical corrections and source drift
+- Summary: Updated ledger rebuild to clear previously derived lot state before recomputation, upsert derived event rows on canonical-record conflicts, and prune stale derived event rows no longer present in the source document canonical set.
+- Why: Ensure `rebuild_portfolio_ledger_from_canonical_records` converges to current canonical truth instead of preserving stale rows from earlier runs.
+- Files: `app/portfolio_ledger/service.py`, `app/portfolio_ledger/tests/test_rebuild_integration.py`, `CHANGELOG.md`.
+- Validation: `UV_CACHE_DIR=/tmp/uv-cache uv run ruff check app/portfolio_ledger/service.py app/portfolio_ledger/tests/test_rebuild_integration.py` (pass), `UV_CACHE_DIR=/tmp/uv-cache uv run mypy app/portfolio_ledger/service.py app/portfolio_ledger/tests/test_rebuild_integration.py` (pass), `UV_CACHE_DIR=/tmp/uv-cache uv run pyright app/portfolio_ledger/service.py app/portfolio_ledger/tests/test_rebuild_integration.py` (0 errors).
+- Notes: Integration tests for new rebuild regressions could not run in this sandbox because PostgreSQL socket access is blocked (`PermissionError: [Errno 1] Operation not permitted`); run them in a DB-enabled environment.
+
+### fix(docker-local): restore compose defaults compatible with existing postgres_data volumes
+- Summary: Switched Docker Compose and `.env.example` defaults back to legacy-compatible `postgres:postgres` credentials while keeping `POSTGRES_APP_*` overrides available for dedicated app-role local setups.
+- Why: Prevent local startup breakage for developers with existing `postgres_data` volumes where init scripts do not rerun.
+- Files: `docker-compose.yml`, `.env.example`, `CHANGELOG.md`.
+- Validation: Configuration update reviewed for variable resolution and compatibility with existing local volume behavior.
+
+### fix(portfolio-ledger): align rebuild convergence with event-type migration and moved-source lot cleanup
+- Summary: Changed stale-event pruning to be event-type aware (trade/dividend/split canonical IDs tracked independently) and added a post-upsert lot-state cleanup pass so moved-in transactions do not retain stale lot dispositions.
+- Why: Prevent contradictory derived rows when canonical records change event families and ensure lot/disposition truth converges after source-ownership drift corrections.
+- Files: `app/portfolio_ledger/service.py`, `app/portfolio_ledger/tests/test_rebuild_integration.py`, `CHANGELOG.md`.
+- Validation: `UV_CACHE_DIR=/tmp/uv-cache uv run ruff check app/portfolio_ledger/service.py app/portfolio_ledger/tests/test_rebuild_integration.py` (pass), `UV_CACHE_DIR=/tmp/uv-cache uv run black app/portfolio_ledger/service.py app/portfolio_ledger/tests/test_rebuild_integration.py --check --diff` (pass), `UV_CACHE_DIR=/tmp/uv-cache uv run mypy app/portfolio_ledger/service.py app/portfolio_ledger/tests/test_rebuild_integration.py` (pass), `UV_CACHE_DIR=/tmp/uv-cache uv run pyright app/portfolio_ledger/service.py app/portfolio_ledger/tests/test_rebuild_integration.py` (0 errors), `UV_CACHE_DIR=/tmp/uv-cache uv run pytest -q app/portfolio_ledger/tests -m "not integration"` (15 passed, 10 deselected).
+- Notes: New integration regressions require a migrated PostgreSQL test database; local run currently fails early with `UndefinedTableError: relation "source_document" does not exist` until `uv run alembic upgrade head` is applied to the active DB.
+
+## 2026-03-22
+
+### docs(roadmap): add deferred database-hardening phase and version-constraint note
+- Summary: Updated the roadmap and backlog to state that the current local PostgreSQL baseline uses separated bootstrap and app credentials today while stricter runtime hardening remains deferred until software-version constraints can be revisited.
+- Why: Keep planning artifacts aligned with the implemented local baseline and avoid pretending full PostgreSQL hardening is already complete.
+- Files: `docs/product/roadmap.md`, `docs/product/backlog-sprints.md`, `CHANGELOG.md`.
+- Validation: Documentation-only update; content reviewed against the accepted PostgreSQL security posture and current local runtime constraints.
+
+### docs(database-ops): add local PostgreSQL setup guide and formalize database posture ADR
+- Summary: Added a PostgreSQL local setup guide for `.env`, Docker Compose, migrations, and health checks, and recorded the local-first but security-bounded database posture as an accepted ADR.
+- Why: Keep local onboarding practical while making the project’s database operating model and security boundary explicit before future hosted or shared environments are introduced.
+- Files: `docs/guides/postgres-local-setup.md`, `docs/guides/postgres-security-guide.md`, `docs/product/decisions.md`, `docs/README.md`, `README.md`, `CHANGELOG.md`.
+- Validation: Documentation-only update; content reviewed against current `.env.example`, `docker-compose.yml`, and the existing PostgreSQL standards and security guides.
+
+### feat(local-postgres): split bootstrap and runtime credentials in Docker local baseline
+- Summary: Replaced the insecure `postgres:postgres` local default with explicit admin and app credential variables, mounted a first-boot init script that creates the application role and database, and updated the app container to connect with the dedicated runtime role.
+- Why: Align the local baseline with the documented least-privilege direction without making local onboarding impractical.
+- Files: `docker-compose.yml`, `.env.example`, `docker/db/init/01-create-app-role.sh`, `docs/guides/postgres-local-setup.md`, `docs/guides/postgres-security-guide.md`, `docs/product/decisions.md`, `CHANGELOG.md`.
+- Validation: Configuration review pending runtime verification; expected checks are `docker-compose config`, first-boot database initialization, `uv run alembic upgrade head`, and health endpoint validation.
+
+### docs(database-security): add PostgreSQL security guide and harden database standard
+- Summary: Added a dedicated PostgreSQL security guide and expanded the PostgreSQL standard with security baseline rules covering authentication, least-privilege roles, network exposure, TLS expectations, privilege hygiene, and security-sensitive features.
+- Why: The repository already documented application-code security with Bandit, but lacked a database-specific security posture for PostgreSQL setup and future shared or remote environments.
+- Files: `docs/guides/postgres-security-guide.md`, `docs/standards/postgres-standard.md`, `docs/README.md`, `docs/references/references.md`, `README.md`, `CHANGELOG.md`.
+- Validation: Documentation-only update; content reviewed against current PostgreSQL 18 documentation plus the provided Tiger Data security references, with PostgreSQL 7.0 explicitly treated as historical unsupported context.
+
+### docs(database): add PostgreSQL standard and optional extension guides
+- Summary: Added a repository PostgreSQL standard plus focused guides for performance investigation, `pgvector`, and TimescaleDB adoption, and linked them from the main documentation indexes and references.
+- Why: Formalize how database schema, migrations, indexing, and extension choices should be handled without mixing core PostgreSQL rules with optional future features.
+- Files: `docs/standards/postgres-standard.md`, `docs/guides/postgres-performance-guide.md`, `docs/guides/pgvector-guide.md`, `docs/guides/timescaledb-guide.md`, `docs/README.md`, `docs/references/references.md`, `README.md`, `CHANGELOG.md`.
+- Validation: Documentation-only update; content reviewed against current repository schema/query patterns and official PostgreSQL, `pgvector`, and Tiger Data documentation.
+
+### feat(portfolio-ledger): close phase 3 ledger foundation and accounting-policy freeze for dataset 1
+- Summary: Completed ledger-foundation closeout by fixing fractional lot-basis precision propagation, finalizing strict typing/lint compliance in ledger tests, and adding a fractional buy/sell integration regression for cent-consistent FIFO basis behavior.
+- Why: Lock a trustworthy, explicit portfolio-ledger and accounting-policy contract before Phase 4 analytics APIs and frontend work.
+- Files: `app/portfolio_ledger/{service.py,accounting.py,schemas.py,tests/test_policy_schemas.py,tests/test_rebuild_integration.py,tests/test_canonical_mapping.py,tests/test_models_schema.py,tests/test_fifo_accounting.py,tests/fixtures/dataset_1_v1_finance_cases.json}`, `docs/product/roadmap.md`, `docs/guides/portfolio-ledger-and-analytics-guide.md`, `docs/guides/validation-baseline.md`, `openspec/changes/add-ledger-foundation-and-accounting-policy-for-dataset-1/tasks.md`, `CHANGELOG.md`.
+- Validation: `UV_CACHE_DIR=/tmp/uv-cache uv run pytest -v app/portfolio_ledger/tests -m "not integration"` (14 passed, 3 deselected), `UV_CACHE_DIR=/tmp/uv-cache uv run pytest -v -m integration app/portfolio_ledger/tests/test_rebuild_integration.py` (3 passed), `UV_CACHE_DIR=/tmp/uv-cache uv run ruff check app/portfolio_ledger` (pass), `UV_CACHE_DIR=/tmp/uv-cache uv run black app/portfolio_ledger --check --diff` (pass), `UV_CACHE_DIR=/tmp/uv-cache uv run bandit -c pyproject.toml -r app/portfolio_ledger --severity-level high --confidence-level high` (no issues), `UV_CACHE_DIR=/tmp/uv-cache uv run mypy app/portfolio_ledger` (pass), `UV_CACHE_DIR=/tmp/uv-cache uv run pyright app/portfolio_ledger` (0 errors), `UV_CACHE_DIR=/tmp/uv-cache uv run ty check app/portfolio_ledger` (pass), `openspec validate --specs --all` (this change passes; pre-existing failures remain in `spec/pdf-ingestion` and `spec/pdf-preflight-analysis`).
+- Notes: Product and guide docs now explicitly record that Phase 3 is ledger/accounting foundation only; market-data valuation and analytics endpoints remain deferred to later phases.
+
+### fix(portfolio-ledger): preserve residual lot basis cents across partial sells and correct open-lot summary count
+- Summary: Updated sell-side lot mutation logic to carry remaining lot basis by subtraction (with close-lot residual allocation) instead of recomputing from unit basis, and changed rebuild summary `open_lots` to count only lots with positive remaining quantity.
+- Why: Prevent realized-basis drift from repeating-decimal unit costs and keep rebuild/log output semantically accurate for open positions.
+- Files: `app/portfolio_ledger/service.py`, `app/portfolio_ledger/tests/test_rebuild_integration.py`, `CHANGELOG.md`.
+- Validation: `UV_CACHE_DIR=/tmp/uv-cache uv run pytest -v -m integration app/portfolio_ledger/tests/test_rebuild_integration.py::test_rebuild_fractional_three_partial_sells_preserves_basis_and_open_lot_count` (pass), `UV_CACHE_DIR=/tmp/uv-cache uv run pytest -v app/portfolio_ledger/tests -m "not integration"` (14 passed, 4 deselected), `UV_CACHE_DIR=/tmp/uv-cache uv run pytest -v -m integration app/portfolio_ledger/tests/test_rebuild_integration.py` (4 passed), `UV_CACHE_DIR=/tmp/uv-cache uv run ruff check app/portfolio_ledger/service.py app/portfolio_ledger/tests/test_rebuild_integration.py` (pass), `UV_CACHE_DIR=/tmp/uv-cache uv run black app/portfolio_ledger/service.py app/portfolio_ledger/tests/test_rebuild_integration.py --check --diff` (pass), `UV_CACHE_DIR=/tmp/uv-cache uv run mypy app/portfolio_ledger/service.py app/portfolio_ledger/tests/test_rebuild_integration.py` (pass), `UV_CACHE_DIR=/tmp/uv-cache uv run pyright app/portfolio_ledger/service.py app/portfolio_ledger/tests/test_rebuild_integration.py` (0 errors), `UV_CACHE_DIR=/tmp/uv-cache uv run ty check app/portfolio_ledger/service.py` (pass).
+
+### fix(portfolio-ledger): order same-day lot events by canonical sequence across split and trade records
+- Summary: Replaced the hard-coded same-day trade-before-split lot event ordering with canonical-record ordering so same-day split/trade histories are applied in persisted canonical order.
+- Why: Prevent false FIFO insufficient-lot failures and miscomputed lot state when a same-day split must precede a same-day sell.
+- Files: `app/portfolio_ledger/service.py`, `app/portfolio_ledger/tests/test_rebuild_integration.py`, `CHANGELOG.md`.
+- Validation: `UV_CACHE_DIR=/tmp/uv-cache uv run pytest -v -m integration app/portfolio_ledger/tests/test_rebuild_integration.py::test_rebuild_same_day_split_before_sell_uses_canonical_event_order` (pass), `UV_CACHE_DIR=/tmp/uv-cache uv run pytest -v -m integration app/portfolio_ledger/tests/test_rebuild_integration.py` (5 passed), `UV_CACHE_DIR=/tmp/uv-cache uv run pytest -v app/portfolio_ledger/tests -m "not integration"` (14 passed, 5 deselected), `UV_CACHE_DIR=/tmp/uv-cache uv run ruff check app/portfolio_ledger/service.py app/portfolio_ledger/tests/test_rebuild_integration.py` (pass), `UV_CACHE_DIR=/tmp/uv-cache uv run black app/portfolio_ledger/service.py app/portfolio_ledger/tests/test_rebuild_integration.py --check --diff` (pass), `UV_CACHE_DIR=/tmp/uv-cache uv run mypy app/portfolio_ledger/service.py app/portfolio_ledger/tests/test_rebuild_integration.py` (pass), `UV_CACHE_DIR=/tmp/uv-cache uv run pyright app/portfolio_ledger/service.py app/portfolio_ledger/tests/test_rebuild_integration.py` (0 errors), `UV_CACHE_DIR=/tmp/uv-cache uv run ty check app/portfolio_ledger/service.py` (pass).
+
+### fix(portfolio-ledger): enforce explicit rebuild transactions after session autobegin
+- Summary: Updated rebuild transaction handling to clear implicit `AUTOBEGIN` state before ledger writes and always run writes inside an explicit `begin()` or `begin_nested()` scope, with an integration regression for pre-read/autobegin sessions.
+- Why: Prevent rebuild persistence from depending on unrelated prior session reads and guarantee local commit/rollback ownership for the rebuild path.
+- Files: `app/portfolio_ledger/service.py`, `app/portfolio_ledger/tests/test_rebuild_integration.py`, `CHANGELOG.md`.
+- Validation: `UV_CACHE_DIR=/tmp/uv-cache uv run pytest -v -m integration app/portfolio_ledger/tests/test_rebuild_integration.py::test_rebuild_autobegin_session_still_commits_ledger_writes` (pass), `UV_CACHE_DIR=/tmp/uv-cache uv run pytest -v -m integration app/portfolio_ledger/tests/test_rebuild_integration.py` (6 passed), `UV_CACHE_DIR=/tmp/uv-cache uv run pytest -v app/portfolio_ledger/tests -m "not integration"` (14 passed, 6 deselected), `UV_CACHE_DIR=/tmp/uv-cache uv run ruff check app/portfolio_ledger/service.py app/portfolio_ledger/tests/test_rebuild_integration.py` (pass), `UV_CACHE_DIR=/tmp/uv-cache uv run black app/portfolio_ledger/service.py app/portfolio_ledger/tests/test_rebuild_integration.py --check --diff` (pass), `UV_CACHE_DIR=/tmp/uv-cache uv run mypy app/portfolio_ledger/service.py app/portfolio_ledger/tests/test_rebuild_integration.py` (pass), `UV_CACHE_DIR=/tmp/uv-cache uv run pyright app/portfolio_ledger/service.py app/portfolio_ledger/tests/test_rebuild_integration.py` (0 errors), `UV_CACHE_DIR=/tmp/uv-cache uv run ty check app/portfolio_ledger/service.py` (pass).
+
+### fix(validation): clear pyright unknown-type route helper and restore black formatting gate
+- Summary: Added explicit JSON payload narrowing in the persistence route test helper and restored Black-compliant spacing in the persistence schema migration module.
+- Why: Close repository validation failures (`pyright app/` unknown member/type usage and `black --check` formatting drift) without changing runtime behavior.
+- Files: `app/pdf_persistence/tests/test_routes.py`, `alembic/versions/c8b0721b0977_add_pdf_persistence_schema.py`, `CHANGELOG.md`.
+- Validation: `UV_CACHE_DIR=/tmp/uv-cache uv run pyright app/` (0 errors), `UV_CACHE_DIR=/tmp/uv-cache uv run black . --check --diff` (pass), `UV_CACHE_DIR=/tmp/uv-cache uv run ruff check .` (pass), `UV_CACHE_DIR=/tmp/uv-cache uv run mypy app/` (pass), `UV_CACHE_DIR=/tmp/uv-cache uv run ty check app` (pass).
+
+### fix(portfolio-ledger): isolate implicit session transactions and reject non-finite canonical decimals
+- Summary: Replaced the rebuild path’s implicit-transaction rollback with an isolated-session execution path for `AUTOBEGIN` state (preserving caller transaction state), and tightened canonical decimal coercion to reject non-finite values (`NaN`, `Infinity`, `-Infinity`) with deterministic 422 errors.
+- Why: Prevent silent caller transaction mutation/data loss while keeping duplicate-safe reruns functional, and enforce finance-safe numeric semantics before lot math executes.
+- Files: `app/portfolio_ledger/service.py`, `app/portfolio_ledger/tests/test_rebuild_integration.py`, `app/portfolio_ledger/tests/test_canonical_mapping.py`, `CHANGELOG.md`.
+- Validation: `UV_CACHE_DIR=/tmp/uv-cache uv run alembic upgrade head` (pass after local schema reset), `UV_CACHE_DIR=/tmp/uv-cache uv run pytest -v app/portfolio_ledger/tests -m "not integration"` (15 passed, 6 deselected), `UV_CACHE_DIR=/tmp/uv-cache uv run pytest -v -m integration app/portfolio_ledger/tests/test_rebuild_integration.py` (6 passed), `UV_CACHE_DIR=/tmp/uv-cache uv run ruff check app/portfolio_ledger alembic/env.py alembic/versions/12ecb9689094_add_portfolio_ledger_foundation_tables.py` (pass), `UV_CACHE_DIR=/tmp/uv-cache uv run black app/portfolio_ledger alembic/env.py alembic/versions/12ecb9689094_add_portfolio_ledger_foundation_tables.py --check --diff` (pass), `UV_CACHE_DIR=/tmp/uv-cache uv run bandit -c pyproject.toml -r app/portfolio_ledger --severity-level high --confidence-level high` (no issues), `UV_CACHE_DIR=/tmp/uv-cache uv run mypy app/portfolio_ledger` (pass), `UV_CACHE_DIR=/tmp/uv-cache uv run pyright app/portfolio_ledger` (0 errors), `UV_CACHE_DIR=/tmp/uv-cache uv run ty check app/portfolio_ledger` (pass).
+
 ## 2026-03-21
 
 ### feat(pdf-persistence): persist canonical dataset 1 records in PostgreSQL with duplicate-safe reruns

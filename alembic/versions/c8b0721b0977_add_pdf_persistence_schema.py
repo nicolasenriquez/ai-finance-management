@@ -120,6 +120,7 @@ def upgrade() -> None:
         unique=False,
     )
 
+
 def downgrade() -> None:
     """Downgrade schema."""
     op.drop_index(

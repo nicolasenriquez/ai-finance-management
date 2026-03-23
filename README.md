@@ -54,6 +54,11 @@ Reference guides:
 - [`docs/guides/golden-set-contract.md`](docs/guides/golden-set-contract.md)
 - [`docs/guides/pdf-extraction-guide.md`](docs/guides/pdf-extraction-guide.md)
 - [`docs/guides/validation-baseline.md`](docs/guides/validation-baseline.md)
+- [`docs/guides/postgres-local-setup.md`](docs/guides/postgres-local-setup.md)
+- [`docs/guides/postgres-performance-guide.md`](docs/guides/postgres-performance-guide.md)
+- [`docs/guides/postgres-security-guide.md`](docs/guides/postgres-security-guide.md)
+- [`docs/guides/pgvector-guide.md`](docs/guides/pgvector-guide.md)
+- [`docs/guides/timescaledb-guide.md`](docs/guides/timescaledb-guide.md)
 
 Engineering standards:
 
@@ -64,6 +69,7 @@ Engineering standards:
 - [`docs/standards/mypy-standard.md`](docs/standards/mypy-standard.md)
 - [`docs/standards/pyright-standard.md`](docs/standards/pyright-standard.md)
 - [`docs/standards/pytest-standard.md`](docs/standards/pytest-standard.md)
+- [`docs/standards/postgres-standard.md`](docs/standards/postgres-standard.md)
 
 ## Quick Start
 
