@@ -13,6 +13,7 @@ Current implementation status:
 - dataset 1 verification reporting is implemented
 - PostgreSQL persistence and duplicate-safe reprocessing are implemented
 - portfolio-ledger foundation and dataset 1 v1 accounting policy are implemented
+- portfolio analytics API (`/api/portfolio/summary`, `/api/portfolio/lots/{instrument_symbol}`) is implemented with ledger-only KPI v1 scope
 
 ## Repository Baseline
 
@@ -84,6 +85,8 @@ For each golden set dataset:
 - API flow for upload/extract/validate
 - duplicate-ingestion flow for the same PDF and same transaction set
 - portfolio-ledger rebuild duplicate-safety for rerun and concurrent execution
+- portfolio analytics summary/lot-detail routes against persisted ledger rows
+- analytics read-only guardrails (no implicit rebuild/PDF pipeline side effects during analytics requests)
 
 ### Level 4: Manual Verification
 

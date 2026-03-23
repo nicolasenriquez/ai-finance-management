@@ -19,9 +19,9 @@ Keep the portfolio model ledger-first.
 The system of record is the canonical transaction history plus provenance.
 Current holdings, grouped KPI views, and lot contribution reports are derived outputs.
 
-## Current Repository Contract (Phase 3)
+## Current Repository Contract (Phase 4 Analytics API)
 
-As of 2026-03-22, the implemented portfolio-ledger foundation is:
+As of 2026-03-23, the implemented contract is:
 
 - `source_document` -> `import_job` -> `canonical_pdf_record` -> `portfolio_transaction` / `dividend_event` / `corporate_action_event` -> `lot` / `lot_disposition`
 - Supported canonical event families: `trade`, `dividend`, `split`
@@ -31,11 +31,16 @@ As of 2026-03-22, the implemented portfolio-ledger foundation is:
 - Dividends are income events and do not mutate lot basis
 - Splits adjust open-lot quantity and per-share basis proportionally while preserving total lot basis
 - Fee, FX, and unsupported corporate-action handling remain explicit unsupported concerns in v1
+- Portfolio analytics summary endpoint: `GET /api/portfolio/summary`
+- Portfolio analytics lot-detail endpoint: `GET /api/portfolio/lots/{instrument_symbol}`
+- Analytics responses expose explicit `as_of_ledger_at` and ledger-only KPI v1 fields
+- Lot-detail symbol matching is deterministic (`trim + uppercase`) with explicit unknown-symbol failure
 
 Current boundary:
 
 - Market data (`price_history`, `fx_rate`) is still separate and not part of ledger truth.
-- Analytics APIs, KPI endpoints, and frontend portfolio views remain Phase 4+ work.
+- Market-data-dependent valuation and unrealized pricing metrics remain deferred.
+- Frontend portfolio views remain a later phase that will consume this analytics API contract.
 
 ## Why This Guide Exists
 

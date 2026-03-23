@@ -24,6 +24,13 @@ Use this structure for new entries:
 
 ## 2026-03-23
 
+### feat(portfolio-analytics): add ledger-backed portfolio summary and lot-detail APIs
+- Summary: Implemented the new `portfolio_analytics` feature slice with typed response schemas, read-only analytics services derived from persisted ledger truth, and FastAPI routes for grouped summary and lot-detail drill-down.
+- Why: Deliver the Phase 4 backend contract required for the frontend MVP while preserving ledger-first, fail-fast analytics boundaries and deferring market-data-dependent valuation.
+- Files: `app/portfolio_analytics/{__init__.py,schemas.py,service.py,routes.py,tests/*}`, `app/main.py`, `docs/product/roadmap.md`, `docs/guides/portfolio-ledger-and-analytics-guide.md`, `docs/guides/validation-baseline.md`, `openspec/changes/add-portfolio-analytics-api-from-ledger/tasks.md`, `CHANGELOG.md`.
+- Validation: `UV_CACHE_DIR=/tmp/uv-cache uv run pytest -v app/portfolio_analytics/tests` (7 passed), `UV_CACHE_DIR=/tmp/uv-cache uv run ruff check app/portfolio_analytics app/main.py` (pass), `UV_CACHE_DIR=/tmp/uv-cache uv run black app/portfolio_analytics app/main.py --check --diff` (pass), `UV_CACHE_DIR=/tmp/uv-cache uv run bandit -c pyproject.toml -r app/portfolio_analytics --severity-level high --confidence-level high` (no issues), `UV_CACHE_DIR=/tmp/uv-cache uv run mypy app/portfolio_analytics/service.py app/portfolio_analytics/routes.py app/portfolio_analytics/schemas.py app/main.py` (pass), `UV_CACHE_DIR=/tmp/uv-cache uv run pyright app/portfolio_analytics/service.py app/portfolio_analytics/routes.py app/portfolio_analytics/schemas.py app/main.py` (0 errors), `UV_CACHE_DIR=/tmp/uv-cache uv run ty check app/portfolio_analytics/service.py app/portfolio_analytics/routes.py app/portfolio_analytics/schemas.py app/main.py` (pass), `UV_CACHE_DIR=/tmp/uv-cache uv run alembic stamp base` + `UV_CACHE_DIR=/tmp/uv-cache uv run alembic upgrade head` (applied locally for integration-test schema).
+- Notes: v1 analytics remain intentionally ledger-only (`open_*`, `realized_*`, `dividend_*`, `as_of_ledger_at`); valuation and unrealized market metrics stay deferred until market-data phases.
+
 ### fix(portfolio-ledger): make rebuild state-convergent under canonical corrections and source drift
 - Summary: Updated ledger rebuild to clear previously derived lot state before recomputation, upsert derived event rows on canonical-record conflicts, and prune stale derived event rows no longer present in the source document canonical set.
 - Why: Ensure `rebuild_portfolio_ledger_from_canonical_records` converges to current canonical truth instead of preserving stale rows from earlier runs.

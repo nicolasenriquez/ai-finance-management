@@ -34,11 +34,11 @@
 
 ## Phase 4: Portfolio Analytics API
 
-- Build portfolio aggregation endpoints.
-- Build lot-level transaction endpoints.
-- Define initial KPI formulas.
-- Add unit and integration coverage for analytics logic.
-- Add explainable lot-level contribution output.
+- Implemented `GET /api/portfolio/summary` grouped analytics from persisted ledger truth.
+- Implemented `GET /api/portfolio/lots/{instrument_symbol}` with deterministic symbol normalization and explicit unknown-symbol rejection.
+- Implemented ledger-only KPI v1 contract (`open_*`, `realized_*`, `dividend_*`) plus `as_of_ledger_at` consistency metadata.
+- Added unit and DB-backed integration coverage proving analytics reads persisted ledger state and does not trigger rebuild/PDF pipeline side effects.
+- Keep market-data-dependent valuation and unrealized pricing metrics deferred to later phases.
 
 ## Phase 5: Frontend MVP
 
