@@ -19,9 +19,15 @@ This repository organizes documentation by function so standards, product artifa
 ## Navigation
 
 - Product: `docs/product/prd.md`
+- Frontend product addendum: `docs/product/frontend-mvp-prd-addendum.md`
 - Backlog: `docs/product/backlog-sprints.md`
 - Validation baseline: `docs/guides/validation-baseline.md`
+- Frontend architecture guide: `docs/guides/frontend-architecture-guide.md`
+- Frontend API and UX guide: `docs/guides/frontend-api-and-ux-guide.md`
+- Frontend design system guide: `docs/guides/frontend-design-system-guide.md`
+- Frontend delivery checklist: `docs/guides/frontend-delivery-checklist.md`
 - Logging standard: `docs/standards/logging-standard.md`
+- Frontend standard: `docs/standards/frontend-standard.md`
 - PostgreSQL standard: `docs/standards/postgres-standard.md`
 - PostgreSQL local setup guide: `docs/guides/postgres-local-setup.md`
 - PostgreSQL performance guide: `docs/guides/postgres-performance-guide.md`
@@ -29,6 +35,7 @@ This repository organizes documentation by function so standards, product artifa
 - `pgvector` guide: `docs/guides/pgvector-guide.md`
 - TimescaleDB guide: `docs/guides/timescaledb-guide.md`
 - External references: `docs/references/references.md`
+- Frontend references: `docs/references/frontend-references.md`
 
 ## Maintenance Rule
 

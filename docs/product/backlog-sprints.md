@@ -210,17 +210,51 @@ Definition of Done:
 - analytics endpoints return typed responses
 - integration tests cover at least one end-to-end analytics flow
 
-### Item 4.3: Add React frontend container and grouped-table MVP
+### Item 4.3: Lock frontend foundation before UI feature delivery
+
+- freeze the frontend design-system baseline
+- define semantic tokens for typography, color, spacing, and motion
+- define responsive behavior for summary and lot-detail views
+- map backend analytics responses to UI states, formatting, and copy
+- define error-state handling for `404`, `422`, and `500`
+- formalize decimal-safe frontend numeric handling for finance fields
+
+Definition of Done:
+
+- frontend implementation can rely on one documented design system and API-to-UI contract
+- unsupported market-value and FX-sensitive behavior is explicitly excluded from the MVP
+- loading, empty, not-found, validation-error, and server-error states are defined before screen implementation
+- frontend quality gates are documented for accessibility, performance, and evidence capture
+
+### Item 4.4: Deliver summary and lot-detail frontend MVP
 
 - add frontend service to Docker Compose
-- implement grouped table by ticker
-- implement drill-down into individual transactions or lots
+- implement grouped portfolio summary by instrument
+- implement drill-down into lot detail from summary interactions
+- surface `as_of_ledger_at` and ledger-only scope context in the UI
+- keep row interaction keyboard accessible and deterministic
 
 Definition of Done:
 
 - `db`, `backend`, and `frontend` run together via Docker Compose
-- grouped ticker view is visible in the browser
-- drill-down view displays per-purchase details and KPIs
+- grouped summary view is visible in the browser and backed by `GET /api/portfolio/summary`
+- lot-detail view is visible in the browser and backed by `GET /api/portfolio/lots/{instrument_symbol}`
+- core formatting, copy, and interaction behavior matches the documented frontend contract
+
+### Item 4.5: Harden frontend UX, accessibility, and performance
+
+- verify keyboard navigation, focus visibility, and target-size behavior
+- verify contrast and reduced-motion behavior
+- measure Core Web Vitals on key screens
+- capture review artifacts for responsive layouts and error states
+- close any UX ambiguity that hides unsupported or missing data
+
+Definition of Done:
+
+- WCAG 2.2 AA baseline expectations are met for the MVP screens
+- Core Web Vitals targets are measured and acceptable for the MVP screens
+- evidence artifacts exist for summary, lot detail, not-found, and error states
+- frontend release readiness is based on documented quality gates, not visual inspection alone
 
 ## Sprint 5: External Broker API and Market Data
 
@@ -280,6 +314,7 @@ Definition of Done:
 - verification report is generated and trusted
 - normalized records are stored in PostgreSQL
 - grouped and lot-level analytics are visible in the frontend
+- frontend MVP meets documented accessibility and performance gates
 - repository validation baseline remains green
 - accounting rules are frozen and reflected in tests
 

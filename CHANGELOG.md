@@ -24,6 +24,38 @@ Use this structure for new entries:
 
 ## 2026-03-23
 
+## 2026-03-24
+
+### feat(frontend-ui): add dual-theme portfolio analytics polish pass and derived overview hierarchy
+- Summary: Upgraded the React frontend shell with a user-selectable light/dark theme, stronger semantic design tokens, overview cards for summary and lot-detail screens, row-level drill-down affordances, and more intentional responsive/error-state presentation.
+- Why: The initial frontend scaffold matched the documented MVP structure but still felt like a bootstrap pass; this change brings the shipped UI closer to the documented frontend quality bar for Phase 5 without introducing unsupported analytics.
+- Files: `frontend/src/app/**`, `frontend/src/components/**`, `frontend/src/features/**`, `frontend/src/pages/**`, `CHANGELOG.md`.
+- Validation: `npm run test` (5 tests passed across theme and overview suites), `npm run build` (pass, Vite production bundle generated).
+
+### docs(frontend-ui): align frontend guidance with dual-theme tokens and shipped UX hierarchy
+- Summary: Updated the frontend design-system, architecture, delivery checklist, standard, and product addendum to document dual-theme parity requirements, overview-card hierarchy, and the MVP boundary for restrained theme switching.
+- Why: The implementation now includes a real theme layer and stronger page composition rules; the docs need to describe those behaviors explicitly so the code and delivery checklists remain aligned.
+- Files: `docs/guides/frontend-design-system-guide.md`, `docs/guides/frontend-architecture-guide.md`, `docs/guides/frontend-delivery-checklist.md`, `docs/standards/frontend-standard.md`, `docs/product/frontend-mvp-prd-addendum.md`, `CHANGELOG.md`.
+- Validation: Documentation reviewed against the updated frontend implementation and existing frontend roadmap/quality documents.
+
+### feat(frontend-bootstrap): add React MVP scaffold with typed API boundary and Docker Compose dev service
+- Summary: Added the initial `frontend/` application scaffold using React, TypeScript, Vite, React Router, TanStack Query, Zod, and decimal.js, including portfolio summary and lot-detail pages, shared state components, a typed analytics API client, and a Docker Compose frontend dev service.
+- Why: Turn the new frontend architecture and UX documentation into an executable MVP foundation so implementation can proceed against the ledger-only analytics contract without inventing structure during delivery.
+- Files: `frontend/**`, `docker-compose.yml`, `.env.example`, `.gitignore`, `CHANGELOG.md`.
+- Validation: Architecture and API contract reviewed against `docs/guides/frontend-architecture-guide.md`, `docs/guides/frontend-api-and-ux-guide.md`, and `app/portfolio_analytics`; runtime validation executed later in 2026-03-24 frontend UI follow-up (`npm run test`, `npm run build`).
+
+### docs(frontend-architecture): add concrete MVP frontend architecture guide
+- Summary: Added a dedicated frontend architecture guide that defines the recommended MVP stack, folder structure, layering model, component boundaries, API boundary strategy, decimal-safe finance handling, and server-state/UI-state testing approach.
+- Why: The repository already had frontend product, UX, design-system, and quality documents; this change adds the missing technical bridge between those decisions and executable implementation work.
+- Files: `docs/guides/frontend-architecture-guide.md`, `docs/README.md`, `README.md`, `CHANGELOG.md`.
+- Validation: Documentation-only update; content reviewed against `docs/product/frontend-mvp-prd-addendum.md`, `docs/guides/frontend-api-and-ux-guide.md`, `docs/guides/frontend-design-system-guide.md`, and `docs/standards/frontend-standard.md`.
+
+### docs(frontend-roadmap): upgrade phase 5 from screen delivery to quality-gated frontend foundation and MVP hardening
+- Summary: Expanded the frontend roadmap and sprint backlog so frontend work now explicitly covers design-system foundation, API-to-UI contract locking, decimal-safe finance formatting, accessibility/performance quality gates, and evidence-based release hardening in addition to the summary and lot-detail screens.
+- Why: The repository now has a much stronger frontend documentation baseline than the old roadmap reflected; planning needed to catch up so Phase 5 measures real frontend quality instead of only container setup and page existence.
+- Files: `docs/product/roadmap.md`, `docs/product/backlog-sprints.md`, `CHANGELOG.md`.
+- Validation: Documentation-only update; content reviewed against `docs/product/frontend-mvp-prd-addendum.md`, `docs/guides/frontend-api-and-ux-guide.md`, `docs/guides/frontend-design-system-guide.md`, `docs/guides/frontend-delivery-checklist.md`, and `docs/standards/frontend-standard.md`.
+
 ### feat(portfolio-analytics): add ledger-backed portfolio summary and lot-detail APIs
 - Summary: Implemented the new `portfolio_analytics` feature slice with typed response schemas, read-only analytics services derived from persisted ledger truth, and FastAPI routes for grouped summary and lot-detail drill-down.
 - Why: Deliver the Phase 4 backend contract required for the frontend MVP while preserving ledger-first, fail-fast analytics boundaries and deferring market-data-dependent valuation.

@@ -31,7 +31,7 @@ The project also serves a second goal: building senior-level software and data-e
 - Create a canonical transaction model that can support both PDF and API-based sources.
 - Persist normalized portfolio data in PostgreSQL.
 - Compute auditable portfolio KPIs from source transactions.
-- Visualize grouped and transaction-level portfolio performance in a frontend.
+- Visualize grouped portfolio analytics by instrument with lot-level drill-down in a frontend.
 - Use golden-set-driven validation so extraction quality is measurable and reproducible.
 
 ## Non-Goals
@@ -39,7 +39,7 @@ The project also serves a second goal: building senior-level software and data-e
 - No authentication or authorization in MVP.
 - No GenAI or agentic features in MVP.
 - No production cloud deployment in MVP.
-- No advanced UI/UX polish in MVP.
+- No novelty-driven or exploratory UI/UX expansion in MVP.
 - No multi-user support in MVP.
 
 ## Target User
@@ -64,7 +64,7 @@ Secondary user profile for design purposes:
 - Persist document metadata and normalized transaction rows in PostgreSQL.
 - Ingest broker market/reference data from an external API for historical enrichment.
 - Expose portfolio and KPI data through FastAPI endpoints.
-- Build a basic React frontend with grouped tables by ticker and transaction drill-down.
+- Build a React frontend with grouped portfolio summary by instrument and lot-detail drill-down.
 
 ### Out of Scope
 
@@ -228,17 +228,17 @@ These policies must be documented before broadening KPI coverage or performance 
 
 ### Analytics
 
-- Expose grouped portfolio views by ticker.
-- Expose lot-level views for individual purchases.
-- Compute initial KPIs such as capital invested, current value, unrealized return, and holding period.
-- Make every lot-level contribution explainable from source transactions and price history.
+- Expose grouped portfolio views by instrument symbol.
+- Expose lot-level views for lot state and sell-side dispositions.
+- Compute initial ledger-backed KPIs (`open_*`, `realized_*`, `dividend_*`).
+- Make every lot-level contribution explainable from persisted ledger records.
 - Distinguish between ledger-derived truth and presentation-oriented aggregates.
 - Avoid analytics that depend on undocumented accounting assumptions.
 
 ### Frontend
 
-- Show grouped rows by ticker with aggregate KPIs.
-- Allow drill-down into individual lots or transactions.
+- Show grouped rows by instrument symbol with ledger-backed KPIs.
+- Allow drill-down into lot detail.
 - Prioritize correctness and auditability over design polish.
 
 ## Importer and Normalizer Boundary
@@ -299,7 +299,7 @@ The MVP is successful when:
 - extracted JSON matches the golden set for all required fields
 - verification reports clearly explain every mismatch
 - normalized rows are persisted in PostgreSQL
-- grouped and transaction-level portfolio views are visible in the frontend
+- grouped summary and lot-detail portfolio views are visible in the frontend
 - baseline validation commands pass consistently in local development
 - lot-level contribution output is explainable from source transactions
 - reruns of the same source remain duplicate-safe
@@ -328,6 +328,6 @@ The MVP is successful when:
 4. Database persistence
 5. Ledger-safe lot derivation and accounting policy freeze
 6. Analytics API
-7. Frontend grouped table
+7. Frontend grouped summary + lot detail
 8. External broker API integration and market data enrichment
 9. Future phases: auth, AI, cloud deployment

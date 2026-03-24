@@ -40,12 +40,22 @@
 - Added unit and DB-backed integration coverage proving analytics reads persisted ledger state and does not trigger rebuild/PDF pipeline side effects.
 - Keep market-data-dependent valuation and unrealized pricing metrics deferred to later phases.
 
-## Phase 5: Frontend MVP
+## Phase 5: Frontend Foundation And MVP Delivery
 
-- Add React frontend container to Docker Compose.
-- Build grouped table by ticker.
-- Add drill-down view for lots and transactions.
-- Connect frontend to analytics APIs.
+- Lock the frontend foundation before broad implementation:
+  - design-system tokens for typography, color, spacing, motion, and responsive behavior
+  - API-to-UI contract for summary, lot detail, formatting, and error handling
+  - decimal-safe financial formatting rules and explicit unsupported-value boundaries
+- Implement the frontend MVP against the current ledger-only analytics contract:
+  - add React frontend container to Docker Compose
+  - build grouped portfolio summary by instrument
+  - build lot-detail drill-down from summary interactions
+  - surface `as_of_ledger_at` and ledger-scope limitations clearly in the UI
+- Harden the MVP before considering the phase complete:
+  - validate explicit loading, empty, not-found, validation-failure, and server-failure states
+  - meet WCAG 2.2 AA baseline expectations for focus, contrast, target size, and error identification
+  - meet Core Web Vitals "good" thresholds for key screens and capture release evidence
+  - keep market-value and FX-sensitive analytics deferred until market-data phases
 
 ## Phase 6: External Broker API Integration
 
