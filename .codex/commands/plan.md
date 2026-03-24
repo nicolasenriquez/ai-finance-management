@@ -116,8 +116,8 @@ Read:
 - `AGENTS.md`
 - `README.md`
 - `openspec/config.yaml`
-- `docs/reference-guides/validation-baseline.md`
-- relevant domain docs (`docs/prd.md`, `docs/decisions.md`) when needed
+- `docs/guides/validation-baseline.md`
+- relevant domain docs (`docs/product/prd.md`, `docs/product/decisions.md`) when needed
 
 ### 4) Review Design Open Questions
 

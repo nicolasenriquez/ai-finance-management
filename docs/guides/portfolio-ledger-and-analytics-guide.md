@@ -19,9 +19,9 @@ Keep the portfolio model ledger-first.
 The system of record is the canonical transaction history plus provenance.
 Current holdings, grouped KPI views, and lot contribution reports are derived outputs.
 
-## Current Repository Contract (Phase 4 Analytics API)
+## Current Repository Contract (Phase 6 Market-Data Boundary)
 
-As of 2026-03-23, the implemented contract is:
+As of 2026-03-24, the implemented contract is:
 
 - `source_document` -> `import_job` -> `canonical_pdf_record` -> `portfolio_transaction` / `dividend_event` / `corporate_action_event` -> `lot` / `lot_disposition`
 - Supported canonical event families: `trade`, `dividend`, `split`
@@ -35,12 +35,16 @@ As of 2026-03-23, the implemented contract is:
 - Portfolio analytics lot-detail endpoint: `GET /api/portfolio/lots/{instrument_symbol}`
 - Analytics responses expose explicit `as_of_ledger_at` and ledger-only KPI v1 fields
 - Lot-detail symbol matching is deterministic (`trim + uppercase`) with explicit unknown-symbol failure
+- Market-data persistence boundary: `market_data_snapshot` -> `price_history` via `app/market_data`
+- Market-data write boundary enforces explicit source provenance, timezone-safe snapshot timestamps, canonical symbol forms, and deterministic symbol/time-key idempotency
+- Market-data read boundary exists for persisted symbol price history and remains internal-only (no public market-data API route yet)
 
 Current boundary:
 
-- Market data (`price_history`, `fx_rate`) is still separate and not part of ledger truth.
+- Market data (`market_data_snapshot`, `price_history`, future `fx_rate`) is separate and not part of ledger truth.
+- Market-data refresh does not mutate canonical records, ledger events, lots, lot dispositions, dividends, or corporate-action truth.
+- Portfolio analytics responses remain ledger-only and do not read market data yet.
 - Market-data-dependent valuation and unrealized pricing metrics remain deferred.
-- Frontend portfolio views remain a later phase that will consume this analytics API contract.
 
 ## Why This Guide Exists
 

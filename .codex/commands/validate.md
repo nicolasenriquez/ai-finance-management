@@ -64,7 +64,7 @@ Always read:
 
 - `AGENTS.md`
 - `README.md`
-- `docs/reference-guides/validation-baseline.md`
+- `docs/guides/validation-baseline.md`
 
 If validating an OpenSpec change, also read:
 

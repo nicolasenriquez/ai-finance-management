@@ -190,3 +190,20 @@ Reason:
 
 - Pydantic is enough for row-level contracts initially
 - Pandera can be added later when tabular validation becomes more complex
+
+### ADR-016: Treat external templates as reference patterns, not drop-in foundations
+
+Status: Proposed
+
+Reason:
+
+- current roadmap scope is intentionally narrow and finance-boundary-first
+- broad template adoption can inject premature AI/auth/integration complexity
+- architecture drift risk is high when external templates become implicit authorities
+
+Implications:
+
+- external template content should be evaluated in explicit documentation notes before adoption
+- only phase-scoped, minimal patterns should be imported
+- every adopted pattern must preserve ledger-first truth, fail-fast behavior, and current validation gates
+- drop-in template migration is out of scope unless a dedicated future change explicitly approves it

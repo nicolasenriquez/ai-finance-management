@@ -1,4 +1,12 @@
-## ADDED Requirements
+# pdf-ingestion Specification
+
+## Purpose
+
+Define the PDF ingestion contract for uploading broker statements, enforcing safe
+input limits, writing accepted files to controlled storage, and returning
+deterministic metadata plus preflight analysis results.
+
+## Requirements
 
 ### Requirement: PDF ingestion accepts multipart uploads
 The system SHALL provide a PDF ingestion endpoint that accepts a broker statement as a multipart file upload and returns a typed ingestion result.

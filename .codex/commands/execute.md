@@ -142,7 +142,7 @@ Then read:
 - `AGENTS.md`
 - `README.md`
 - `openspec/config.yaml`
-- `docs/reference-guides/validation-baseline.md`
+- `docs/guides/validation-baseline.md`
 - change `proposal.md`, `design.md`, `tasks.md`, and delta specs from `contextFiles`
 
 If `preflight=off`, report `Preflight: skipped (flag)`.

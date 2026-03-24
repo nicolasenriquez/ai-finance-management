@@ -1,4 +1,11 @@
-## ADDED Requirements
+# pdf-preflight-analysis Specification
+
+## Purpose
+
+Define the preflight analysis contract that classifies PDF extractability before
+extraction and returns diagnostic metadata for explicit, fail-fast decisions.
+
+## Requirements
 
 ### Requirement: Preflight returns an explicit extractability status
 The system SHALL provide a PDF preflight capability that inspects a submitted PDF and returns a machine-readable extractability status before extraction begins.

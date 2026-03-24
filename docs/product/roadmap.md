@@ -57,12 +57,13 @@
   - meet Core Web Vitals "good" thresholds for key screens and capture release evidence
   - keep market-value and FX-sensitive analytics deferred until market-data phases
 
-## Phase 6: External Broker API Integration
+## Phase 6: Market Data Boundary And External Broker Integration
 
-- Integrate broker API for historical/reference data.
-- Reconcile API-driven data with PDF-driven records where needed.
-- Expand analytics scope using the additional data.
-- Keep quote refresh and market data ingestion isolated from ledger mutation.
+- Implemented market-data ingestion boundary with dedicated `market_data_snapshot` and `price_history` persistence separated from canonical and ledger truth.
+- Implemented fail-fast market-data write rules: explicit source provenance, deterministic symbol/time-key uniqueness, and `dataset_1`-anchored symbol support (including dotted tickers such as `BRK.B`).
+- Implemented internal market-data read boundary for persisted symbol history while keeping current `/api/portfolio/*` analytics contract ledger-only.
+- Validated that market-data refresh remains idempotent and does not mutate canonical records, ledger events, lots, lot dispositions, dividends, or corporate actions.
+- Next in this phase: integrate broker API for historical/reference data and reconcile API-driven data with existing canonical/ledger boundaries.
 
 ## Phase 7: Database Hardening and Deployment Readiness
 

@@ -14,6 +14,7 @@ Current implementation status:
 - PostgreSQL persistence and duplicate-safe reprocessing are implemented
 - portfolio-ledger foundation and dataset 1 v1 accounting policy are implemented
 - portfolio analytics API (`/api/portfolio/summary`, `/api/portfolio/lots/{instrument_symbol}`) is implemented with ledger-only KPI v1 scope
+- market-data ingestion boundary is implemented with idempotent snapshot writes and explicit non-mutation guarantees for canonical/ledger truth
 
 ## Repository Baseline
 
@@ -28,6 +29,7 @@ uv run pyright app/
 uv run ty check app
 uv run pytest -v
 uv run pytest -v -m integration
+openspec validate --specs --all
 ```
 
 Expected service checks:
@@ -87,6 +89,9 @@ For each golden set dataset:
 - portfolio-ledger rebuild duplicate-safety for rerun and concurrent execution
 - portfolio analytics summary/lot-detail routes against persisted ledger rows
 - analytics read-only guardrails (no implicit rebuild/PDF pipeline side effects during analytics requests)
+- market-data snapshot ingest duplicate-safety and explicit in-request duplicate rejection
+- market-data refresh non-mutation guarantees for canonical, ledger, lot, dividend, and corporate-action truth
+- migration schema contract checks for `market_data_snapshot` / `price_history` boundary constraints
 
 ### Level 4: Manual Verification
 
@@ -111,3 +116,6 @@ For persistence phases, validation must also confirm:
 - same-hash uploads from a different `storage_key` reuse the original `source_document` row and keep first-seen metadata
 - persistence replay remains anchored to stored PDFs plus ingestion metadata manifests
 - v1 scope remains single-source (dataset 1 PDF); multi-source reconciliation is intentionally deferred
+- rerunning the same market-data snapshot uses deterministic insert-or-update behavior instead of creating ambiguous duplicate rows
+- market-data ingestion rejects payload-level duplicate symbol/time keys before DB mutation
+- market-data refresh path does not create, update, or delete canonical, ledger, lot, lot-disposition, dividend, or corporate-action truth rows

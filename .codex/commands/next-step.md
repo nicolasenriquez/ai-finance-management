@@ -46,12 +46,12 @@ Read:
 
 - `AGENTS.md`
 - `README.md`
-- `docs/prd.md`
-- `docs/decisions.md`
-- `docs/backlog-sprints.md`
-- `docs/roadmap.md`
-- `docs/references.md`
-- `docs/reference-guides/validation-baseline.md`
+- `docs/product/prd.md`
+- `docs/product/decisions.md`
+- `docs/product/backlog-sprints.md`
+- `docs/product/roadmap.md`
+- `docs/references/references.md`
+- `docs/guides/validation-baseline.md`
 - `openspec/config.yaml`
 - `openspec/project.md` if it exists
 

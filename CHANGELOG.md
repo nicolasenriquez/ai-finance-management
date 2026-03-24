@@ -26,6 +26,25 @@ Use this structure for new entries:
 
 ## 2026-03-24
 
+### docs(external-template-evaluation): assess vstorm ai-agent template and define adoption guardrails
+- Summary: Added a formal evaluation note for `vstorm-co/full-stack-ai-agent-template`, updated references and documentation navigation to register it as reference-only material, and proposed an ADR to prevent drop-in template adoption without phase-scoped validation.
+- Why: Keep external inspiration useful while preventing scope creep, architecture drift, and premature AI/auth complexity against the current roadmap boundaries.
+- Files: `docs/references/full-stack-ai-agent-template-evaluation.md`, `docs/references/references.md`, `docs/README.md`, `docs/product/decisions.md`, `CHANGELOG.md`.
+- Validation: Documentation-only update; findings aligned with current PRD, roadmap, and accepted decision constraints.
+
+### docs(market-data-research): add validated ETF yfinance exploration reference note
+- Summary: Added a documentation-only ETF exploration note that captures how the local `dashboard_etfs.py` notebook can inform future market-data planning, with explicit boundaries to keep it out of current production scope.
+- Why: Preserve useful indicator and ticker research context while avoiding premature provider-integration implementation and keeping roadmap sequencing intact.
+- Files: `docs/references/etf-yfinance-research-notes.md`, `docs/references/references.md`, `docs/README.md`, `CHANGELOG.md`.
+- Validation: Official sources validated before documentation update (`yfinance` docs/repository legal disclaimer and Yahoo terms links; pandas `pct_change`, `resample`, `ewm` API docs); documentation-only change (no runtime code changes).
+
+### feat(market-data): add isolated ingestion boundary with idempotent snapshot persistence
+- Summary: Added a dedicated `app/market_data` slice with `market_data_snapshot` and `price_history` persistence, fail-fast normalization and provenance validation, deterministic symbol/time-key idempotent ingest behavior, and an internal read boundary for symbol price history.
+- Why: Establish the first market-data storage boundary required by the roadmap without weakening ledger-first transaction truth or expanding valuation scope prematurely.
+- Files: `app/market_data/{models.py,schemas.py,service.py,tests/test_service_unit.py,tests/test_service_integration.py}`, `alembic/versions/7d5f2f8f9c3b_add_market_data_storage_scaffold.py`, `alembic/env.py`, `docs/product/{roadmap.md,backlog-sprints.md}`, `docs/guides/{validation-baseline.md,portfolio-ledger-and-analytics-guide.md}`, `openspec/changes/add-market-data-ingestion-boundary/{proposal.md,design.md,specs/market-data-ingestion/spec.md,tasks.md}`, `CHANGELOG.md`.
+- Validation: `uv run pytest -v app/market_data/tests/test_service_unit.py` (pass), `uv run pytest -v app/market_data/tests/test_service_integration.py -m integration` (pass), `uv run mypy app/market_data` (pass), `uv run ruff check app/market_data alembic/env.py alembic/versions/7d5f2f8f9c3b_add_market_data_storage_scaffold.py` (pass), `uv run black --check app/market_data alembic/env.py alembic/versions/7d5f2f8f9c3b_add_market_data_storage_scaffold.py` (pass), `uv run alembic upgrade head` (pass), `openspec validate add-market-data-ingestion-boundary --type change --strict --json` (pass).
+- Notes: Non-goals remain explicit: no live provider integration, no public market-data API routes, no market-value/unrealized KPI expansion, no FX-rate support, and no frontend market-value UX in this change.
+
 ### docs(frontend-evidence): complete hardening evidence bundle for archive readiness
 - Summary: Added an automated frontend evidence capture command that generates required release screenshots plus keyboard and accessibility reports, and updated the frontend delivery checklist to link those concrete artifacts.
 - Why: The hardening proposal required reproducible evidence for release closeout; strict archive readiness needed screenshot/a11y evidence in addition to CWV metrics.

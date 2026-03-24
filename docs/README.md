@@ -36,6 +36,8 @@ This repository organizes documentation by function so standards, product artifa
 - TimescaleDB guide: `docs/guides/timescaledb-guide.md`
 - External references: `docs/references/references.md`
 - Frontend references: `docs/references/frontend-references.md`
+- ETF exploration note: `docs/references/etf-yfinance-research-notes.md`
+- External template evaluation: `docs/references/full-stack-ai-agent-template-evaluation.md`
 
 ## Maintenance Rule
 

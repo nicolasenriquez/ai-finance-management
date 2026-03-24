@@ -60,11 +60,11 @@ Read based on scope:
   - `app/core/database.py`
   - `app/core/logging.py`
 - `scope=docs|all`:
-  - `docs/prd.md`
-  - `docs/decisions.md`
-  - `docs/reference-guides/validation-baseline.md`
-  - `docs/roadmap.md`
-  - `docs/backlog-sprints.md`
+  - `docs/product/prd.md`
+  - `docs/product/decisions.md`
+  - `docs/guides/validation-baseline.md`
+  - `docs/product/roadmap.md`
+  - `docs/product/backlog-sprints.md`
 - `scope=openspec|all`:
   - current change artifacts selected in Step 2
 

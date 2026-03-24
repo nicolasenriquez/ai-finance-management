@@ -7,6 +7,7 @@ from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
+import app.market_data.models
 import app.pdf_persistence.models
 import app.portfolio_ledger.models  # noqa: F401
 from alembic import context

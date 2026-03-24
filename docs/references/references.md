@@ -36,6 +36,30 @@ Current product truth for the extraction MVP:
 - ty docs: https://docs.astral.sh/ty/
 - ty repository: https://github.com/astral-sh/ty
 
+## Market Data Exploration References (Official)
+
+Validated on 2026-03-24 before documenting the ETF exploration note.
+
+- yfinance documentation index: https://ranaroussi.github.io/yfinance/index.html
+- yfinance repository and legal usage notes: https://github.com/ranaroussi/yfinance
+- Yahoo terms link referenced by yfinance: https://policies.yahoo.com/us/en/yahoo/terms/product-atos/apiforydn/index.htm
+- Yahoo terms of service: https://legal.yahoo.com/us/en/yahoo/terms/otos/index.html
+- Yahoo terms index: https://policies.yahoo.com/us/en/yahoo/terms/index.htm
+- pandas `DataFrame.pct_change`: https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.pct_change.html
+- pandas `DataFrame.resample`: https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.resample.html
+- pandas `DataFrame.ewm`: https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.ewm.html
+
+## External Template Evaluations
+
+- vstorm full-stack AI agent template (evaluation note):
+  - source template: https://github.com/vstorm-co/full-stack-ai-agent-template
+  - local evaluation: `docs/references/full-stack-ai-agent-template-evaluation.md`
+
+Reference-only rule:
+
+- external templates are evaluated as pattern sources, not as drop-in implementation authorities
+- adoption must be phase-scoped, standards-aligned, and test-backed
+
 ## Database and PostgreSQL References
 
 Primary authority for database behavior:

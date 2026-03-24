@@ -260,14 +260,21 @@ Definition of Done:
 
 ### Item 5.1: Add market data ingestion boundary
 
+Status: Implemented (2026-03-24)
+
 - ingest current quotes and historical prices separately from transactions
 - persist market data with explicit source and timestamp
 - keep quote refresh idempotent
+- enforce deterministic duplicate rejection for same symbol/time keys in one request payload
+- preserve canonical symbol forms from `dataset_1` ledger truth (including dotted tickers such as `BRK.B`)
+- keep the first slice internal-only (no market-value API expansion in this item)
 
 Definition of Done:
 
 - quote refresh does not mutate canonical transaction rows
 - analytics can declare which price snapshot they used
+- integration tests prove refresh path non-mutation for canonical, ledger, lot, dividend, and corporate-action truth
+- unit tests prove fail-fast validation for provenance, unsupported symbols, and duplicate symbol/time payload rows
 
 ### Item 5.2: Add broker API integration
 
