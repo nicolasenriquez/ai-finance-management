@@ -1,0 +1,147 @@
+{
+  "measuredAt": "2026-03-24T17:43:41.067Z",
+  "routeResults": {
+    "/portfolio": {
+      "p75": {
+        "cls": 0,
+        "inpMs": 80,
+        "lcpMs": 308
+      },
+      "thresholds": {
+        "lcpMs": 2500,
+        "inpMs": 200,
+        "cls": 0.1
+      },
+      "verdict": {
+        "clsPass": true,
+        "inpPass": true,
+        "lcpPass": true
+      },
+      "values": {
+        "cls": [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "inpMs": [
+          80,
+          72,
+          72,
+          72,
+          80
+        ],
+        "lcpMs": [
+          304,
+          340,
+          284,
+          276,
+          308
+        ]
+      },
+      "runs": [
+        {
+          "cls": 0,
+          "inp": 80,
+          "lcp": 304
+        },
+        {
+          "cls": 0,
+          "inp": 72,
+          "lcp": 340
+        },
+        {
+          "cls": 0,
+          "inp": 72,
+          "lcp": 284
+        },
+        {
+          "cls": 0,
+          "inp": 72,
+          "lcp": 276
+        },
+        {
+          "cls": 0,
+          "inp": 80,
+          "lcp": 308
+        }
+      ]
+    },
+    "/portfolio/VOO": {
+      "p75": {
+        "cls": 0,
+        "inpMs": 80,
+        "lcpMs": 300
+      },
+      "thresholds": {
+        "lcpMs": 2500,
+        "inpMs": 200,
+        "cls": 0.1
+      },
+      "verdict": {
+        "clsPass": true,
+        "inpPass": true,
+        "lcpPass": true
+      },
+      "values": {
+        "cls": [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "inpMs": [
+          80,
+          72,
+          80,
+          72,
+          64
+        ],
+        "lcpMs": [
+          300,
+          300,
+          272,
+          288,
+          308
+        ]
+      },
+      "runs": [
+        {
+          "cls": 0,
+          "inp": 80,
+          "lcp": 300
+        },
+        {
+          "cls": 0,
+          "inp": 72,
+          "lcp": 300
+        },
+        {
+          "cls": 0,
+          "inp": 80,
+          "lcp": 272
+        },
+        {
+          "cls": 0,
+          "inp": 72,
+          "lcp": 288
+        },
+        {
+          "cls": 0,
+          "inp": 64,
+          "lcp": 308
+        }
+      ]
+    }
+  },
+  "runsPerRoute": 5,
+  "thresholds": {
+    "lcpMs": 2500,
+    "inpMs": 200,
+    "cls": 0.1
+  },
+  "tool": "playwright-performance-observer",
+  "overallPass": true
+}

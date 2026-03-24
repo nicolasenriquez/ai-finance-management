@@ -39,6 +39,7 @@ Loading strategy:
 - Prefer self-hosted `woff2` with `font-display: swap`.
 - Preload primary regular and semibold fonts used above the fold.
 - Keep fallback metrics close to reduce content shift during swap.
+- Do not ship runtime `@import` or third-party stylesheet fetches for primary fonts in release builds.
 
 Rules:
 
@@ -137,6 +138,14 @@ Container rules:
 - Sticky table headers on large datasets.
 - Preserve comfortable edge padding on mobile.
 
+## Page Framing And Hierarchy
+
+- Prefer compact workspace headers over editorial hero sections for analytics routes.
+- The first viewport on standard laptop widths should show page title, ledger timestamp, scope note, and primary action/navigation without scrolling.
+- Keep introductory copy to one short sentence; supporting explanation should not compete with the analytics content.
+- Avoid stacking multiple explainer cards above the core data on summary and lot-detail screens.
+- If extra trust context is needed, use one restrained panel or inline note rather than a second full narrative column.
+
 ## Component Primitives
 
 - App shell (header + content frame)
@@ -195,6 +204,7 @@ Behavior:
 - Label unsupported values explicitly as `Not available in ledger-only v1`.
 - Error language should state what failed and what user can do next.
 - Avoid marketing-style hero copy for core analytics pages.
+- Avoid repeating documentation-level explanations in the route header; put deep explanation in secondary notes only when it improves task completion.
 - Use concise labels and consistent finance terminology.
 - Derived overview cards must be labeled as derived from visible API rows when they are not backend-native fields.
 

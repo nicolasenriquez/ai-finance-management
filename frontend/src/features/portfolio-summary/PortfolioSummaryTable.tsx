@@ -62,6 +62,7 @@ export function PortfolioSummaryTable({ rows }: PortfolioSummaryTableProps) {
               return (
                 <tr
                   key={row.instrument_symbol}
+                  aria-keyshortcuts="Enter Space"
                   aria-label={`Open lot detail for ${row.instrument_symbol}`}
                   className="data-table__row data-table__row--interactive"
                   onClick={() => openLotDetail(row.instrument_symbol)}

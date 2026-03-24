@@ -23,7 +23,7 @@ export function PortfolioSummaryPage() {
     <AppShell
       eyebrow="Portfolio analytics"
       title="Portfolio ledger at a glance."
-      description="Review grouped positions, realized activity, and dividend outcomes from persisted ledger truth. This interface stays intentionally strict about scope, freshness, and unsupported analytics."
+      description="Grouped positions, realized activity, and dividend outcomes from persisted ledger state. Market-value and FX-sensitive analytics remain intentionally unavailable in v1."
     >
       {summaryQuery.isLoading ? <LoadingTableSkeleton rows={6} /> : null}
 

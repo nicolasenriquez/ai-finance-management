@@ -26,6 +26,31 @@ Use this structure for new entries:
 
 ## 2026-03-24
 
+### docs(frontend-evidence): complete hardening evidence bundle for archive readiness
+- Summary: Added an automated frontend evidence capture command that generates required release screenshots plus keyboard and accessibility reports, and updated the frontend delivery checklist to link those concrete artifacts.
+- Why: The hardening proposal required reproducible evidence for release closeout; strict archive readiness needed screenshot/a11y evidence in addition to CWV metrics.
+- Files: `frontend/scripts/capture-frontend-evidence.mjs`, `frontend/package.json`, `docs/evidence/frontend/{accessibility-scan-2026-03-24.md,accessibility-scan-2026-03-24.json,keyboard-walkthrough-2026-03-24.md,keyboard-walkthrough-2026-03-24.json,screenshots-2026-03-24/*}`, `docs/guides/frontend-delivery-checklist.md`, `openspec/changes/add-frontend-hardening-release-evidence/tasks.md`, `CHANGELOG.md`.
+- Validation: `npm run build` (pass), `npm run test` (24 passed), `npm run frontend:evidence` (pass), `npm run cwv:measure` (pass; thresholds met).
+
+### fix(frontend-performance): add reproducible CWV harness and resolve summary-route INP regression
+- Summary: Added a deterministic CWV measurement harness (`npm run cwv:measure`) using Playwright plus local mock API fixtures, captured baseline and post-fix route metrics, and removed shared panel backdrop blur to reduce interaction rendering cost.
+- Why: The hardening change still needed objective CWV evidence for `/portfolio` and `/portfolio/:symbol`; baseline measurement showed summary-route INP above threshold and required a focused optimization before closeout.
+- Files: `frontend/scripts/measure-cwv.mjs`, `frontend/package.json`, `frontend/src/app/styles.css`, `docs/evidence/frontend/cwv-report-2026-03-24.md`, `docs/evidence/frontend/cwv-report-2026-03-24T17-11-03.746Z.json`, `docs/evidence/frontend/cwv-report-2026-03-24T17-12-49.067Z.json`, `openspec/changes/add-frontend-hardening-release-evidence/tasks.md`, `CHANGELOG.md`.
+- Validation: `npm run cwv:measure` baseline (INP fail on `/portfolio`), targeted CSS optimization, `npm run cwv:measure` post-fix (all thresholds pass), `npm run test` (24 passed), `npm run build` (pass).
+
+### fix(frontend-ui): compact route framing and remove runtime font dependency
+- Summary: Replaced the analytics landing-page hero with a compact route frame, shortened route-level copy, promoted the lot-detail return action into the top-level header, removed the runtime Google Fonts import, and added tests that lock the new shell and CSS contracts.
+- Why: The accessibility hardening pass was solid, but the shell still felt too editorial for a finance workspace and the runtime font import kept an avoidable dependency in the render path.
+- Files: `frontend/src/components/app-shell/AppShell.tsx`, `frontend/src/app/styles.css`, `frontend/src/pages/portfolio-summary-page/PortfolioSummaryPage.tsx`, `frontend/src/pages/portfolio-lot-detail-page/PortfolioLotDetailPage.tsx`, `frontend/src/components/app-shell/AppShell.test.tsx`, `frontend/src/app/reduced-motion.test.ts`, `CHANGELOG.md`.
+- Validation: `npm run test` (24 tests passed); `npm run build` (pass, Vite production bundle generated).
+- Notes: At this point in delivery, accessibility scan artifacts were still pending; they were completed later in the `docs(frontend-evidence)` closeout entry on 2026-03-24.
+
+### docs(frontend-hardening): tighten minimalist hierarchy and release-readiness guidance
+- Summary: Updated the active frontend hardening OpenSpec change plus frontend architecture/design/checklist/product docs to explicitly require compact workspace-first route hierarchy and production-safe font delivery as part of release readiness.
+- Why: Investigation against the current frontend diff and documentation showed that accessibility hardening was progressing, but the shipped guidance still allowed hero-heavy layouts and runtime font loading that weaken professional finance UX and CWV evidence quality.
+- Files: `openspec/changes/add-frontend-hardening-release-evidence/{proposal.md,design.md,tasks.md}`, `docs/guides/frontend-architecture-guide.md`, `docs/guides/frontend-design-system-guide.md`, `docs/guides/frontend-delivery-checklist.md`, `docs/standards/frontend-standard.md`, `docs/product/frontend-mvp-prd-addendum.md`, `CHANGELOG.md`.
+- Validation: `git diff --check` (pass); `openspec validate --specs --all --json` (active change valid; unrelated pre-existing spec-format failures remain in `pdf-ingestion` and `pdf-preflight-analysis`).
+
 ### feat(frontend-ui): add dual-theme portfolio analytics polish pass and derived overview hierarchy
 - Summary: Upgraded the React frontend shell with a user-selectable light/dark theme, stronger semantic design tokens, overview cards for summary and lot-detail screens, row-level drill-down affordances, and more intentional responsive/error-state presentation.
 - Why: The initial frontend scaffold matched the documented MVP structure but still felt like a bootstrap pass; this change brings the shipped UI closer to the documented frontend quality bar for Phase 5 without introducing unsupported analytics.

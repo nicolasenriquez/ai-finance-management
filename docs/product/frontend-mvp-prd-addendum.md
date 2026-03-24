@@ -88,6 +88,7 @@ Interpretation for implementation:
 ## UX Requirements
 
 - The default landing state communicates "ledger-backed portfolio summary".
+- The first viewport foregrounds trust signals and the drill-down workflow rather than marketing-style hero messaging.
 - Row-to-detail interaction is obvious and keyboard accessible.
 - Unknown symbol paths must produce explicit not-found messaging.
 - Error copy must be factual, concise, and actionable.

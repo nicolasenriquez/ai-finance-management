@@ -59,6 +59,7 @@ Additional rules:
 - Avoid layout shift from async content and image loading.
 - Keep first-load UI usable before secondary enhancement modules.
 - Avoid heavy animation and long-running main-thread work.
+- Primary typography in release builds must not depend on runtime third-party stylesheet imports; use bundled/self-hosted assets or a validated fallback strategy.
 - Capture field or lab evidence for LCP, INP, and CLS before release.
 
 ## UX Reliability Rules
@@ -68,6 +69,8 @@ Additional rules:
 - Error states must include factual reason and retry action.
 - Financial labels must remain consistent across screens.
 - Theme changes must not alter the semantic meaning of status colors or labels.
+- Route-level composition must prioritize task-critical context; title, ledger timestamp, scope note, and next action should appear before decorative supporting copy on standard laptop widths.
+- Core analytics routes must avoid marketing-style hero treatments that delay access to trustworthy data.
 
 ## Data Formatting Rules
 

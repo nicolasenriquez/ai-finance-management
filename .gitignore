@@ -29,3 +29,6 @@ htmlcov/
 .agents/external-docs
 guide.md
 .agents/reports
+
+# Frontend release evidence screenshots (generated artifacts)
+docs/evidence/frontend/screenshots-*/

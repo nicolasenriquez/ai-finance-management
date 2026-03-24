@@ -40,9 +40,13 @@ function resolveLotDetailError(error: unknown): {
   };
 }
 
+function normalizeRouteSymbol(symbol: string | undefined): string {
+  return (symbol || "").trim().toUpperCase();
+}
+
 export function PortfolioLotDetailPage() {
   const params = useParams();
-  const symbol = params.symbol || "";
+  const symbol = normalizeRouteSymbol(params.symbol);
   const lotDetailQuery = usePortfolioLotDetailQuery(symbol);
   const errorCopy = resolveLotDetailError(lotDetailQuery.error);
 
@@ -50,9 +54,9 @@ export function PortfolioLotDetailPage() {
     <AppShell
       eyebrow="Lot detail"
       title="Lot-level attribution without guesswork."
-      description="Inspect how each persisted lot contributes to the current position. Quantity, basis, and sell-side matching remain explicitly tied to the backend ledger snapshot."
+      description="Inspect persisted lots, remaining basis, and recorded sell-side matches for the selected instrument."
       actions={
-        <Link className="link-inline" to="/portfolio">
+        <Link className="button-secondary" to="/portfolio">
           Return to grouped summary
         </Link>
       }

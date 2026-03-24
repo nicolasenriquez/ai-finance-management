@@ -1,0 +1,34 @@
+{
+  "measuredAt": "2026-03-24T18:36:52.805Z",
+  "baseUrl": "http://127.0.0.1:49915",
+  "keyboardReport": {
+    "summaryToRowTabSequence": [
+      {
+        "selector": "a.brand-mark",
+        "role": null,
+        "label": "Open portfolio summary",
+        "className": "brand-mark"
+      },
+      {
+        "selector": "button.theme-toggle",
+        "role": null,
+        "label": "Switch to dark theme",
+        "className": "theme-toggle"
+      },
+      {
+        "selector": "tr.data-table__row.data-table__row--interactive",
+        "role": "link",
+        "label": "Open lot detail for VOO",
+        "className": "data-table__row data-table__row--interactive"
+      }
+    ],
+    "firstInteractiveRowFound": true,
+    "enterOnRowNavigatesToLotDetail": true,
+    "lotDetailBackLinkFound": true,
+    "backLinkReturnsToSummary": true,
+    "notFoundRetryFound": true,
+    "notFoundBackLinkFound": true,
+    "serverErrorRetryFound": true,
+    "serverErrorBackLinkFound": true
+  }
+}

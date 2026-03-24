@@ -258,9 +258,9 @@ Guidance:
 
 Summary and lot-detail pages should follow the same hierarchy:
 
-1. app shell and route framing
-2. hero context explaining ledger scope
-3. page header with `as_of_ledger_at`
+1. app shell and compact route framing
+2. page header with title, `as_of_ledger_at`, scope note, and primary navigation/action visible in the initial viewport on standard laptop widths
+3. one concise sentence of supporting context, or one compact trust card if additional explanation is genuinely needed
 4. derived overview cards clearly labeled as API-row-derived when applicable
 5. primary data table or lot-card collection
 6. explicit empty/error states
@@ -268,6 +268,7 @@ Summary and lot-detail pages should follow the same hierarchy:
 Rationale:
 
 - keeps trust cues visible before data interpretation
+- prevents marketing-style hero treatments from pushing operational data below the fold
 - improves scanability on large screens
 - preserves a deterministic mental model on mobile
 

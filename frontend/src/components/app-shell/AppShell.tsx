@@ -32,31 +32,18 @@ export function AppShell({
           </Link>
           <ThemeToggle />
         </header>
-        <header className="app-shell__hero panel panel--hero">
-          <div className="hero-copy-block">
-            <span className="eyebrow">{eyebrow}</span>
-            <h1 className="hero-title">{title}</h1>
-            <p className="hero-copy">{description}</p>
-          </div>
-          <div className="hero-meta">
-            <div className="hero-meta__card">
-              <span className="hero-meta__label">Source posture</span>
-              <strong className="hero-meta__value">Ledger-backed and read only</strong>
-              <p className="hero-meta__copy">
-                Every visible metric comes from persisted accounting state. Unsupported
-                market-value and FX-sensitive analytics remain out of scope.
-              </p>
+        <header className="panel route-frame">
+          <div className="route-frame__body">
+            <div className="route-frame__meta">
+              <span className="eyebrow">{eyebrow}</span>
+              <span className="scope-note">Ledger-only v1</span>
             </div>
-            <div className="hero-meta__card hero-meta__card--subtle">
-              <span className="hero-meta__label">UX baseline</span>
-              <strong className="hero-meta__value">Accessible by default</strong>
-              <p className="hero-meta__copy">
-                Focus visibility, reduced motion, responsive tables, and explicit error
-                states are treated as release requirements.
-              </p>
+            <div className="route-frame__copy">
+              <h1 className="route-frame__title">{title}</h1>
+              <p className="route-frame__description">{description}</p>
             </div>
-            {actions ? <div className="hero-actions">{actions}</div> : null}
           </div>
+          {actions ? <div className="route-frame__actions">{actions}</div> : null}
         </header>
         <div className="page-grid">{children}</div>
       </div>

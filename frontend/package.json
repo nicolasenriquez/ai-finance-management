@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "test": "vitest run"
+    "test": "vitest run",
+    "cwv:measure": "node scripts/measure-cwv.mjs",
+    "frontend:evidence": "node scripts/capture-frontend-evidence.mjs"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.66.0",

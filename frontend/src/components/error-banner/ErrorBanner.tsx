@@ -1,4 +1,7 @@
-import type { ReactNode } from "react";
+import {
+  useId,
+  type ReactNode,
+} from "react";
 
 type ErrorBannerProps = {
   title: string;
@@ -13,9 +16,20 @@ export function ErrorBanner({
   actions,
   variant = "error",
 }: ErrorBannerProps) {
+  const titleId = useId();
+  const semanticRole = variant === "error" ? "alert" : "status";
+  const liveMode = variant === "error" ? "assertive" : "polite";
+
   return (
-    <section className={`status-banner status-banner--${variant}`} aria-live="polite">
-      <h2 className="status-banner__title">{title}</h2>
+    <section
+      aria-labelledby={titleId}
+      aria-live={liveMode}
+      className={`status-banner status-banner--${variant}`}
+      role={semanticRole}
+    >
+      <h2 className="status-banner__title" id={titleId}>
+        {title}
+      </h2>
       <p className="status-banner__copy">{message}</p>
       {actions ? <div className="status-banner__actions">{actions}</div> : null}
     </section>

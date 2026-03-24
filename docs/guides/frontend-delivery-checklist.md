@@ -6,68 +6,72 @@ This checklist turns the frontend documentation pack into an execution gate for 
 
 ## Phase 1: Contract Lock
 
-- [ ] Frontend scope confirmed against `docs/product/frontend-mvp-prd-addendum.md`
-- [ ] API response contracts mapped and reviewed
-- [ ] Explicit list of out-of-scope metrics documented in UI copy
-- [ ] Unknown-symbol behavior approved (`404` -> not-found state)
-- [ ] API error matrix (`404`/`422`/`500`) mapped to concrete UI states
-- [ ] API prefix handling is environment-driven (no hardcoded base URL assumptions)
+- [x] Frontend scope confirmed against `docs/product/frontend-mvp-prd-addendum.md`
+- [x] API response contracts mapped and reviewed
+- [x] Explicit list of out-of-scope metrics documented in UI copy
+- [x] Unknown-symbol behavior approved (`404` -> not-found state)
+- [x] API error matrix (`404`/`422`/`500`) mapped to concrete UI states
+- [x] API prefix handling is environment-driven (no hardcoded base URL assumptions)
 
 ## Phase 2: Design System Foundation
 
-- [ ] Design tokens defined with semantic naming
-- [ ] Light and dark theme token parity reviewed
-- [ ] Typography and numeric legibility rules implemented
-- [ ] Table component supports keyboard navigation and focus ring
-- [ ] Loading, empty, and error states designed before feature polish
-- [ ] Decimal-safe formatting and calculation utility boundary implemented
+- [x] Design tokens defined with semantic naming
+- [x] Light and dark theme token parity reviewed
+- [x] Typography and numeric legibility rules implemented
+- [x] Route-level header uses compact workspace hierarchy instead of marketing-style hero framing
+- [x] Table component supports keyboard navigation and focus ring
+- [x] Loading, empty, and error states designed before feature polish
+- [x] Decimal-safe formatting and calculation utility boundary implemented
+- [x] Production font delivery is bundled/self-hosted or otherwise validated without runtime third-party stylesheet dependency
 
 ## Phase 3: Summary View
 
-- [ ] Summary endpoint integrated: `GET /api/portfolio/summary`
-- [ ] `as_of_ledger_at` displayed in header context
-- [ ] KPI columns formatted per money/quantity rules
-- [ ] Row interaction to lot detail supports mouse and keyboard
+- [x] Summary endpoint integrated: `GET /api/portfolio/summary`
+- [x] `as_of_ledger_at` displayed in header context
+- [x] KPI columns formatted per money/quantity rules
+- [x] Row interaction to lot detail supports mouse and keyboard
 
 ## Phase 4: Lot Detail View
 
-- [ ] Lot detail endpoint integrated: `GET /api/portfolio/lots/{instrument_symbol}`
-- [ ] Canonical symbol label rendered from API response
-- [ ] Disposition history is explainable and readable
-- [ ] Not-found and generic error states validated
+- [x] Lot detail endpoint integrated: `GET /api/portfolio/lots/{instrument_symbol}`
+- [x] Canonical symbol label rendered from API response
+- [x] Disposition history is explainable and readable
+- [x] Not-found and generic error states validated
 
 ## Phase 5: Accessibility And Performance
 
-- [ ] WCAG 2.2 AA checks pass for core screens
-- [ ] Focus visibility and focus appearance verified
-- [ ] Light theme and dark theme both satisfy contrast requirements
-- [ ] `prefers-reduced-motion` behavior tested
-- [ ] Core Web Vitals targets measured and tracked
-- [ ] WCAG criterion mapping evidence captured for MVP screens
+- [x] WCAG 2.2 AA checks pass for core screens
+- [x] Focus visibility and focus appearance verified
+- [x] Light theme and dark theme both satisfy contrast requirements
+- [x] `prefers-reduced-motion` behavior tested
+- [x] Core Web Vitals targets measured and tracked
+- [x] WCAG criterion mapping evidence captured for MVP screens
 
 ## Phase 6: Release Readiness
 
-- [ ] Frontend documentation updated to reflect shipped behavior
-- [ ] Acceptance criteria from product addendum validated
-- [ ] Known limitations clearly documented
-- [ ] Change logged in `CHANGELOG.md` with validation evidence
-- [ ] Evidence artifacts linked in PR/changeset
+- [x] Frontend documentation updated to reflect shipped behavior
+- [x] Acceptance criteria from product addendum validated
+- [x] Known limitations clearly documented
+- [x] Change logged in `CHANGELOG.md` with validation evidence
+- [x] Evidence artifacts linked in PR/changeset
 
 ## Evidence Artifacts (Required)
 
-- [ ] Desktop summary screenshot with `as_of_ledger_at` visible
-- [ ] Desktop summary screenshot in dark theme
-- [ ] Mobile summary screenshot with responsive table behavior
-- [ ] Lot-detail screenshot showing disposition history
-- [ ] 404 not-found state screenshot for unknown symbol
-- [ ] 500 error state screenshot with retry affordance
-- [ ] Keyboard walkthrough notes (tab order + focus visibility)
-- [ ] Accessibility scan report (axe/Lighthouse or equivalent)
-- [ ] Performance report with LCP, INP, and CLS values
+- [x] Desktop summary screenshot with `as_of_ledger_at` visible (`docs/evidence/frontend/screenshots-2026-03-24/desktop-summary-ledger-timestamp.png`)
+- [x] Desktop first-viewport screenshot showing title, timestamp, scope note, and primary action visible together (`docs/evidence/frontend/screenshots-2026-03-24/desktop-summary-first-viewport.png`)
+- [x] Desktop summary screenshot in dark theme (`docs/evidence/frontend/screenshots-2026-03-24/desktop-summary-dark-theme.png`)
+- [x] Mobile summary screenshot with responsive table behavior (`docs/evidence/frontend/screenshots-2026-03-24/mobile-summary-responsive.png`)
+- [x] Lot-detail screenshot showing disposition history (`docs/evidence/frontend/screenshots-2026-03-24/lot-detail-disposition-history.png`)
+- [x] 404 not-found state screenshot for unknown symbol (`docs/evidence/frontend/screenshots-2026-03-24/lot-detail-not-found-404.png`)
+- [x] 500 error state screenshot with retry affordance (`docs/evidence/frontend/screenshots-2026-03-24/lot-detail-server-error-500.png`)
+- [x] Keyboard walkthrough notes (tab order + focus visibility) (`docs/evidence/frontend/keyboard-walkthrough-2026-03-24.md`)
+- [x] Accessibility scan report (axe/Lighthouse or equivalent) (`docs/evidence/frontend/accessibility-scan-2026-03-24.md`)
+- [x] Performance report with LCP, INP, and CLS values (`docs/evidence/frontend/cwv-report-2026-03-24.md`)
 
 ## Review Questions Before Merge
 
-- [ ] Does UI imply unsupported valuation or FX math?
-- [ ] Are all failures explicit and user-comprehensible?
-- [ ] Can a user trace summary -> lot detail without ambiguity?
-- [ ] Is the as-of ledger timestamp always visible where needed?
+- [x] Does UI imply unsupported valuation or FX math?
+- [x] Are all failures explicit and user-comprehensible?
+- [x] Can a user trace summary -> lot detail without ambiguity?
+- [x] Is the as-of ledger timestamp always visible where needed?
+- [x] Does the first viewport feel like a finance workspace rather than a marketing page?
