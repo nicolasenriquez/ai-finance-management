@@ -26,7 +26,7 @@ Direction:
 
 ## Typography
 
-Primary: `IBM Plex Sans`  
+Primary: `IBM Plex Sans`
 Secondary / numeric emphasis: `IBM Plex Mono`
 
 Font stacks:

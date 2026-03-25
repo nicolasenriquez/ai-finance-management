@@ -1,5 +1,12 @@
 # AI Finance Management
 
+[![CI](https://github.com/nicolasenriquez/ai-finance-management/actions/workflows/ci.yml/badge.svg)](https://github.com/nicolasenriquez/ai-finance-management/actions/workflows/ci.yml)
+![Python](https://img.shields.io/badge/Python-3.12%2B-3776AB?logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.120%2B-009688?logo=fastapi&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white)
+![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=111)
+![Vite](https://img.shields.io/badge/Vite-6-646CFF?logo=vite&logoColor=white)
+
 Personal finance analytics application built with FastAPI and PostgreSQL, designed to evolve from a contract-first PDF/data ingestion pipeline into a full analytics product.
 
 Current MVP direction:
@@ -60,6 +67,7 @@ Reference guides:
 - [`docs/guides/frontend-api-and-ux-guide.md`](docs/guides/frontend-api-and-ux-guide.md)
 - [`docs/guides/frontend-design-system-guide.md`](docs/guides/frontend-design-system-guide.md)
 - [`docs/guides/frontend-delivery-checklist.md`](docs/guides/frontend-delivery-checklist.md)
+- [`docs/guides/local-workflow-justfile.md`](docs/guides/local-workflow-justfile.md)
 - [`docs/guides/postgres-local-setup.md`](docs/guides/postgres-local-setup.md)
 - [`docs/guides/postgres-performance-guide.md`](docs/guides/postgres-performance-guide.md)
 - [`docs/guides/postgres-security-guide.md`](docs/guides/postgres-security-guide.md)
@@ -80,35 +88,58 @@ Engineering standards:
 
 ## Quick Start
 
+Recommended prerequisites:
+
+- Python 3.12+
+- Node.js + npm
+- PostgreSQL reachable from `DATABASE_URL` (Postgres.app or Docker)
+- `just` (recommended local workflow runner)
+
+Install `just` on macOS:
+
+```bash
+brew install just
+```
+
+Bootstrap dependencies:
+
 ```bash
 cp .env.example .env
-uv sync
+just install
+```
+
+If you use Docker for local PostgreSQL:
+
+```bash
 docker-compose up -d db
-uv run alembic upgrade head
-uv run uvicorn app.main:app --reload --port 8123
+```
+
+Run backend + frontend together:
+
+```bash
+just dev
 ```
 
 API docs: `http://localhost:8123/docs`
+Frontend URL: `http://localhost:3000`
 
-Frontend MVP:
+Manual fallback (without `just`):
 
 ```bash
-docker-compose up -d frontend
+uv sync
+cd frontend && npm install
+uv run uvicorn app.main:app --reload --port 8123
+cd frontend && npm run dev -- --port 3000
 ```
-
-Frontend URL: `http://localhost:5173`
 
 ## Validation Commands
 
 ```bash
-uv run ruff check .
-uv run black . --check --diff
-uv run bandit -c pyproject.toml -r app --severity-level high --confidence-level high
-uv run mypy app/
-uv run pyright app/
-uv run ty check app
-uv run pytest -v
-uv run pytest -v -m integration
+just backend-ci
+just frontend-ci
+just ci
+just test-integration
+just precommit-run
 ```
 
 ## Architecture
@@ -129,7 +160,10 @@ Target MVP architecture:
 backend (FastAPI) + db (PostgreSQL) + frontend (React)
 ```
 
-All three services will run via `docker-compose` in local development.
+Current local workflow:
+
+- backend + frontend: `just dev`
+- database: Docker Compose (`docker-compose up -d db`) or local PostgreSQL app
 
 ## Tech Stack
 

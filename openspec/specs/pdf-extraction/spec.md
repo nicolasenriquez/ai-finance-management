@@ -49,4 +49,3 @@ The system SHALL preserve raw extracted string values in this slice and defer ca
 - **WHEN** extraction succeeds
 - **THEN** the emitted row fields preserve the raw source values needed for later mapping and parsing
 - **THEN** the extraction result does not depend on normalization or persistence steps
-

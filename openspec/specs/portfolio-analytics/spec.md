@@ -67,4 +67,3 @@ The system SHALL reject unsupported or unknown lot-detail requests with explicit
 - **THEN** the system returns an explicit client error
 - **THEN** the response makes clear that the requested instrument was not found in the portfolio ledger
 - **THEN** frontend consumers display a not-found state rather than an empty success table
-

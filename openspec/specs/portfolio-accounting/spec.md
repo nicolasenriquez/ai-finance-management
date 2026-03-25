@@ -61,4 +61,3 @@ The system SHALL provide deterministic finance-focused golden cases that validat
 - **THEN** the cases prove FIFO lot matching outcomes deterministically
 - **THEN** the cases prove split-adjusted lot behavior deterministically
 - **THEN** the cases remain readable enough to explain the intended accounting policy
-

@@ -11,9 +11,15 @@ import pytest
 from sqlalchemy import func, select, table, text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
+from app.core.config import Settings
 from app.market_data.models import PriceHistory
+from app.market_data.providers.yfinance_adapter import YFinanceNormalizedRow
 from app.market_data.schemas import MarketDataPriceWrite, MarketDataSnapshotWriteRequest
-from app.market_data.service import MarketDataClientError, ingest_market_data_snapshot
+from app.market_data.service import (
+    MarketDataClientError,
+    ingest_market_data_snapshot,
+    ingest_yfinance_daily_close_snapshot,
+)
 from app.pdf_persistence.models import CanonicalPdfRecord, ImportJob, SourceDocument
 from app.portfolio_ledger.models import (
     CorporateActionEvent,
@@ -270,6 +276,21 @@ def _build_valid_request(*, price: str = "510.123456789") -> MarketDataSnapshotW
     )
 
 
+def _provider_settings() -> Settings:
+    """Return deterministic provider settings for integration tests."""
+
+    return Settings(
+        database_url="postgresql+asyncpg://test:test@localhost:5432/test",
+        market_data_yfinance_period="5y",
+        market_data_yfinance_interval="1d",
+        market_data_yfinance_timeout_seconds=30.0,
+        market_data_yfinance_max_retries=0,
+        market_data_yfinance_retry_backoff_seconds=0.0,
+        market_data_yfinance_auto_adjust=False,
+        market_data_yfinance_repair=False,
+    )
+
+
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_ingest_is_idempotent_for_same_snapshot_symbol_and_time_key(
@@ -393,6 +414,69 @@ async def test_market_data_refresh_failure_does_not_mutate_ledger_truth(
     after_counts = await _fetch_truth_counts(test_db_session)
 
     assert before_counts == after_counts
+
+
+@pytest.mark.integration
+@pytest.mark.asyncio
+async def test_provider_ingest_is_idempotent_and_non_mutating(
+    test_db_session: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Provider-backed ingest must remain idempotent and preserve ledger truth."""
+
+    await _truncate_tables_if_present(test_db_session)
+    await _seed_ledger_truth(test_db_session)
+    before_counts = await _fetch_truth_counts(test_db_session)
+    await test_db_session.rollback()
+
+    provider_prices = [Decimal("510.123456789"), Decimal("511.000000000")]
+
+    async def fake_fetch(
+        *,
+        symbols: tuple[str, ...],
+        config: object,
+    ) -> tuple[list[YFinanceNormalizedRow], dict[str, object]]:
+        del config
+        assert symbols == ("VOO",)
+        return (
+            [
+                YFinanceNormalizedRow(
+                    instrument_symbol="VOO",
+                    trading_date=date(2026, 3, 24),
+                    close_value=provider_prices.pop(0),
+                    currency_code="USD",
+                    source_payload={"provider": "yfinance", "field": "Close"},
+                )
+            ],
+            {"provider": "yfinance"},
+        )
+
+    monkeypatch.setattr("app.market_data.service.fetch_yfinance_daily_close_rows", fake_fetch)
+
+    first = await ingest_yfinance_daily_close_snapshot(
+        db=test_db_session,
+        symbols=["VOO"],
+        snapshot_captured_at=datetime(2026, 3, 24, 15, 0, tzinfo=UTC),
+        settings=_provider_settings(),
+    )
+    second = await ingest_yfinance_daily_close_snapshot(
+        db=test_db_session,
+        symbols=["VOO"],
+        snapshot_captured_at=datetime(2026, 3, 24, 15, 0, tzinfo=UTC),
+        settings=_provider_settings(),
+    )
+
+    rows_result = await test_db_session.execute(select(PriceHistory))
+    rows = rows_result.scalars().all()
+    after_counts = await _fetch_truth_counts(test_db_session)
+
+    assert first.inserted_prices == 1
+    assert first.updated_prices == 0
+    assert second.inserted_prices == 0
+    assert second.updated_prices == 1
+    assert len(rows) == 1
+    assert rows[0].price_value == Decimal("511.000000000")
+    assert after_counts == before_counts
 
 
 @pytest.mark.integration

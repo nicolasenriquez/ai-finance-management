@@ -96,4 +96,3 @@ The system SHALL reuse trusted normalization output before writing to PostgreSQL
 - **WHEN** a persistence request succeeds
 - **THEN** the stored PDF and durable ingestion metadata manifest remain the replay source of truth for this phase
 - **THEN** persisted canonical rows serve as trusted audit output rather than a replacement for source-file retention
-

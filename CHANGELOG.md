@@ -26,6 +26,19 @@ Use this structure for new entries:
 
 ## 2026-03-24
 
+### feat(market-data-provider): add first yfinance adapter with deterministic ingest boundary
+- Summary: Added the first external provider adapter under `app/market_data/providers` and a service orchestration path that fetches yfinance day-level close rows, normalizes them to the existing write contract, and persists through the existing idempotent market-data snapshot ingest boundary.
+- Why: Phase 6 required proving that external provider data can be ingested without weakening ledger-first truth, non-mutation guarantees, or deterministic validation behavior.
+- Files: `app/market_data/providers/{__init__.py,yfinance_adapter.py}`, `app/market_data/service.py`, `app/market_data/tests/{test_yfinance_adapter_unit.py,test_service_unit.py,test_service_integration.py}`, `app/core/config.py`, `app/core/tests/test_config.py`, `pyproject.toml`, `uv.lock`, `docs/product/{roadmap.md,backlog-sprints.md,decisions.md}`, `docs/guides/{validation-baseline.md,yfinance-integration-guide.md}`, `openspec/changes/add-yfinance-market-data-adapter/tasks.md`, `CHANGELOG.md`.
+- Validation: `uv run pytest -v app/market_data/tests/test_yfinance_adapter_unit.py app/market_data/tests/test_service_unit.py app/market_data/tests/test_service_integration.py app/core/tests/test_config.py` (23 passed), `uv run ruff check app/market_data/tests/test_service_integration.py` (pass), `uv run pytest -v app/market_data/tests/test_service_integration.py::test_provider_ingest_is_idempotent_and_non_mutating -m integration` (pass), `openspec instructions apply --change add-yfinance-market-data-adapter --json` (progress now 10/13; verification tasks complete).
+- Notes: Non-goals remain explicit in this slice: no broker transaction import, no canonical/ledger mutation, no public market-data API expansion, and no valuation KPI expansion.
+
+### docs(yfinance-planning): add provider standard and integration planning guides
+- Summary: Added a market-data provider standard plus dedicated yfinance integration and financial-documents guidance to prepare Sprint 5.2 planning with explicit provenance, idempotency, legal, and boundary rules.
+- Why: The market-data boundary is implemented, and the next natural step is broker/provider integration; this documentation package reduces scope drift and creates implementation-ready guardrails before coding.
+- Files: `docs/standards/market-data-provider-standard.md`, `docs/guides/yfinance-integration-guide.md`, `docs/guides/yfinance-financial-documents-and-fundamentals-guide.md`, `docs/references/references.md`, `docs/README.md`, `docs/product/decisions.md`, `CHANGELOG.md`.
+- Validation: Documentation-only update; guidance aligned with current PRD, roadmap, decisions, and market-data boundary contracts.
+
 ### docs(external-template-evaluation): assess vstorm ai-agent template and define adoption guardrails
 - Summary: Added a formal evaluation note for `vstorm-co/full-stack-ai-agent-template`, updated references and documentation navigation to register it as reference-only material, and proposed an ADR to prevent drop-in template adoption without phase-scoped validation.
 - Why: Keep external inspiration useful while preventing scope creep, architecture drift, and premature AI/auth complexity against the current roadmap boundaries.

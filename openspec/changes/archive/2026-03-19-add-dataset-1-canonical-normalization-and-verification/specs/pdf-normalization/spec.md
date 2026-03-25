@@ -34,4 +34,3 @@ The system SHALL fail explicitly when a row cannot be mapped or validated determ
 - **WHEN** a row has an ambiguous or invalid combination of fields for its canonical event type
 - **THEN** the system rejects the row with an actionable validation error
 - **THEN** the system does not silently coerce the row into a canonical record
-

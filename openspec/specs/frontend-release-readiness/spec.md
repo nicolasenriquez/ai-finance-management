@@ -49,4 +49,3 @@ The repository SHALL include traceable documentation proving completion of front
 - **WHEN** hardening tasks are complete
 - **THEN** `docs/guides/frontend-delivery-checklist.md` items are updated to reflect validated outcomes
 - **THEN** changelog and supporting docs reference the evidence set used to declare release readiness
-

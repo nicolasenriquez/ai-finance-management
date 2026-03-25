@@ -5,8 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "npm run type-check && vite build",
     "preview": "vite preview",
+    "lint": "tsc --noEmit --pretty false -p tsconfig.app.json && tsc --noEmit --pretty false -p tsconfig.node.json",
+    "type-check": "tsc --noEmit --pretty false -p tsconfig.app.json && tsc --noEmit --pretty false -p tsconfig.node.json",
     "test": "vitest run",
     "cwv:measure": "node scripts/measure-cwv.mjs",
     "frontend:evidence": "node scripts/capture-frontend-evidence.mjs"

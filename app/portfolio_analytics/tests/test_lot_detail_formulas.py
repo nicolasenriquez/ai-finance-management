@@ -50,7 +50,7 @@ def _load_error_type(name: str, *, task_hint: str) -> type[Exception]:
         )
     if not isinstance(candidate, type) or not issubclass(candidate, Exception):
         pytest.fail(f"Expected {name} to be an Exception subclass.")
-    return cast(type[Exception], candidate)
+    return candidate
 
 
 def _assert_decimal_field(row: Mapping[str, object], field: str, expected: str) -> None:
@@ -67,10 +67,15 @@ def _get_lot_row(result: Mapping[str, object], *, lot_id: int) -> Mapping[str, o
     raw_lots = result.get("lots")
     if not isinstance(raw_lots, list):
         pytest.fail("Lot-detail result must include a 'lots' list.")
-    for lot in raw_lots:
-        if not isinstance(lot, Mapping):
+    lots = cast(list[object], raw_lots)
+    for lot_candidate in lots:
+        if not isinstance(lot_candidate, Mapping):
             continue
-        if int(lot.get("lot_id", -1)) == lot_id:
+        lot = cast(Mapping[str, object], lot_candidate)
+        raw_lot_id = lot.get("lot_id")
+        if not isinstance(raw_lot_id, int):
+            continue
+        if raw_lot_id == lot_id:
             return lot
     pytest.fail(f"Lot-detail result is missing lot_id={lot_id}.")
 
@@ -148,9 +153,16 @@ def test_lot_detail_returns_explainable_lot_rows_for_symbol_variants() -> None:
     first_lot_dispositions = first_lot.get("dispositions")
     if not isinstance(first_lot_dispositions, list):
         pytest.fail("Each lot row must include a 'dispositions' list.")
-    assert len(first_lot_dispositions) == 1
-    disposition = cast(Mapping[str, object], first_lot_dispositions[0])
-    assert int(disposition["sell_transaction_id"]) == 9101
+    dispositions = cast(list[object], first_lot_dispositions)
+    assert len(dispositions) == 1
+    first_disposition = dispositions[0]
+    if not isinstance(first_disposition, Mapping):
+        pytest.fail("Lot disposition entries must be JSON objects.")
+    disposition = cast(Mapping[str, object], first_disposition)
+    sell_transaction_id = disposition.get("sell_transaction_id")
+    if not isinstance(sell_transaction_id, int):
+        pytest.fail("Lot disposition must include integer sell_transaction_id values.")
+    assert sell_transaction_id == 9101
     _assert_decimal_field(disposition, "matched_qty", "1.000000000")
     _assert_decimal_field(disposition, "matched_cost_basis_usd", "50.00")
 

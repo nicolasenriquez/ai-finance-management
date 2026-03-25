@@ -15,22 +15,28 @@ Current implementation status:
 - portfolio-ledger foundation and dataset 1 v1 accounting policy are implemented
 - portfolio analytics API (`/api/portfolio/summary`, `/api/portfolio/lots/{instrument_symbol}`) is implemented with ledger-only KPI v1 scope
 - market-data ingestion boundary is implemented with idempotent snapshot writes and explicit non-mutation guarantees for canonical/ledger truth
+- first external market-data provider adapter (`yfinance`) is implemented with deterministic day-level close normalization and provider-backed ingest routed through the existing market-data boundary
 
 ## Repository Baseline
 
 Expected commands:
 
 ```bash
-uv run ruff check .
-uv run black . --check --diff
-uv run bandit -c pyproject.toml -r app --severity-level high --confidence-level high
-uv run mypy app/
-uv run pyright app/
-uv run ty check app
-uv run pytest -v
-uv run pytest -v -m integration
+just lint
+just type
+just security
+just test
+just frontend-ci
+just ci
+just test-integration
 openspec validate --specs --all
 ```
+
+Command intent:
+
+- `just ci`: local pre-CI gate (backend + frontend)
+- `just test`: non-integration/unit-focused test run
+- `just test-integration`: integration-only tests (requires DB readiness/migrations)
 
 Expected service checks:
 
@@ -79,6 +85,7 @@ For each golden set dataset:
 - pure normalizer tests
 - parser tests
 - schema validation tests
+- non-integration backend tests (`just test`)
 
 ### Level 3: Integration Tests
 
@@ -92,6 +99,8 @@ For each golden set dataset:
 - market-data snapshot ingest duplicate-safety and explicit in-request duplicate rejection
 - market-data refresh non-mutation guarantees for canonical, ledger, lot, dividend, and corporate-action truth
 - migration schema contract checks for `market_data_snapshot` / `price_history` boundary constraints
+- provider-backed ingest idempotency/non-mutation coverage using mocked adapter responses (no live network dependency in CI)
+- backend integration marker suite (`just test-integration`)
 
 ### Level 4: Manual Verification
 
@@ -119,3 +128,4 @@ For persistence phases, validation must also confirm:
 - rerunning the same market-data snapshot uses deterministic insert-or-update behavior instead of creating ambiguous duplicate rows
 - market-data ingestion rejects payload-level duplicate symbol/time keys before DB mutation
 - market-data refresh path does not create, update, or delete canonical, ledger, lot, lot-disposition, dividend, or corporate-action truth rows
+- provider-adapter tests prove fail-fast behavior for unsupported config semantics and incomplete requested-symbol coverage

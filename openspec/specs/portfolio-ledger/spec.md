@@ -72,4 +72,3 @@ The system SHALL keep transaction-ledger truth and derived lot state separate fr
 - **WHEN** a portfolio analytics capability computes grouped or lot-level portfolio output
 - **THEN** it reads from persisted ledger and lot state as the source of truth
 - **THEN** it does not rewrite canonical, ledger, or lot records while producing analytics responses
-

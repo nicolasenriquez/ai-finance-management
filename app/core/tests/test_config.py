@@ -40,6 +40,13 @@ def test_settings_defaults() -> None:
         assert settings.pdf_upload_storage_root == ".data/pdf_uploads"
         assert settings.pdf_upload_max_bytes == 10 * 1024 * 1024
         assert settings.pdf_upload_max_pages == 50
+        assert settings.market_data_yfinance_period == "5y"
+        assert settings.market_data_yfinance_interval == "1d"
+        assert settings.market_data_yfinance_timeout_seconds == 30.0
+        assert settings.market_data_yfinance_max_retries == 2
+        assert settings.market_data_yfinance_retry_backoff_seconds == 0.5
+        assert settings.market_data_yfinance_auto_adjust is False
+        assert settings.market_data_yfinance_repair is False
         assert "http://localhost:3000" in settings.allowed_origins
         assert "http://localhost:8123" in settings.allowed_origins
 
@@ -58,6 +65,13 @@ def test_settings_from_environment() -> None:
             "PDF_UPLOAD_STORAGE_ROOT": ".data/custom_uploads",
             "PDF_UPLOAD_MAX_BYTES": "2048",
             "PDF_UPLOAD_MAX_PAGES": "5",
+            "MARKET_DATA_YFINANCE_PERIOD": "1y",
+            "MARKET_DATA_YFINANCE_INTERVAL": "1d",
+            "MARKET_DATA_YFINANCE_TIMEOUT_SECONDS": "12.5",
+            "MARKET_DATA_YFINANCE_MAX_RETRIES": "3",
+            "MARKET_DATA_YFINANCE_RETRY_BACKOFF_SECONDS": "1.25",
+            "MARKET_DATA_YFINANCE_AUTO_ADJUST": "false",
+            "MARKET_DATA_YFINANCE_REPAIR": "false",
             "DATABASE_URL": "postgresql+asyncpg://test:test@localhost:5432/test",
         },
     ):
@@ -72,6 +86,13 @@ def test_settings_from_environment() -> None:
         assert settings.pdf_upload_storage_root == ".data/custom_uploads"
         assert settings.pdf_upload_max_bytes == 2048
         assert settings.pdf_upload_max_pages == 5
+        assert settings.market_data_yfinance_period == "1y"
+        assert settings.market_data_yfinance_interval == "1d"
+        assert settings.market_data_yfinance_timeout_seconds == 12.5
+        assert settings.market_data_yfinance_max_retries == 3
+        assert settings.market_data_yfinance_retry_backoff_seconds == 1.25
+        assert settings.market_data_yfinance_auto_adjust is False
+        assert settings.market_data_yfinance_repair is False
 
 
 def test_allowed_origins_parsing() -> None:

@@ -26,12 +26,16 @@ This repository organizes documentation by function so standards, product artifa
 - Frontend API and UX guide: `docs/guides/frontend-api-and-ux-guide.md`
 - Frontend design system guide: `docs/guides/frontend-design-system-guide.md`
 - Frontend delivery checklist: `docs/guides/frontend-delivery-checklist.md`
+- Local workflow (`just`): `docs/guides/local-workflow-justfile.md`
 - Logging standard: `docs/standards/logging-standard.md`
 - Frontend standard: `docs/standards/frontend-standard.md`
+- Market-data provider standard: `docs/standards/market-data-provider-standard.md`
 - PostgreSQL standard: `docs/standards/postgres-standard.md`
 - PostgreSQL local setup guide: `docs/guides/postgres-local-setup.md`
 - PostgreSQL performance guide: `docs/guides/postgres-performance-guide.md`
 - PostgreSQL security guide: `docs/guides/postgres-security-guide.md`
+- YFinance integration guide: `docs/guides/yfinance-integration-guide.md`
+- YFinance financial documents and fundamentals guide: `docs/guides/yfinance-financial-documents-and-fundamentals-guide.md`
 - `pgvector` guide: `docs/guides/pgvector-guide.md`
 - TimescaleDB guide: `docs/guides/timescaledb-guide.md`
 - External references: `docs/references/references.md`

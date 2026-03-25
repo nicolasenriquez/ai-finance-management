@@ -15,6 +15,7 @@ Use this sequence most of the time:
 /prime
 /next-step
 /plan <change description>
+/review-fix [optional findings]
 /explain <change-name> <task-selector>   # optional learning/review step
 /execute <change-name> [task-selector]
 /validate
@@ -26,6 +27,7 @@ Mental model:
 - `/prime` = understand current repo and OpenSpec runtime
 - `/next-step` = pick the highest-leverage next implementation step
 - `/plan` = produce an execution-ready plan from OpenSpec artifacts
+- `/review-fix` = convert review findings into a minimal fix plan in `/explain` structure
 - `/explain` = explain task slices before coding (read-only)
 - `/execute` = implement task slices with explicit validation
 - `/validate` = report what actually passes, fails, or is blocked
@@ -124,6 +126,26 @@ Examples:
 ```text
 /explain add-pdf-ingestion-without-persistence 2.1
 /explain openspec/changes/add-pdf-ingestion-without-persistence/tasks.md 2.1-2.3 depth=deep
+```
+
+### `/review-fix`
+
+Use when:
+- you just ran `/review` and need a minimal, actionable fix plan
+- you want `/explain`-structured diagnosis before coding
+
+What it does:
+- resolves findings from the latest built-in code-review action context (or explicit input)
+- diagnoses root causes and impact per finding
+- proposes smallest safe changes aligned with repo rules
+- includes rabbit-hole check plus diff/blind-spot analysis
+
+Examples:
+
+```text
+/review-fix
+/review-fix <paste findings block>
+/review-fix <paste findings block> depth=deep
 ```
 
 ### `/execute`

@@ -207,3 +207,20 @@ Implications:
 - only phase-scoped, minimal patterns should be imported
 - every adopted pattern must preserve ledger-first truth, fail-fast behavior, and current validation gates
 - drop-in template migration is out of scope unless a dedicated future change explicitly approves it
+
+### ADR-017: Use yfinance as the first market-data provider adapter
+
+Status: Accepted (implemented 2026-03-24)
+
+Reason:
+
+- Sprint 5.2 needs a practical first provider to validate adapter boundaries and ingestion contracts
+- yfinance enables a low-friction first integration while preserving current provider-agnostic schema boundaries
+- provider-specific behavior can be isolated in adapter modules without changing canonical or ledger truth
+
+Implications:
+
+- yfinance integration remains market-data-only and must not mutate canonical/ledger/lot truth
+- provenance and idempotency requirements from the current market-data boundary remain mandatory
+- legal usage notes and provider limitations must be documented explicitly
+- fundamentals/financial-document payloads from yfinance are analysis-enrichment inputs, not accounting truth

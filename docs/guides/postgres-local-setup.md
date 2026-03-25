@@ -19,8 +19,10 @@ The repository currently expects:
 - PostgreSQL 18 in Docker Compose
 - host port `5433`
 - application port `8123`
+- frontend dev port `3000`
 - `DATABASE_URL` loaded from `.env`
 - separate admin/bootstrap and app runtime credentials
+- local workflow automation available via `just` recipes (`just db-check`, `just db-upgrade`, `just dev`)
 
 Current examples live in:
 

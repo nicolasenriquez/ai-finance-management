@@ -119,6 +119,17 @@ def _assert_decimal_field(row: Mapping[str, object], field: str, expected: str) 
     assert Decimal(str(row[field])) == Decimal(expected)
 
 
+def _assert_int_field(row: Mapping[str, object], field: str, expected: int) -> None:
+    """Assert one integer response field without unsafe object casts."""
+
+    if field not in row:
+        pytest.fail(f"Response row is missing field '{field}'.")
+    actual = row[field]
+    if not isinstance(actual, int):
+        pytest.fail(f"Response row field '{field}' must be an integer.")
+    assert actual == expected
+
+
 def _patch_forbidden_upstream_calls(monkeypatch: pytest.MonkeyPatch) -> None:
     """Fail immediately if analytics routes invoke PDF/rebuild side effects."""
 
@@ -494,11 +505,13 @@ def test_summary_endpoint_returns_grouped_rows_with_as_of_ledger_at(
     rows_raw = payload.get("rows")
     if not isinstance(rows_raw, list):
         pytest.fail("Summary response must include a 'rows' list.")
+    rows = cast(list[object], rows_raw)
 
     rows_by_symbol: dict[str, Mapping[str, object]] = {}
-    for row in rows_raw:
-        if not isinstance(row, Mapping):
+    for row_candidate in rows:
+        if not isinstance(row_candidate, Mapping):
             pytest.fail("Summary rows must be JSON objects.")
+        row = cast(Mapping[str, object], row_candidate)
         symbol = row.get("instrument_symbol")
         if not isinstance(symbol, str):
             pytest.fail("Summary rows must include string instrument_symbol values.")
@@ -509,7 +522,7 @@ def test_summary_endpoint_returns_grouped_rows_with_as_of_ledger_at(
     voo_row = rows_by_symbol["VOO"]
     _assert_decimal_field(voo_row, "open_quantity", "1.500000000")
     _assert_decimal_field(voo_row, "open_cost_basis_usd", "160.00")
-    assert int(voo_row["open_lot_count"]) == 2
+    _assert_int_field(voo_row, "open_lot_count", 2)
     _assert_decimal_field(voo_row, "realized_proceeds_usd", "210.00")
     _assert_decimal_field(voo_row, "realized_cost_basis_usd", "110.00")
     _assert_decimal_field(voo_row, "realized_gain_usd", "100.00")
@@ -520,7 +533,7 @@ def test_summary_endpoint_returns_grouped_rows_with_as_of_ledger_at(
     aapl_row = rows_by_symbol["AAPL"]
     _assert_decimal_field(aapl_row, "open_quantity", "3.000000000")
     _assert_decimal_field(aapl_row, "open_cost_basis_usd", "450.00")
-    assert int(aapl_row["open_lot_count"]) == 1
+    _assert_int_field(aapl_row, "open_lot_count", 1)
     _assert_decimal_field(aapl_row, "realized_proceeds_usd", "0.00")
     _assert_decimal_field(aapl_row, "realized_cost_basis_usd", "0.00")
     _assert_decimal_field(aapl_row, "realized_gain_usd", "0.00")
@@ -559,18 +572,23 @@ def test_lot_detail_endpoint_normalizes_symbol_and_returns_disposition_history(
     lots_raw = payload.get("lots")
     if not isinstance(lots_raw, list):
         pytest.fail("Lot-detail response must include a 'lots' list.")
+    lots = cast(list[object], lots_raw)
 
     total_remaining_qty = Decimal("0")
     has_disposition_history = False
-    for lot in lots_raw:
-        if not isinstance(lot, Mapping):
+    for lot_candidate in lots:
+        if not isinstance(lot_candidate, Mapping):
             pytest.fail("Lot-detail lot rows must be JSON objects.")
-        total_remaining_qty += Decimal(str(lot["remaining_qty"]))
+        lot = cast(Mapping[str, object], lot_candidate)
+        remaining_qty = lot.get("remaining_qty")
+        if remaining_qty is None:
+            pytest.fail("Lot-detail lot rows must include 'remaining_qty'.")
+        total_remaining_qty += Decimal(str(remaining_qty))
         dispositions = lot.get("dispositions")
         if isinstance(dispositions, list) and dispositions:
             has_disposition_history = True
 
-    assert len(lots_raw) == 2
+    assert len(lots) == 2
     assert total_remaining_qty == Decimal("1.500000000")
     assert has_disposition_history
 
@@ -595,7 +613,8 @@ def test_lot_detail_endpoint_rejects_unknown_symbol_with_explicit_client_error(
     payload_raw = response.json()
     if not isinstance(payload_raw, dict):
         pytest.fail("Unknown-symbol response must be a JSON object.")
-    detail = payload_raw.get("detail")
+    payload = cast(dict[str, object], payload_raw)
+    detail = payload.get("detail")
     if not isinstance(detail, str):
         pytest.fail("Unknown-symbol response must include string 'detail'.")
     assert "not found" in detail.lower()

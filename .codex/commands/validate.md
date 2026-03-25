@@ -72,7 +72,14 @@ If validating an OpenSpec change, also read:
 
 ### 3. Run the repository baseline
 
-Core baseline:
+Core baseline (preferred):
+
+```bash
+just backend-ci
+just frontend-ci
+```
+
+Equivalent explicit backend gate (if `just` is unavailable):
 
 ```bash
 uv run ruff check .
@@ -81,7 +88,7 @@ uv run bandit -c pyproject.toml -r app --severity-level high --confidence-level 
 uv run pyright app/
 uv run mypy app/
 uv run ty check app
-uv run pytest -v
+uv run pytest -v -m "not integration"
 ```
 
 ### 4. Run environment-dependent checks when relevant
@@ -91,7 +98,7 @@ If the work or tests depend on the database, Docker, or server runtime, run the 
 ```bash
 docker-compose up -d db
 uv run alembic upgrade head
-uv run pytest -v -m integration
+just test-integration
 ```
 
 For application runtime checks:

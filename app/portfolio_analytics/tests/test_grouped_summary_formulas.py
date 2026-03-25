@@ -61,6 +61,17 @@ def _assert_decimal_field(row: Mapping[str, object], field: str, expected: str) 
     assert actual == Decimal(expected)
 
 
+def _assert_int_field(row: Mapping[str, object], field: str, expected: int) -> None:
+    """Assert one integer KPI field without unsafe object casts."""
+
+    if field not in row:
+        pytest.fail(f"Grouped summary row is missing KPI field '{field}'.")
+    actual = row[field]
+    if not isinstance(actual, int):
+        pytest.fail(f"Grouped summary field '{field}' must be an integer.")
+    assert actual == expected
+
+
 def test_grouped_summary_computes_ledger_only_kpis_per_instrument() -> None:
     """Grouped summary should emit one ledger-only KPI row per instrument symbol."""
 
@@ -153,7 +164,7 @@ def test_grouped_summary_computes_ledger_only_kpis_per_instrument() -> None:
     voo_row = rows_by_symbol["VOO"]
     _assert_decimal_field(voo_row, "open_quantity", "3.000000000")
     _assert_decimal_field(voo_row, "open_cost_basis_usd", "330.00")
-    assert int(voo_row["open_lot_count"]) == 2
+    _assert_int_field(voo_row, "open_lot_count", 2)
     _assert_decimal_field(voo_row, "realized_proceeds_usd", "250.00")
     _assert_decimal_field(voo_row, "realized_cost_basis_usd", "120.00")
     _assert_decimal_field(voo_row, "realized_gain_usd", "130.00")
@@ -164,7 +175,7 @@ def test_grouped_summary_computes_ledger_only_kpis_per_instrument() -> None:
     aapl_row = rows_by_symbol["AAPL"]
     _assert_decimal_field(aapl_row, "open_quantity", "3.000000000")
     _assert_decimal_field(aapl_row, "open_cost_basis_usd", "450.00")
-    assert int(aapl_row["open_lot_count"]) == 1
+    _assert_int_field(aapl_row, "open_lot_count", 1)
     _assert_decimal_field(aapl_row, "realized_proceeds_usd", "0.00")
     _assert_decimal_field(aapl_row, "realized_cost_basis_usd", "0.00")
     _assert_decimal_field(aapl_row, "realized_gain_usd", "0.00")
@@ -175,7 +186,7 @@ def test_grouped_summary_computes_ledger_only_kpis_per_instrument() -> None:
     nvda_row = rows_by_symbol["NVDA"]
     _assert_decimal_field(nvda_row, "open_quantity", "0.000000000")
     _assert_decimal_field(nvda_row, "open_cost_basis_usd", "0.00")
-    assert int(nvda_row["open_lot_count"]) == 0
+    _assert_int_field(nvda_row, "open_lot_count", 0)
     _assert_decimal_field(nvda_row, "realized_proceeds_usd", "500.00")
     _assert_decimal_field(nvda_row, "realized_cost_basis_usd", "350.00")
     _assert_decimal_field(nvda_row, "realized_gain_usd", "150.00")

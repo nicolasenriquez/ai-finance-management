@@ -2,17 +2,20 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from typing import cast
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import Settings
+from app.market_data.providers.yfinance_adapter import YFinanceAdapterError, YFinanceNormalizedRow
 from app.market_data.schemas import MarketDataPriceWrite, MarketDataSnapshotWriteRequest
 from app.market_data.service import (
     MarketDataClientError,
     ingest_market_data_snapshot,
+    ingest_yfinance_daily_close_snapshot,
     list_price_history_for_symbol,
 )
 
@@ -43,6 +46,21 @@ class _NeverCalledSession:
         """Return a begin-context that fails immediately on use."""
 
         return _NeverCalledBeginContext()
+
+
+def _provider_settings() -> Settings:
+    """Build one settings object suitable for provider-ingest unit tests."""
+
+    return Settings(
+        database_url="postgresql+asyncpg://test:test@localhost:5432/test",
+        market_data_yfinance_period="5y",
+        market_data_yfinance_interval="1d",
+        market_data_yfinance_timeout_seconds=30.0,
+        market_data_yfinance_max_retries=1,
+        market_data_yfinance_retry_backoff_seconds=0.0,
+        market_data_yfinance_auto_adjust=False,
+        market_data_yfinance_repair=False,
+    )
 
 
 def _valid_request(*, symbol: str = "VOO") -> MarketDataSnapshotWriteRequest:
@@ -149,3 +167,121 @@ async def test_read_boundary_rejects_unsafe_symbol_shape_before_db_access() -> N
             instrument_symbol="BRK/B",
         )
     assert exc_info.value.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_provider_ingest_normalizes_dotted_symbol_and_builds_bounded_snapshot_key(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Provider ingest should preserve canonical dotted symbols and bounded snapshot keys."""
+
+    captured_request: dict[str, MarketDataSnapshotWriteRequest] = {}
+
+    async def fake_fetch(
+        *,
+        symbols: tuple[str, ...],
+        config: object,
+    ) -> tuple[list[YFinanceNormalizedRow], dict[str, object]]:
+        del config
+        assert symbols == ("BRK.B",)
+        return (
+            [
+                YFinanceNormalizedRow(
+                    instrument_symbol="BRK.B",
+                    trading_date=date(2026, 3, 24),
+                    close_value=Decimal("510.123456789"),
+                    currency_code="USD",
+                    source_payload={"provider": "yfinance", "field": "Close"},
+                )
+            ],
+            {"provider": "yfinance"},
+        )
+
+    async def fake_ingest(
+        *,
+        db: AsyncSession,
+        request: MarketDataSnapshotWriteRequest,
+    ) -> object:
+        del db
+        captured_request["request"] = request
+
+        class _FakeResult:
+            snapshot_id = 1
+            inserted_prices = 1
+            updated_prices = 0
+
+        return _FakeResult()
+
+    monkeypatch.setattr("app.market_data.service.fetch_yfinance_daily_close_rows", fake_fetch)
+    monkeypatch.setattr("app.market_data.service.ingest_market_data_snapshot", fake_ingest)
+
+    result = await ingest_yfinance_daily_close_snapshot(
+        db=cast(AsyncSession, _NeverCalledSession()),
+        symbols=[" brk.b "],
+        snapshot_captured_at=datetime(2026, 3, 24, 15, 0, tzinfo=UTC),
+        settings=_provider_settings(),
+    )
+
+    assert result.snapshot_id == 1
+    request = captured_request["request"]
+    assert request.source_type == "market_data_provider"
+    assert request.source_provider == "yfinance"
+    assert request.prices[0].instrument_symbol == "BRK.B"
+    assert request.prices[0].trading_date == date(2026, 3, 24)
+    assert request.prices[0].market_timestamp is None
+    assert "aa0rp0" in request.snapshot_key
+    assert len(request.snapshot_key) <= 128
+
+
+@pytest.mark.asyncio
+async def test_provider_ingest_rejects_duplicate_symbols_before_fetch(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Provider ingest should fail fast before fetch when symbols duplicate after normalization."""
+
+    async def fake_fetch(
+        *,
+        symbols: tuple[str, ...],
+        config: object,
+    ) -> tuple[list[YFinanceNormalizedRow], dict[str, object]]:
+        del symbols
+        del config
+        pytest.fail("Provider fetch should not be called on duplicate symbol input.")
+
+    monkeypatch.setattr("app.market_data.service.fetch_yfinance_daily_close_rows", fake_fetch)
+
+    with pytest.raises(MarketDataClientError, match="duplicates after normalization") as exc_info:
+        await ingest_yfinance_daily_close_snapshot(
+            db=cast(AsyncSession, _NeverCalledSession()),
+            symbols=["VOO", " voo "],
+            snapshot_captured_at=datetime(2026, 3, 24, 15, 0, tzinfo=UTC),
+            settings=_provider_settings(),
+        )
+    assert exc_info.value.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_provider_ingest_surfaces_adapter_fail_fast_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Provider ingest should surface adapter errors as market-data client errors."""
+
+    async def fake_fetch(
+        *,
+        symbols: tuple[str, ...],
+        config: object,
+    ) -> tuple[list[YFinanceNormalizedRow], dict[str, object]]:
+        del symbols
+        del config
+        raise YFinanceAdapterError("Provider payload is malformed.", status_code=502)
+
+    monkeypatch.setattr("app.market_data.service.fetch_yfinance_daily_close_rows", fake_fetch)
+
+    with pytest.raises(MarketDataClientError, match=r"Provider payload is malformed\.") as exc_info:
+        await ingest_yfinance_daily_close_snapshot(
+            db=cast(AsyncSession, _NeverCalledSession()),
+            symbols=["VOO"],
+            snapshot_captured_at=datetime(2026, 3, 24, 15, 0, tzinfo=UTC),
+            settings=_provider_settings(),
+        )
+    assert exc_info.value.status_code == 502

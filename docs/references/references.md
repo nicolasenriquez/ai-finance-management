@@ -49,6 +49,27 @@ Validated on 2026-03-24 before documenting the ETF exploration note.
 - pandas `DataFrame.resample`: https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.resample.html
 - pandas `DataFrame.ewm`: https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.ewm.html
 
+## YFinance Provider Planning References
+
+Primary (authoritative):
+
+- yfinance documentation index: https://ranaroussi.github.io/yfinance/index.html
+- yfinance API reference index: https://ranaroussi.github.io/yfinance/reference/index.html
+- yfinance functions/utilities reference: https://ranaroussi.github.io/yfinance/reference/yfinance.functions.html
+- yfinance advanced docs index: https://ranaroussi.github.io/yfinance/advanced/index.html
+- yfinance repository and legal usage notice: https://github.com/ranaroussi/yfinance
+
+Secondary (context only, non-authoritative):
+
+- AlgoTrading101 yfinance guide: https://algotrading101.com/learn/yfinance-guide/
+- YahooFinance Python docs (different library): https://python-yahoofinance.readthedocs.io/en/latest/
+- GeeksforGeeks yfinance tutorial: https://www.geeksforgeeks.org/python/how-to-use-yfinance-api-with-python/
+
+Usage rule:
+
+- use secondary sources only for orientation and examples
+- use official yfinance documentation and repository notices to define implementation behavior
+
 ## External Template Evaluations
 
 - vstorm full-stack AI agent template (evaluation note):

@@ -9,6 +9,7 @@ This module provides centralized configuration management:
 
 from functools import lru_cache
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -48,6 +49,15 @@ class Settings(BaseSettings):
     pdf_upload_storage_root: str = ".data/pdf_uploads"
     pdf_upload_max_bytes: int = 10 * 1024 * 1024
     pdf_upload_max_pages: int = 50
+
+    # YFinance provider adapter (market-data first slice)
+    market_data_yfinance_period: str = "5y"
+    market_data_yfinance_interval: str = "1d"
+    market_data_yfinance_timeout_seconds: float = Field(default=30.0, gt=0.0)
+    market_data_yfinance_max_retries: int = Field(default=2, ge=0, le=5)
+    market_data_yfinance_retry_backoff_seconds: float = Field(default=0.5, ge=0.0, le=60.0)
+    market_data_yfinance_auto_adjust: bool = False
+    market_data_yfinance_repair: bool = False
 
 
 @lru_cache

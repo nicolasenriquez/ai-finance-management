@@ -28,4 +28,3 @@ The system SHALL stop with an explicit failure when canonical normalization cann
 - **WHEN** the source PDF cannot be normalized into valid canonical records
 - **THEN** the system rejects verification with an explicit error
 - **THEN** it does not emit a misleading verification success result
-

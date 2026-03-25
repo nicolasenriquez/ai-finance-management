@@ -63,7 +63,9 @@
 - Implemented fail-fast market-data write rules: explicit source provenance, deterministic symbol/time-key uniqueness, and `dataset_1`-anchored symbol support (including dotted tickers such as `BRK.B`).
 - Implemented internal market-data read boundary for persisted symbol history while keeping current `/api/portfolio/*` analytics contract ledger-only.
 - Validated that market-data refresh remains idempotent and does not mutate canonical records, ledger events, lots, lot dispositions, dividends, or corporate actions.
-- Next in this phase: integrate broker API for historical/reference data and reconcile API-driven data with existing canonical/ledger boundaries.
+- Implemented first external provider adapter (`yfinance`) for day-level close ingestion through `ingest_yfinance_daily_close_snapshot` and the existing market-data persistence contract.
+- Froze first-slice provider semantics to deterministic day-level `Close` ingestion (`interval=1d`, `trading_date`, `auto_adjust=False`, `repair=False`) with bounded snapshot-key identity.
+- Next in this phase: expand provider coverage toward broker-authenticated feeds and scheduling/operational posture while preserving current non-goals (no ledger mutation, no public market-data API expansion, no valuation KPI expansion in this slice).
 
 ## Phase 7: Database Hardening and Deployment Readiness
 

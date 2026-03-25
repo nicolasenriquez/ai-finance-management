@@ -276,16 +276,29 @@ Definition of Done:
 - integration tests prove refresh path non-mutation for canonical, ledger, lot, dividend, and corporate-action truth
 - unit tests prove fail-fast validation for provenance, unsupported symbols, and duplicate symbol/time payload rows
 
-### Item 5.2: Add broker API integration
+### Item 5.2: Add broker/provider API integration
 
-- define source adapter boundary for broker API ingestion
-- normalize API-driven transaction or reference data into canonical forms where appropriate
-- preserve source provenance and deduplication rules
+Status: In progress (first-slice yfinance provider adapter implemented 2026-03-24)
+
+Delivered in first slice:
+
+- define and implement provider adapter boundary under `app/market_data/providers`
+- normalize provider rows into the existing market-data write contract and ingest through `ingest_market_data_snapshot`
+- preserve explicit provenance and deterministic snapshot identity for provider-backed writes
+- enforce fail-fast provider behavior for unsafe/incomplete symbol coverage and unsupported config semantics
+- validate provider-backed idempotency and ledger/canonical non-mutation with deterministic tests
+
+Remaining for full item:
+
+- define broker-authenticated provider path and credential/runtime posture
+- evaluate multi-provider expansion once first-adapter operations are stable
+- keep transaction-import/API-source reconciliation explicitly out of this market-data-only slice unless a dedicated change expands scope
 
 Definition of Done:
 
-- API integration does not bypass canonical normalization
-- PDF and API sources can coexist without record-type confusion
+- provider integration does not bypass market-data or canonical normalization boundaries
+- PDF and API/provider sources can coexist without record-type confusion
+- automated provider-adapter tests remain deterministic (no live-provider dependency in CI)
 
 ## Sprint 6: Database Hardening and Deployment Readiness
 

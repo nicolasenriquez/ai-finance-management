@@ -56,4 +56,3 @@ The system SHALL reject market-data writes that lack required provenance or key 
 - **WHEN** a market-data payload cannot be mapped to the canonical symbol form required for persisted ledger truth
 - **THEN** the write is rejected with an explicit failure
 - **THEN** the system does not persist a market-data row under an inferred fallback symbol
-
