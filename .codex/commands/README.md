@@ -12,24 +12,28 @@ These commands align with:
 Use this sequence most of the time:
 
 ```text
+/new-branch <type> <short-description>
 /prime
 /next-step
 /plan <change description>
 /review-fix [optional findings]
 /explain <change-name> <task-selector>   # optional learning/review step
 /execute <change-name> [task-selector]
+/self-heal-ci [optional target/using]
 /validate
 /commit-local [optional intent]
 /commit [optional intent]
 ```
 
 Mental model:
+- `/new-branch` = start from synced `main`, create branch with standard naming, configure upstream, and optionally publish
 - `/prime` = understand current repo and OpenSpec runtime
 - `/next-step` = pick the highest-leverage next implementation step
 - `/plan` = produce an execution-ready plan from OpenSpec artifacts
 - `/review-fix` = convert review findings into a minimal fix plan in `/explain` structure
 - `/explain` = explain task slices before coding (read-only)
 - `/execute` = implement task slices with explicit validation
+- `/self-heal-ci` = iterate minimal fixes until local CI gates converge or a real blocker is confirmed (`target=fast|full`, `using=back|front|all`)
 - `/validate` = report what actually passes, fails, or is blocked
 - `/commit-local` = create a local commit and stop before push
 - `/commit` = package verified work into clean commits
@@ -71,6 +75,37 @@ Examples:
 /prime scope=docs mode=quick
 /prime change=add-pdf-ingestion-without-persistence
 ```
+
+### `/new-branch`
+
+Use when:
+- starting a new change in repos where `main` is PR-only
+- you want a single branch-start command that syncs + creates + configures upstream without mandatory push
+- you may need to carry a dirty tree into the new branch intentionally (`working_tree=pass`)
+
+What it does:
+- verifies you are on local `main` and enforces selected dirty-tree policy
+- runs `git fetch origin --prune` + optional `git pull --ff-only origin main` depending on dirty-tree mode
+- creates branch with format `<type>/<short-slug>-YYYYMMDD`
+- validates ref name and collisions
+- configures upstream/tracking for `origin/<same-branch-name>`
+- optional publish only when `push=on`
+- supports dirty tree modes:
+  - `working_tree=pass` (default; carry local dirty tree to new branch)
+  - `working_tree=block`
+  - `working_tree=stash` (stash, sync, create, pop)
+
+Examples:
+
+```text
+/new-branch feat market-data-sync-ops
+/new-branch docs yfinance-refresh-runbook
+/new-branch type=fix name=adapter-single-column-mismatch
+/new-branch fix slug=auto working_tree=pass
+```
+
+Compatibility note:
+- `/branch` remains as deprecated alias pointing to `/new-branch`.
 
 ### `/next-step`
 
@@ -166,6 +201,27 @@ Examples:
 /execute add-pdf-ingestion-without-persistence
 /execute add-pdf-ingestion-without-persistence 2.1-2.2
 /execute openspec/changes/add-pdf-ingestion-without-persistence/tasks.md 3.* preflight=off
+```
+
+### `/self-heal-ci`
+
+Use when:
+- local `just ci-fast` or `just ci` is red and you want iterative auto-repair
+- you want one command to converge failing gates before commit/push
+
+What it does:
+- runs selected CI target (`target=fast|full`) on selected scope (`using=back|front|all`, default `all`)
+- isolates first failing gate
+- applies minimal fix
+- reruns iteratively up to a max cycle count
+- exits as `PASS`, `PARTIAL PASS`, `BLOCKED`, or `FAIL` with concrete next action
+
+Examples:
+
+```text
+/self-heal-ci
+/self-heal-ci target=fast
+/self-heal-ci target=full using=back max=5 autofix=on
 ```
 
 ### `/validate`

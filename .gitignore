@@ -33,3 +33,6 @@ guide.md
 
 # Frontend release evidence screenshots (generated artifacts)
 docs/evidence/frontend/screenshots-*/
+
+# Local generated runtime artifacts
+.data/

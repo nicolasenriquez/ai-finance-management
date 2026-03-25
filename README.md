@@ -1,11 +1,11 @@
 # AI Finance Management
 
-[![CI](https://github.com/nicolasenriquez/ai-finance-management/actions/workflows/ci.yml/badge.svg)](https://github.com/nicolasenriquez/ai-finance-management/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/Python-3.12%2B-3776AB?logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.120%2B-009688?logo=fastapi&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white)
 ![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=111)
 ![Vite](https://img.shields.io/badge/Vite-6-646CFF?logo=vite&logoColor=white)
+[![CI](https://github.com/nicolasenriquez/ai-finance-management/actions/workflows/ci.yml/badge.svg)](https://github.com/nicolasenriquez/ai-finance-management/actions/workflows/ci.yml)
 
 Personal finance analytics application built with FastAPI and PostgreSQL, designed to evolve from a contract-first PDF/data ingestion pipeline into a full analytics product.
 

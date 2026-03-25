@@ -225,7 +225,7 @@ def _fetch_symbol_rows(
         config=config,
     )
     close_series = _extract_close_series(download_result=download_result, symbol=symbol)
-    series_items = _extract_series_items(close_series=close_series, symbol=symbol)
+    series_items = _extract_close_items(close_series=close_series, symbol=symbol)
 
     normalized_rows: list[YFinanceNormalizedRow] = []
     for raw_market_key, raw_close in series_items:
@@ -370,6 +370,14 @@ def _extract_close_series(*, download_result: object, symbol: str) -> object:
     return close_series
 
 
+def _extract_close_items(*, close_series: object, symbol: str) -> list[tuple[object, object]]:
+    """Return close items from supported one-dimensional and tabular payload shapes."""
+
+    if _is_tabular_close_payload(close_series):
+        return _extract_tabular_close_items(close_series=close_series, symbol=symbol)
+    return _extract_series_items(close_series=close_series, symbol=symbol)
+
+
 def _extract_series_items(*, close_series: object, symbol: str) -> list[tuple[object, object]]:
     """Return close-series items as list of market-key/value pairs."""
 
@@ -397,6 +405,56 @@ def _extract_series_items(*, close_series: object, symbol: str) -> list[tuple[ob
             )
         normalized_items.append(item)
     return normalized_items
+
+
+def _extract_tabular_close_items(
+    *,
+    close_series: object,
+    symbol: str,
+) -> list[tuple[object, object]]:
+    """Return market-key/value items from a tabular close payload for one symbol."""
+
+    column_items = _extract_series_items(close_series=close_series, symbol=symbol)
+    if not column_items:
+        raise YFinanceAdapterError(
+            f"YFinance returned empty tabular Close payload for symbol '{symbol}'.",
+            status_code=502,
+        )
+
+    matching_columns = [
+        column_item
+        for column_item in column_items
+        if _close_column_matches_symbol(column_key=column_item[0], symbol=symbol)
+    ]
+    if len(matching_columns) == 1:
+        _, column_series = matching_columns[0]
+        return _extract_series_items(close_series=column_series, symbol=symbol)
+
+    raise YFinanceAdapterError(
+        f"YFinance returned unsupported tabular Close payload for symbol '{symbol}'.",
+        status_code=502,
+    )
+
+
+def _is_tabular_close_payload(close_series: object) -> bool:
+    """Return whether close payload is tabular and needs symbol-column resolution."""
+
+    return getattr(close_series, "columns", None) is not None
+
+
+def _close_column_matches_symbol(*, column_key: object, symbol: str) -> bool:
+    """Return whether one tabular close column key maps to requested symbol."""
+
+    normalized_symbol = symbol.strip().upper()
+    if isinstance(column_key, str):
+        return column_key.strip().upper() == normalized_symbol
+    if isinstance(column_key, tuple):
+        column_key_parts = cast(tuple[object, ...], column_key)  # ty: ignore[redundant-cast]
+        return any(
+            isinstance(part, str) and part.strip().upper() == normalized_symbol
+            for part in column_key_parts
+        )
+    return False
 
 
 def _is_two_item_tuple(candidate: object) -> TypeGuard[tuple[object, object]]:

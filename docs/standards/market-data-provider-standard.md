@@ -70,6 +70,8 @@ Secondary sources must not define repository behavior.
 - Define bounded retry policy for transient provider/network failures.
 - Log provider fetch, normalize, ingest start/completion/failure with structured event names.
 - Preserve enough context in logs to audit which provider snapshot was used.
+- For the active provider, maintain one explicit manual operator refresh workflow before expanding to additional providers or broker-authenticated paths.
+- Prefer command-level operator workflows (`just market-refresh-yfinance`, `just data-sync-local`) before adding new public route surfaces.
 
 ## Security and Secrets Rules
 
