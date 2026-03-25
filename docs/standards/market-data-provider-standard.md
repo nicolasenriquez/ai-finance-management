@@ -56,6 +56,7 @@ Secondary sources must not define repository behavior.
 - Symbol forms must preserve canonical dataset-1 shapes (including dotted symbols such as `BRK.B`).
 - Symbol rewrites that lose meaning are forbidden.
 - Snapshot and market timestamps must be timezone-aware when timestamp fields are used.
+- For the current `yfinance` day-level path, accepted temporal-key variants must remain explicit and bounded (`date`/`datetime`, `to_pydatetime()` -> `date`/`datetime`, scalar `item()` -> `date`/`datetime`).
 
 ## Fail-Fast Rules
 
@@ -72,6 +73,7 @@ Secondary sources must not define repository behavior.
 - Preserve enough context in logs to audit which provider snapshot was used.
 - For the active provider, maintain one explicit manual operator refresh workflow before expanding to additional providers or broker-authenticated paths.
 - Prefer command-level operator workflows (`just market-refresh-yfinance`, `just data-sync-local`) before adding new public route surfaces.
+- Operator smoke/runbook evidence must treat blocked runs as first-class outcomes using structured payload fields (`status`, `stage`, `status_code`, `error`), not implicit or partial success.
 
 ## Security and Secrets Rules
 

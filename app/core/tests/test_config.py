@@ -47,6 +47,9 @@ def test_settings_defaults() -> None:
         assert settings.market_data_yfinance_retry_backoff_seconds == 0.5
         assert settings.market_data_yfinance_auto_adjust is False
         assert settings.market_data_yfinance_repair is False
+        assert (
+            settings.market_data_symbol_universe_path == "app/market_data/symbol_universe.v1.json"
+        )
         assert "http://localhost:3000" in settings.allowed_origins
         assert "http://localhost:8123" in settings.allowed_origins
 
@@ -72,6 +75,7 @@ def test_settings_from_environment() -> None:
             "MARKET_DATA_YFINANCE_RETRY_BACKOFF_SECONDS": "1.25",
             "MARKET_DATA_YFINANCE_AUTO_ADJUST": "false",
             "MARKET_DATA_YFINANCE_REPAIR": "false",
+            "MARKET_DATA_SYMBOL_UNIVERSE_PATH": "app/market_data/custom_symbol_universe.json",
             "DATABASE_URL": "postgresql+asyncpg://test:test@localhost:5432/test",
         },
     ):
@@ -93,6 +97,10 @@ def test_settings_from_environment() -> None:
         assert settings.market_data_yfinance_retry_backoff_seconds == 1.25
         assert settings.market_data_yfinance_auto_adjust is False
         assert settings.market_data_yfinance_repair is False
+        assert (
+            settings.market_data_symbol_universe_path
+            == "app/market_data/custom_symbol_universe.json"
+        )
 
 
 def test_allowed_origins_parsing() -> None:

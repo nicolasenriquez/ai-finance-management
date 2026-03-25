@@ -91,19 +91,48 @@ db-upgrade:
     # Self-heal drift where alembic_version is at head but schema tables are missing.
     if ! uv run python - <<'PY'
 import asyncio
+import sys
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 from app.core.config import get_settings
+
+REQUIRED_TABLES = (
+    "source_document",
+    "import_job",
+    "canonical_pdf_record",
+    "portfolio_transaction",
+    "dividend_event",
+    "corporate_action_event",
+    "lot",
+    "lot_disposition",
+    "market_data_snapshot",
+    "price_history",
+)
 
 
 async def main() -> int:
     engine = create_async_engine(get_settings().database_url)
     try:
         async with engine.connect() as conn:
-            exists = (
-                await conn.execute(text("SELECT to_regclass('public.source_document')"))
-            ).scalar_one()
-            return 0 if exists is not None else 1
+            missing_tables: list[str] = []
+            for table_name in REQUIRED_TABLES:
+                exists = (
+                    await conn.execute(
+                        text("SELECT to_regclass(:regclass_name)"),
+                        {"regclass_name": f"public.{table_name}"},
+                    )
+                ).scalar_one()
+                if exists is None:
+                    missing_tables.append(table_name)
+
+            if missing_tables:
+                print(
+                    "Alembic drift detected: missing tables at current revision: "
+                    + ", ".join(missing_tables),
+                    file=sys.stderr,
+                )
+                return 1
+            return 0
     finally:
         await engine.dispose()
 
@@ -194,27 +223,46 @@ data-bootstrap-dataset1 dataset_pdf_path="": db-check db-upgrade
     fi
 
 # Run yfinance supported-universe refresh.
-# Optional override: `just market-refresh-yfinance <snapshot_captured_at_iso8601>`.
-market-refresh-yfinance snapshot_captured_at="": db-check db-upgrade
+# Optional overrides: `just market-refresh-yfinance <snapshot_captured_at_iso8601> <refresh_scope>`.
+market-refresh-yfinance snapshot_captured_at="" refresh_scope="": db-check db-upgrade
     #!/usr/bin/env bash
+    args=()
     if [[ -n "{{snapshot_captured_at}}" ]]; then
-      uv run python -m scripts.data_sync_operations market-refresh-yfinance --snapshot-captured-at "{{snapshot_captured_at}}"
-    else
-      uv run python -m scripts.data_sync_operations market-refresh-yfinance
+      args+=(--snapshot-captured-at "{{snapshot_captured_at}}")
     fi
+    if [[ -n "{{refresh_scope}}" ]]; then
+      args+=(--refresh-scope "{{refresh_scope}}")
+    fi
+    uv run python -m scripts.data_sync_operations market-refresh-yfinance "${args[@]}"
 
 # Run local sync in strict order: bootstrap first, then market refresh.
-# Optional overrides: `just data-sync-local <dataset_pdf_path> <snapshot_captured_at_iso8601>`.
-data-sync-local dataset_pdf_path="" snapshot_captured_at="": db-check db-upgrade
+# Optional overrides: `just data-sync-local <dataset_pdf_path> <snapshot_captured_at_iso8601> <refresh_scope>`.
+data-sync-local dataset_pdf_path="" snapshot_captured_at="" refresh_scope="": db-check db-upgrade
     #!/usr/bin/env bash
-    if [[ -n "{{dataset_pdf_path}}" ]] && [[ -n "{{snapshot_captured_at}}" ]]; then
-      uv run python -m scripts.data_sync_operations data-sync-local --dataset-pdf-path "{{dataset_pdf_path}}" --snapshot-captured-at "{{snapshot_captured_at}}"
-    elif [[ -n "{{dataset_pdf_path}}" ]]; then
-      uv run python -m scripts.data_sync_operations data-sync-local --dataset-pdf-path "{{dataset_pdf_path}}"
-    elif [[ -n "{{snapshot_captured_at}}" ]]; then
-      uv run python -m scripts.data_sync_operations data-sync-local --snapshot-captured-at "{{snapshot_captured_at}}"
+    args=()
+    if [[ -n "{{dataset_pdf_path}}" ]]; then
+      args+=(--dataset-pdf-path "{{dataset_pdf_path}}")
+    fi
+    if [[ -n "{{snapshot_captured_at}}" ]]; then
+      args+=(--snapshot-captured-at "{{snapshot_captured_at}}")
+    fi
+    if [[ -n "{{refresh_scope}}" ]]; then
+      args+=(--refresh-scope "{{refresh_scope}}")
+    fi
+    uv run python -m scripts.data_sync_operations data-sync-local "${args[@]}"
+
+# Build versioned market-data symbol universe (required portfolio + starter 100/200).
+# Optional overrides: `just market-symbol-universe-build <dataset_json_path> <output_path>`.
+market-symbol-universe-build dataset_json_path="" output_path="":
+    #!/usr/bin/env bash
+    if [[ -n "{{dataset_json_path}}" ]] && [[ -n "{{output_path}}" ]]; then
+      uv run python -m scripts.build_market_symbol_universe --dataset-json-path "{{dataset_json_path}}" --output-path "{{output_path}}"
+    elif [[ -n "{{dataset_json_path}}" ]]; then
+      uv run python -m scripts.build_market_symbol_universe --dataset-json-path "{{dataset_json_path}}"
+    elif [[ -n "{{output_path}}" ]]; then
+      uv run python -m scripts.build_market_symbol_universe --output-path "{{output_path}}"
     else
-      uv run python -m scripts.data_sync_operations data-sync-local
+      uv run python -m scripts.build_market_symbol_universe
     fi
 
 # -----------------------------------------------------------------------------

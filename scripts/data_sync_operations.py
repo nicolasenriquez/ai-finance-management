@@ -18,6 +18,8 @@ from app.data_sync.service import (
     run_market_refresh_yfinance,
 )
 
+_REFRESH_SCOPE_CHOICES: tuple[str, ...] = ("core", "100", "200")
+
 
 def parse_iso_datetime(value: str) -> datetime:
     """Parse one timezone-aware ISO datetime argument for snapshot capture time."""
@@ -47,7 +49,12 @@ def build_parser() -> argparse.ArgumentParser:
         description=(
             "Run local data-sync operations: dataset bootstrap, yfinance refresh, "
             "or combined sync."
-        )
+        ),
+        epilog=(
+            "Prerequisites: DATABASE_URL must be configured and migrations should be at head. "
+            "For schedule-ready invocation posture, prefer the existing just recipes: "
+            "data-bootstrap-dataset1, market-refresh-yfinance, and data-sync-local."
+        ),
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
@@ -72,6 +79,12 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Optional timezone-aware snapshot capture datetime.",
     )
+    refresh_parser.add_argument(
+        "--refresh-scope",
+        choices=_REFRESH_SCOPE_CHOICES,
+        default=None,
+        help="Optional refresh scope mode: core, 100, or 200 (default: core).",
+    )
 
     sync_parser = subparsers.add_parser(
         "data-sync-local",
@@ -88,6 +101,12 @@ def build_parser() -> argparse.ArgumentParser:
         type=parse_iso_datetime,
         default=None,
         help="Optional timezone-aware snapshot capture datetime.",
+    )
+    sync_parser.add_argument(
+        "--refresh-scope",
+        choices=_REFRESH_SCOPE_CHOICES,
+        default=None,
+        help="Optional refresh scope mode for market refresh stage: core, 100, or 200.",
     )
 
     return parser
@@ -144,6 +163,7 @@ async def async_main() -> int:
             if args.command == "market-refresh-yfinance":
                 refresh_result = await run_market_refresh_yfinance(
                     db=db,
+                    refresh_scope_mode=args.refresh_scope,
                     snapshot_captured_at=args.snapshot_captured_at,
                 )
                 _print_result(refresh_result)
@@ -153,6 +173,7 @@ async def async_main() -> int:
                 sync_result = await run_data_sync_local(
                     db=db,
                     dataset_pdf_path=args.dataset_pdf_path,
+                    refresh_scope_mode=args.refresh_scope,
                     snapshot_captured_at=args.snapshot_captured_at,
                 )
                 _print_result(sync_result)

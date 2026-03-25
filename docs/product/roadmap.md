@@ -66,13 +66,18 @@
 - Implemented first external provider adapter (`yfinance`) for day-level close ingestion through `ingest_yfinance_daily_close_snapshot` and the existing market-data persistence contract.
 - Froze first-slice provider semantics to deterministic day-level `Close` ingestion (`interval=1d`, `trading_date`, `auto_adjust=False`, `repair=False`) with bounded snapshot-key identity.
 - Implemented one explicit full-refresh orchestration seam for the supported symbol universe via `refresh_yfinance_supported_universe`, keeping execution manual and schedule-ready in this slice.
+- Implemented staged refresh-scope modes for the operator refresh seam: `core` (default), `100`, and `200`, with explicit fail-fast validation before provider ingest.
 - Hardened provider payload-shape normalization to safely handle approved runtime `Close` shapes (series + tabular) and fail fast on unsupported payloads.
 - Implemented local operator command workflows for deterministic `dataset_1` bootstrap and refresh execution:
   - `just data-bootstrap-dataset1`
   - `just market-refresh-yfinance`
   - `just data-sync-local`
   - equivalent module CLI: `uv run python -m scripts.data_sync_operations <command>`
-- Next in this phase: stabilize operational runbooks/scheduling posture and then expand analytics contracts to market-enriched KPIs, while preserving current non-goals (no ledger mutation, no public market-data router in this slice).
+- Extended operator command surfaces with optional refresh-scope propagation (`--refresh-scope core|100|200` in CLI and equivalent `just` positional override) to support controlled onboarding.
+- Stabilized operator runbook/evidence posture for `market-refresh-yfinance` and `data-sync-local`: successful runs must emit typed refresh/sync evidence and blocked runs must emit structured fail-fast payloads (`status`, `stage`, `status_code`, `error`).
+- Stabilized approved day-level temporal-key normalization for current live operations (`date`/`datetime`, `to_pydatetime()` returning `date`/`datetime`, scalar `item()` conversions) while preserving explicit fail-fast rejection for unsupported keys.
+- Latest staged refresh smoke evidence (2026-03-26): `core` blocked at `stage=market_refresh` with `status_code=502` (`empty history` for `QQQM`), `100` blocked with `status_code=502` (`missing currency metadata` for `AMD`), and `200` blocked with `status_code=502` (`missing currency metadata` for `XLF`); all recorded as blocker evidence rather than partial success.
+- Next in this phase: resolve live-provider blocker patterns before expanding analytics contracts to market-enriched KPIs, while preserving non-goals (no ledger mutation, no public market-data router, no scheduler/queue infrastructure in this slice).
 
 ## Phase 7: Database Hardening and Deployment Readiness
 

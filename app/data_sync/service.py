@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
-from typing import Final
+from typing import Final, Literal, cast
 
 from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -28,6 +28,9 @@ from app.portfolio_ledger.service import (
 logger = get_logger(__name__)
 
 _DEFAULT_DATASET_1_PDF_PATH: Final[Path] = Path("app/golden_sets/dataset_1/202602_stocks.pdf")
+_REFRESH_SCOPE_MODES: Final[frozenset[str]] = frozenset({"core", "100", "200"})
+
+DataSyncRefreshScopeMode = Literal["core", "100", "200"]
 
 
 class DataSyncClientError(ValueError):
@@ -191,18 +194,22 @@ async def run_dataset1_bootstrap(
 async def run_market_refresh_yfinance(
     *,
     db: AsyncSession,
+    refresh_scope_mode: str | None = None,
     snapshot_captured_at: datetime | None = None,
     settings: Settings | None = None,
 ) -> MarketDataRefreshRunResult:
     """Run one explicit yfinance supported-universe market refresh."""
 
+    resolved_refresh_scope_mode = _normalize_refresh_scope_mode(refresh_scope_mode)
     logger.info(
         "data_sync.market_refresh_started",
         source_provider="yfinance",
+        refresh_scope_mode=resolved_refresh_scope_mode,
     )
     try:
         result = await refresh_yfinance_supported_universe(
             db=db,
+            refresh_scope_mode=resolved_refresh_scope_mode,
             snapshot_captured_at=snapshot_captured_at,
             settings=settings,
         )
@@ -210,6 +217,7 @@ async def run_market_refresh_yfinance(
         logger.error(
             "data_sync.market_refresh_failed",
             source_provider="yfinance",
+            refresh_scope_mode=resolved_refresh_scope_mode,
             error=str(exc),
             error_type=type(exc).__name__,
             status_code=exc.status_code,
@@ -224,9 +232,10 @@ async def run_market_refresh_yfinance(
     logger.info(
         "data_sync.market_refresh_completed",
         source_provider=result.source_provider,
+        refresh_scope_mode=result.refresh_scope_mode,
         snapshot_id=result.snapshot_id,
         snapshot_key=result.snapshot_key,
-        requested_symbols_count=len(result.requested_symbols),
+        requested_symbols_count=result.requested_symbols_count,
         inserted_prices=result.inserted_prices,
         updated_prices=result.updated_prices,
     )
@@ -237,14 +246,17 @@ async def run_data_sync_local(
     *,
     db: AsyncSession,
     dataset_pdf_path: Path | None = None,
+    refresh_scope_mode: str | None = None,
     snapshot_captured_at: datetime | None = None,
     settings: Settings | None = None,
 ) -> DataSyncLocalRunResult:
     """Run local bootstrap first, then yfinance market refresh with fail-fast semantics."""
 
+    resolved_refresh_scope_mode = _normalize_refresh_scope_mode(refresh_scope_mode)
     logger.info(
         "data_sync.local_sync_started",
         source_provider="yfinance",
+        refresh_scope_mode=resolved_refresh_scope_mode,
     )
     try:
         bootstrap_result = await run_dataset1_bootstrap(
@@ -254,6 +266,7 @@ async def run_data_sync_local(
         )
         market_refresh_result = await run_market_refresh_yfinance(
             db=db,
+            refresh_scope_mode=resolved_refresh_scope_mode,
             snapshot_captured_at=snapshot_captured_at,
             settings=settings,
         )
@@ -276,9 +289,10 @@ async def run_data_sync_local(
         "data_sync.local_sync_completed",
         source_document_id=result.bootstrap.source_document_id,
         import_job_id=result.bootstrap.import_job_id,
+        refresh_scope_mode=result.market_refresh.refresh_scope_mode,
         snapshot_id=result.market_refresh.snapshot_id,
         snapshot_key=result.market_refresh.snapshot_key,
-        requested_symbols_count=len(result.market_refresh.requested_symbols),
+        requested_symbols_count=result.market_refresh.requested_symbols_count,
     )
     return result
 
@@ -301,3 +315,20 @@ def _resolve_dataset_pdf_path(*, dataset_pdf_path: Path | None) -> Path:
             stage="input",
         )
     return candidate_path
+
+
+def _normalize_refresh_scope_mode(
+    refresh_scope_mode: str | None,
+) -> DataSyncRefreshScopeMode:
+    """Normalize refresh-scope selector to one supported typed mode."""
+
+    if refresh_scope_mode is None:
+        return "core"
+
+    if refresh_scope_mode not in _REFRESH_SCOPE_MODES:
+        raise DataSyncClientError(
+            "YFinance market refresh failed: refresh_scope_mode must be one of: core, 100, 200.",
+            status_code=422,
+            stage="market_refresh",
+        )
+    return cast(DataSyncRefreshScopeMode, refresh_scope_mode)

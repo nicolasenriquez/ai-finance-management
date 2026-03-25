@@ -16,6 +16,7 @@ from app.market_data.service import (
     MarketDataClientError,
     ingest_market_data_snapshot,
     ingest_yfinance_daily_close_snapshot,
+    list_market_data_library_symbols,
     list_price_history_for_symbol,
     list_supported_market_data_symbols,
     refresh_yfinance_supported_universe,
@@ -300,6 +301,63 @@ def test_list_supported_market_data_symbols_returns_stable_sorted_universe() -> 
     assert "VOO" in symbols
 
 
+def test_list_market_data_library_symbols_returns_100_and_200_with_portfolio_minimum() -> None:
+    """Starter symbol libraries should be deterministic and include supported portfolio symbols."""
+
+    supported_symbols = list_supported_market_data_symbols()
+    symbols_100 = list_market_data_library_symbols(size=100)
+    symbols_200 = list_market_data_library_symbols(size=200)
+
+    assert len(symbols_100) == 100
+    assert len(symbols_200) == 200
+    assert len(symbols_100) == len(set(symbols_100))
+    assert len(symbols_200) == len(set(symbols_200))
+    assert set(supported_symbols).issubset(set(symbols_100))
+    assert set(symbols_100).issubset(set(symbols_200))
+
+
+def test_list_market_data_library_symbols_rejects_unsupported_size() -> None:
+    """Starter symbol library API should reject unsupported library sizes."""
+
+    with pytest.raises(
+        MarketDataClientError,
+        match="library size must be one of: 100, 200",
+    ) as exc_info:
+        list_market_data_library_symbols(size=150)
+    assert exc_info.value.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_refresh_supported_universe_rejects_invalid_scope_mode_before_ingest(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Refresh should reject unsupported scope modes before provider ingestion starts."""
+
+    async def fake_ingest(
+        *,
+        db: AsyncSession,
+        symbols: list[str],
+        snapshot_captured_at: datetime | None,
+        settings: Settings | None,
+    ) -> object:
+        del db
+        del symbols
+        del snapshot_captured_at
+        del settings
+        pytest.fail("Provider ingest should not run for invalid refresh scope mode input.")
+
+    monkeypatch.setattr("app.market_data.service.ingest_yfinance_daily_close_snapshot", fake_ingest)
+
+    with pytest.raises(MarketDataClientError, match="refresh scope mode") as exc_info:
+        await refresh_yfinance_supported_universe(
+            db=cast(AsyncSession, _NeverCalledSession()),
+            refresh_scope_mode="invalid",
+            snapshot_captured_at=datetime(2026, 3, 24, 15, 0, tzinfo=UTC),
+            settings=_provider_settings(),
+        )
+    assert exc_info.value.status_code == 422
+
+
 @pytest.mark.asyncio
 async def test_refresh_supported_universe_returns_structured_result(
     monkeypatch: pytest.MonkeyPatch,
@@ -340,12 +398,249 @@ async def test_refresh_supported_universe_returns_structured_result(
     assert result.status == "completed"
     assert result.source_type == "market_data_provider"
     assert result.source_provider == "yfinance"
+    assert result.refresh_scope_mode == "core"
     assert result.requested_symbols == expected_symbols
+    assert result.requested_symbols_count == len(expected_symbols)
     assert result.snapshot_id == 42
     assert result.inserted_prices == len(expected_symbols)
     assert result.updated_prices == 0
     assert result.snapshot_key
     assert result.snapshot_captured_at == datetime(2026, 3, 24, 15, 0, tzinfo=UTC)
+
+
+@pytest.mark.asyncio
+async def test_refresh_supported_universe_uses_starter_100_scope_symbols(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Refresh should resolve starter-100 symbols when scope mode is explicitly set to 100."""
+
+    captured_symbols: list[str] = []
+    captured_request: dict[str, MarketDataSnapshotWriteRequest] = {}
+
+    async def fake_fetch(
+        *,
+        symbols: tuple[str, ...],
+        config: object,
+    ) -> tuple[list[YFinanceNormalizedRow], dict[str, object]]:
+        del config
+        assert len(symbols) == 1
+        symbol = symbols[0]
+        captured_symbols.append(symbol)
+        return (
+            [
+                YFinanceNormalizedRow(
+                    instrument_symbol=symbol,
+                    trading_date=date(2026, 3, 24),
+                    close_value=Decimal("100.000000000"),
+                    currency_code="USD",
+                    source_payload={"provider": "yfinance", "field": "Close", "symbol": symbol},
+                )
+            ],
+            {
+                "provider": "yfinance",
+                "rows_by_symbol": {symbol: 1},
+                "currencies_by_symbol": {symbol: "USD"},
+            },
+        )
+
+    async def fake_ingest(
+        *,
+        db: AsyncSession,
+        request: MarketDataSnapshotWriteRequest,
+    ) -> object:
+        del db
+        captured_request["request"] = request
+
+        class _FakeResult:
+            snapshot_id = 142
+            inserted_prices = len(request.prices)
+            updated_prices = 0
+
+        return _FakeResult()
+
+    monkeypatch.setattr("app.market_data.service.fetch_yfinance_daily_close_rows", fake_fetch)
+    monkeypatch.setattr("app.market_data.service.ingest_market_data_snapshot", fake_ingest)
+
+    result = await refresh_yfinance_supported_universe(
+        db=cast(AsyncSession, _NeverCalledSession()),
+        refresh_scope_mode="100",
+        snapshot_captured_at=datetime(2026, 3, 24, 15, 0, tzinfo=UTC),
+        settings=_provider_settings(),
+    )
+
+    expected_symbols = list_market_data_library_symbols(size=100)
+    assert captured_symbols == expected_symbols
+    assert len(captured_request["request"].prices) == len(expected_symbols)
+    assert result.status == "completed"
+    assert result.source_provider == "yfinance"
+    assert result.refresh_scope_mode == "100"
+    assert result.requested_symbols == expected_symbols
+    assert result.requested_symbols_count == len(expected_symbols)
+    assert result.snapshot_id == 142
+    assert result.inserted_prices == len(expected_symbols)
+    assert result.updated_prices == 0
+    assert result.retry_attempted_symbols == []
+    assert result.retry_attempted_symbols_count == 0
+    assert result.failed_symbols == []
+    assert result.failed_symbols_count == 0
+
+
+@pytest.mark.asyncio
+async def test_refresh_scope_100_allows_non_portfolio_failures_after_retry(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Scope 100 should continue when only non-portfolio symbols fail after one retry."""
+
+    expected_symbols = list_market_data_library_symbols(size=100)
+    core_symbols = set(list_supported_market_data_symbols())
+    non_portfolio_symbol: str | None = None
+    for symbol in expected_symbols:
+        if symbol not in core_symbols:
+            non_portfolio_symbol = symbol
+            break
+    if non_portfolio_symbol is None:
+        pytest.fail("Starter-100 scope is expected to include at least one non-portfolio symbol.")
+
+    attempts_by_symbol: dict[str, int] = {}
+    captured_request: dict[str, MarketDataSnapshotWriteRequest] = {}
+
+    async def fake_fetch(
+        *,
+        symbols: tuple[str, ...],
+        config: object,
+    ) -> tuple[list[YFinanceNormalizedRow], dict[str, object]]:
+        del config
+        assert len(symbols) == 1
+        symbol = symbols[0]
+        attempts_by_symbol[symbol] = attempts_by_symbol.get(symbol, 0) + 1
+        if symbol == non_portfolio_symbol:
+            raise YFinanceAdapterError(
+                f"YFinance did not provide currency metadata for symbol '{symbol}'.",
+                status_code=502,
+            )
+        return (
+            [
+                YFinanceNormalizedRow(
+                    instrument_symbol=symbol,
+                    trading_date=date(2026, 3, 24),
+                    close_value=Decimal("101.000000000"),
+                    currency_code="USD",
+                    source_payload={"provider": "yfinance", "field": "Close", "symbol": symbol},
+                )
+            ],
+            {
+                "provider": "yfinance",
+                "rows_by_symbol": {symbol: 1},
+                "currencies_by_symbol": {symbol: "USD"},
+            },
+        )
+
+    async def fake_ingest(
+        *,
+        db: AsyncSession,
+        request: MarketDataSnapshotWriteRequest,
+    ) -> object:
+        del db
+        captured_request["request"] = request
+
+        class _FakeResult:
+            snapshot_id = 188
+            inserted_prices = len(request.prices)
+            updated_prices = 0
+
+        return _FakeResult()
+
+    monkeypatch.setattr("app.market_data.service.fetch_yfinance_daily_close_rows", fake_fetch)
+    monkeypatch.setattr("app.market_data.service.ingest_market_data_snapshot", fake_ingest)
+
+    result = await refresh_yfinance_supported_universe(
+        db=cast(AsyncSession, _NeverCalledSession()),
+        refresh_scope_mode="100",
+        snapshot_captured_at=datetime(2026, 3, 24, 15, 0, tzinfo=UTC),
+        settings=_provider_settings(),
+    )
+
+    assert attempts_by_symbol[non_portfolio_symbol] == 2
+    assert result.status == "completed"
+    assert result.retry_attempted_symbols == [non_portfolio_symbol]
+    assert result.retry_attempted_symbols_count == 1
+    assert result.failed_symbols == [non_portfolio_symbol]
+    assert result.failed_symbols_count == 1
+    assert result.inserted_prices == len(expected_symbols) - 1
+    assert result.updated_prices == 0
+
+    metadata = captured_request["request"].snapshot_metadata
+    assert isinstance(metadata, dict)
+    assert metadata["failed_symbols"] == [non_portfolio_symbol]
+    assert metadata["failed_symbols_count"] == 1
+    assert metadata["retry_attempted_symbols"] == [non_portfolio_symbol]
+    assert metadata["retry_attempted_symbols_count"] == 1
+
+
+@pytest.mark.asyncio
+async def test_refresh_scope_100_fails_when_required_symbol_still_fails_after_retry(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Scope 100 should fail fast if a required portfolio symbol still fails after retry."""
+
+    required_symbol = list_supported_market_data_symbols()[0]
+    attempts_by_symbol: dict[str, int] = {}
+
+    async def fake_fetch(
+        *,
+        symbols: tuple[str, ...],
+        config: object,
+    ) -> tuple[list[YFinanceNormalizedRow], dict[str, object]]:
+        del config
+        assert len(symbols) == 1
+        symbol = symbols[0]
+        attempts_by_symbol[symbol] = attempts_by_symbol.get(symbol, 0) + 1
+        if symbol == required_symbol:
+            raise YFinanceAdapterError(
+                f"YFinance did not provide currency metadata for symbol '{symbol}'.",
+                status_code=502,
+            )
+        return (
+            [
+                YFinanceNormalizedRow(
+                    instrument_symbol=symbol,
+                    trading_date=date(2026, 3, 24),
+                    close_value=Decimal("102.000000000"),
+                    currency_code="USD",
+                    source_payload={"provider": "yfinance", "field": "Close", "symbol": symbol},
+                )
+            ],
+            {
+                "provider": "yfinance",
+                "rows_by_symbol": {symbol: 1},
+                "currencies_by_symbol": {symbol: "USD"},
+            },
+        )
+
+    async def fake_ingest(
+        *,
+        db: AsyncSession,
+        request: MarketDataSnapshotWriteRequest,
+    ) -> object:
+        del db
+        del request
+        pytest.fail("Refresh should fail before ingest when required symbols remain unavailable.")
+
+    monkeypatch.setattr("app.market_data.service.fetch_yfinance_daily_close_rows", fake_fetch)
+    monkeypatch.setattr("app.market_data.service.ingest_market_data_snapshot", fake_ingest)
+
+    with pytest.raises(
+        MarketDataClientError,
+        match="required portfolio symbol",
+    ) as exc_info:
+        await refresh_yfinance_supported_universe(
+            db=cast(AsyncSession, _NeverCalledSession()),
+            refresh_scope_mode="100",
+            snapshot_captured_at=datetime(2026, 3, 24, 15, 0, tzinfo=UTC),
+            settings=_provider_settings(),
+        )
+    assert exc_info.value.status_code == 502
+    assert attempts_by_symbol[required_symbol] == 2
 
 
 @pytest.mark.asyncio

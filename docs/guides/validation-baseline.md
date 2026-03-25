@@ -17,12 +17,14 @@ Current implementation status:
 - market-data ingestion boundary is implemented with idempotent snapshot writes and explicit non-mutation guarantees for canonical/ledger truth
 - first external market-data provider adapter (`yfinance`) is implemented with deterministic day-level close normalization and provider-backed ingest routed through the existing market-data boundary
 - local data-sync operations are implemented for `dataset_1` bootstrap and `yfinance` refresh (`data-bootstrap-dataset1`, `market-refresh-yfinance`, `data-sync-local`)
+- market-data operational smoke contract is stabilized: approved live temporal-key variants are bounded and blocked runs are captured as structured evidence instead of partial success
 
 ## Repository Baseline
 
 Expected commands:
 
 ```bash
+export OPENSPEC_TELEMETRY=0
 just lint
 just type
 just security
@@ -32,6 +34,8 @@ just ci
 just test-integration
 just data-bootstrap-dataset1
 just market-refresh-yfinance
+just market-refresh-yfinance "" 100
+just market-refresh-yfinance "" 200
 just data-sync-local
 openspec validate --specs --all
 ```
@@ -111,8 +115,11 @@ For each golden set dataset:
 - inspect extraction report for dataset 1
 - inspect stored rows
 - inspect portfolio analytics response shape
-- run one supported-universe `yfinance` refresh smoke invocation and record explicit success/failure evidence (including failing symbol/reason on rejection)
-- run one combined local sync smoke invocation and record stage-specific failure context when refresh is blocked by provider/network/runtime conditions
+- run one supported-universe `yfinance` refresh smoke invocation and record explicit success/blocker evidence
+- run staged onboarding refresh smoke sequence (`core -> 100 -> 200`) and record explicit success/blocker evidence for each stage
+- run one combined local sync smoke invocation and record:
+  - success evidence fields from typed refresh/sync output (`refresh_scope_mode`, `source_provider`, `requested_symbols`, `requested_symbols_count`, `snapshot_key`, `snapshot_captured_at`, `snapshot_id`, insert/update counters)
+  - blocker evidence fields from fail-fast payload (`status`, `stage`, `status_code`, `error`)
 
 ## Reporting Rule
 
@@ -134,5 +141,6 @@ For persistence phases, validation must also confirm:
 - rerunning the same market-data snapshot uses deterministic insert-or-update behavior instead of creating ambiguous duplicate rows
 - market-data ingestion rejects payload-level duplicate symbol/time keys before DB mutation
 - market-data refresh path does not create, update, or delete canonical, ledger, lot, lot-disposition, dividend, or corporate-action truth rows
+- market-data provider normalization accepts only the approved day-level temporal variants and rejects unsupported variants explicitly
 - provider-adapter tests prove fail-fast behavior for unsupported config semantics and incomplete requested-symbol coverage
-- when manual provider smoke checks fail, capture the explicit adapter/service rejection and track it as an operational blocker before change closeout
+- when manual provider smoke checks fail, capture the explicit adapter/service rejection with `status`, `stage`, `status_code`, and `error` and track it as an operational blocker before change closeout
