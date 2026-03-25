@@ -14,9 +14,13 @@ Implemented now:
 - Service orchestration entrypoint: `app/market_data/service.py::ingest_yfinance_daily_close_snapshot`
 - Service-level full-refresh workflow: `app/market_data/service.py::refresh_yfinance_supported_universe`
 - Supported-universe resolver: `app/market_data/service.py::list_supported_market_data_symbols`
+- Starter-library resolver: `app/market_data/service.py::list_market_data_library_symbols` (sizes `100` / `200`)
+- Refresh-scope selector contract: `core` (default), `100`, `200` propagated through market-data service, data-sync service, CLI, and just recipes
 - Local operator CLI entrypoints: `scripts/data_sync_operations.py` (`data-bootstrap-dataset1`, `market-refresh-yfinance`, `data-sync-local`)
+- Symbol-universe generator: `scripts/build_market_symbol_universe.py`
 - Local operator just recipes: `just data-bootstrap-dataset1`, `just market-refresh-yfinance`, `just data-sync-local`
-- Settings surface: `market_data_yfinance_period`, `market_data_yfinance_interval`, `market_data_yfinance_timeout_seconds`, `market_data_yfinance_max_retries`, `market_data_yfinance_retry_backoff_seconds`, `market_data_yfinance_auto_adjust`, `market_data_yfinance_repair`
+- Local symbol-universe build recipe: `just market-symbol-universe-build`
+- Settings surface: `market_data_yfinance_period`, `market_data_yfinance_interval`, `market_data_yfinance_timeout_seconds`, `market_data_yfinance_max_retries`, `market_data_yfinance_retry_backoff_seconds`, `market_data_yfinance_auto_adjust`, `market_data_yfinance_repair`, `market_data_symbol_universe_path`
 
 First-slice semantics frozen in code:
 
@@ -27,6 +31,7 @@ First-slice semantics frozen in code:
 - `repair` must be `False`
 - requested symbol coverage is all-or-nothing
 - close-payload normalization supports both series and tabular runtime shapes; unsupported shapes fail fast
+- approved day-level temporal-key variants are explicit and bounded: `date`/`datetime`, values with `to_pydatetime()` returning `date`/`datetime`, and scalar values exposing `item()` that resolve to `date`/`datetime`
 
 Automated coverage is deterministic:
 
@@ -36,9 +41,16 @@ Automated coverage is deterministic:
 Operational posture in this slice:
 
 - refresh orchestration is implemented at the service boundary and exposed through local command entrypoints
+- refresh orchestration supports staged onboarding scopes (`core -> 100 -> 200`) with explicit selector validation
 - combined local sync is deterministic and fail-fast (`bootstrap -> refresh`; refresh is skipped if bootstrap fails)
 - scheduler/queue infrastructure is intentionally deferred
 - public market-data route surface remains deferred in this change
+- operator smoke evidence is explicit:
+  - success paths use typed refresh/sync result models
+  - blocked paths use structured fail-fast payload (`status`, `stage`, `status_code`, `error`)
+- symbol-universe scope is explicit and versioned in `app/market_data/symbol_universe.v1.json`:
+  - `core_refresh_symbols`: current fail-fast refresh scope (must include all portfolio symbols)
+  - `starter_100_symbols` / `starter_200_symbols`: reusable library for expansion planning and controlled onboarding
 
 ## Scope and Non-Goals
 
@@ -145,6 +157,7 @@ Example:
 - Missing/invalid provider response shape: fail fast with explicit client error.
 - Network/provider transient failures: bounded retries with explicit logging.
 - Hard provider failures: fail request explicitly; do not ingest partial rows silently.
+- Unexpected provider exceptions are surfaced with compact error reason text in 502 responses to improve blocker evidence quality.
 
 ## Logging Guidance
 
@@ -179,8 +192,14 @@ Recommended:
 
 Optional manual verification:
 
-- one explicit local command to fetch live data for smoke checks (for example `uv run python -m scripts.data_sync_operations market-refresh-yfinance` or `just market-refresh-yfinance`)
-- one explicit combined local sync smoke run (`uv run python -m scripts.data_sync_operations data-sync-local` or `just data-sync-local`)
+- run staged refresh smoke sequence with explicit scope:
+  - `uv run python -m scripts.data_sync_operations market-refresh-yfinance --refresh-scope core`
+  - `uv run python -m scripts.data_sync_operations market-refresh-yfinance --refresh-scope 100`
+  - `uv run python -m scripts.data_sync_operations market-refresh-yfinance --refresh-scope 200`
+  - equivalent just commands: `just market-refresh-yfinance "" core`, `just market-refresh-yfinance "" 100`, `just market-refresh-yfinance "" 200`
+- run one explicit combined local sync smoke run with scope when needed (`uv run python -m scripts.data_sync_operations data-sync-local --refresh-scope core` or `just data-sync-local "" "" core`)
+- for successful smoke runs, capture typed evidence (`refresh_scope_mode`, `source_provider`, `requested_symbols`, `requested_symbols_count`, `snapshot_key`, `snapshot_captured_at`, `snapshot_id`, `inserted_prices`, `updated_prices`)
+- for blocked smoke runs, capture structured fail-fast payload (`status`, `stage`, `status_code`, `error`) plus selected scope and treat it as blocker evidence instead of partial success
 - manual checks must not replace deterministic automated tests
 
 ## Security and Configuration

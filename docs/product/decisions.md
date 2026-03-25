@@ -210,7 +210,7 @@ Implications:
 
 ### ADR-017: Use yfinance as the first market-data provider adapter
 
-Status: Accepted (implemented 2026-03-24; operational refresh seam added 2026-03-25)
+Status: Accepted (implemented 2026-03-24; operational refresh seam + stabilization runbook hardening delivered 2026-03-25)
 
 Reason:
 
@@ -223,6 +223,9 @@ Implications:
 - yfinance integration remains market-data-only and must not mutate canonical/ledger/lot truth
 - provenance and idempotency requirements from the current market-data boundary remain mandatory
 - current provider execution posture is manual and schedule-ready through local operator command surfaces (`just market-refresh-yfinance`, `just data-sync-local`) on top of the market-data service seam
+- operator refresh execution uses an explicit staged scope contract (`core` default, `100`, `200`) propagated through service and CLI boundaries for controlled onboarding
+- approved day-level temporal-key variants for operational refresh are explicit and bounded (`date`/`datetime`, `to_pydatetime()` to `date`/`datetime`, scalar `item()` conversions); unsupported temporal keys must fail fast
+- operator smoke closeout must capture structured success evidence or structured blocker evidence (`status`, `stage`, `status_code`, `error`) rather than implicit/partial success
 - public market-data routes remain deferred; command-level operations are the active execution boundary in this slice
 - legal usage notes and provider limitations must be documented explicitly
 - fundamentals/financial-document payloads from yfinance are analysis-enrichment inputs, not accounting truth

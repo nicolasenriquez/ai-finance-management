@@ -14,6 +14,9 @@ from decimal import Decimal, InvalidOperation
 from typing import Final, TypeGuard, cast
 
 _CURRENCY_PATTERN: Final[re.Pattern[str]] = re.compile(r"^[A-Z]{3,8}$")
+_YFINANCE_PROVIDER_SYMBOL_ALIASES: Final[dict[str, str]] = {
+    "BRK.B": "BRK-B",
+}
 
 
 @dataclass(frozen=True)
@@ -136,7 +139,8 @@ async def fetch_yfinance_daily_close_rows(
         raise
     except Exception as exc:
         raise YFinanceAdapterError(
-            "YFinance provider fetch failed with an unexpected error.",
+            "YFinance provider fetch failed with an unexpected error: "
+            f"{_format_provider_exception_reason(exc)}.",
             status_code=502,
         ) from exc
 
@@ -157,7 +161,10 @@ def _fetch_yfinance_daily_close_rows_sync(
     currencies_by_symbol: dict[str, str] = {}
 
     for symbol in symbols:
-        currency_code = _fetch_symbol_currency(yf=yf, symbol=symbol)
+        currency_code = _fetch_symbol_currency(
+            yf=yf,
+            symbol=symbol,
+        )
         symbol_rows = _fetch_symbol_rows(
             yf=yf,
             symbol=symbol,
@@ -228,6 +235,7 @@ def _fetch_symbol_rows(
     series_items = _extract_close_items(close_series=close_series, symbol=symbol)
 
     normalized_rows: list[YFinanceNormalizedRow] = []
+    provider_symbol = _resolve_provider_symbol(symbol=symbol)
     for raw_market_key, raw_close in series_items:
         if _is_missing_numeric_value(raw_close):
             continue
@@ -237,6 +245,7 @@ def _fetch_symbol_rows(
             "provider": "yfinance",
             "field": "Close",
             "symbol": symbol,
+            "provider_symbol": provider_symbol,
             "trading_date": trading_day.isoformat(),
             "period": config.period,
             "interval": config.interval,
@@ -270,18 +279,13 @@ def _fetch_symbol_currency(
             status_code=502,
         )
 
-    ticker_client = ticker_ctor(symbol)
-    fast_info = cast(
-        Mapping[str, object] | None,
-        getattr(ticker_client, "fast_info", None),
-    )
+    provider_symbol = _resolve_provider_symbol(symbol=symbol)
+    ticker_client = ticker_ctor(provider_symbol)
+    fast_info = _get_mapping_attribute_or_none(ticker_client, attribute_name="fast_info")
     currency_candidate = _extract_mapping_string(fast_info, key="currency")
 
     if currency_candidate is None:
-        info_mapping = cast(
-            Mapping[str, object] | None,
-            getattr(ticker_client, "info", None),
-        )
+        info_mapping = _get_mapping_attribute_or_none(ticker_client, attribute_name="info")
         currency_candidate = _extract_mapping_string(info_mapping, key="currency")
 
     if currency_candidate is None:
@@ -297,6 +301,23 @@ def _fetch_symbol_currency(
             status_code=502,
         )
     return normalized_currency
+
+
+def _get_mapping_attribute_or_none(
+    value: object,
+    *,
+    attribute_name: str,
+) -> Mapping[str, object] | None:
+    """Return mapping attribute value when available and safely accessible."""
+
+    try:
+        attribute_value = getattr(value, attribute_name)
+    except Exception:
+        return None
+
+    if isinstance(attribute_value, Mapping):
+        return cast(Mapping[str, object], attribute_value)
+    return None
 
 
 def _download_symbol_history(
@@ -316,10 +337,11 @@ def _download_symbol_history(
 
     attempt = 0
     last_error: Exception | None = None
+    provider_symbol = _resolve_provider_symbol(symbol=symbol)
     while attempt <= config.max_retries:
         try:
             result = download_function(
-                tickers=symbol,
+                tickers=provider_symbol,
                 period=config.period,
                 interval=config.interval,
                 auto_adjust=config.auto_adjust,
@@ -346,8 +368,11 @@ def _download_symbol_history(
             continue
         attempt += 1
 
+    reason = "unknown provider failure"
+    if last_error is not None:
+        reason = _format_provider_exception_reason(last_error)
     raise YFinanceAdapterError(
-        f"YFinance failed while downloading history for symbol '{symbol}'.",
+        f"YFinance failed while downloading history for symbol '{symbol}' ({reason}).",
         status_code=502,
     ) from last_error
 
@@ -374,7 +399,11 @@ def _extract_close_items(*, close_series: object, symbol: str) -> list[tuple[obj
     """Return close items from supported one-dimensional and tabular payload shapes."""
 
     if _is_tabular_close_payload(close_series):
-        return _extract_tabular_close_items(close_series=close_series, symbol=symbol)
+        return _extract_tabular_close_items(
+            close_series=close_series,
+            symbol=symbol,
+            provider_symbol=_resolve_provider_symbol(symbol=symbol),
+        )
     return _extract_series_items(close_series=close_series, symbol=symbol)
 
 
@@ -411,6 +440,7 @@ def _extract_tabular_close_items(
     *,
     close_series: object,
     symbol: str,
+    provider_symbol: str,
 ) -> list[tuple[object, object]]:
     """Return market-key/value items from a tabular close payload for one symbol."""
 
@@ -425,6 +455,7 @@ def _extract_tabular_close_items(
         column_item
         for column_item in column_items
         if _close_column_matches_symbol(column_key=column_item[0], symbol=symbol)
+        or _close_column_matches_symbol(column_key=column_item[0], symbol=provider_symbol)
     ]
     if len(matching_columns) == 1:
         _, column_series = matching_columns[0]
@@ -471,21 +502,41 @@ def _is_two_item_tuple(candidate: object) -> TypeGuard[tuple[object, object]]:
 def _coerce_trading_date(*, raw_market_key: object, symbol: str) -> date:
     """Coerce provider market key to day-level trading date."""
 
-    if isinstance(raw_market_key, datetime):
-        return raw_market_key.date()
-    if isinstance(raw_market_key, date):
-        return raw_market_key
-
-    to_pydatetime = getattr(raw_market_key, "to_pydatetime", None)
-    if callable(to_pydatetime):
-        converted_datetime = to_pydatetime()
-        if isinstance(converted_datetime, datetime):
-            return converted_datetime.date()
+    normalized_date = _coerce_day_level_temporal_key(value=raw_market_key)
+    if normalized_date is not None:
+        return normalized_date
 
     raise YFinanceAdapterError(
         f"YFinance returned unsupported trading-date key for symbol '{symbol}'.",
         status_code=502,
     )
+
+
+def _coerce_day_level_temporal_key(*, value: object) -> date | None:
+    """Return one approved day-level date from provider temporal key variants."""
+
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, date):
+        return value
+
+    to_pydatetime = getattr(value, "to_pydatetime", None)
+    if callable(to_pydatetime):
+        converted_value = to_pydatetime()
+        normalized_from_pydatetime = _coerce_day_level_temporal_key(value=converted_value)
+        if normalized_from_pydatetime is not None:
+            return normalized_from_pydatetime
+
+    item_method = getattr(value, "item", None)
+    if callable(item_method):
+        converted_item = item_method()
+        if converted_item is value:
+            return None
+        normalized_from_item = _coerce_day_level_temporal_key(value=converted_item)
+        if normalized_from_item is not None:
+            return normalized_from_item
+
+    return None
 
 
 def _coerce_decimal(*, raw_value: object, symbol: str) -> Decimal:
@@ -512,12 +563,22 @@ def _extract_mapping_string(mapping: Mapping[str, object] | None, *, key: str) -
 
     if mapping is None:
         return None
-    raw_value = mapping.get(key)
+    try:
+        raw_value = mapping.get(key)
+    except Exception:
+        return None
     if isinstance(raw_value, str):
         normalized = raw_value.strip()
         if normalized:
             return normalized
     return None
+
+
+def _resolve_provider_symbol(*, symbol: str) -> str:
+    """Map one canonical symbol to provider-specific fetch symbol when required."""
+
+    normalized_symbol = symbol.strip().upper()
+    return _YFINANCE_PROVIDER_SYMBOL_ALIASES.get(normalized_symbol, normalized_symbol)
 
 
 def _is_missing_numeric_value(raw_value: object) -> bool:
@@ -543,3 +604,12 @@ def _is_empty_frame(frame: object) -> bool:
     if isinstance(empty_attr, bool):
         return empty_attr
     return False
+
+
+def _format_provider_exception_reason(exc: Exception) -> str:
+    """Return one compact exception reason for structured blocker reporting."""
+
+    message = str(exc).strip()
+    if message:
+        return f"{type(exc).__name__}: {message}"
+    return type(exc).__name__

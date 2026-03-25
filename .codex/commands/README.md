@@ -9,13 +9,16 @@ These commands align with:
 
 ## Recommended Flow
 
-Use this sequence most of the time:
+Use these tracks most of the time:
 
 ```text
-/new-branch <type> <short-description>
-/prime
-/next-step
+/prime [optional preflight]
+/next-proposal
+/new-branch feat <short-description>
+$openspec-propose "<change-name>"
 /plan <change description>
+/change-ready [optional focus]         # optional gated wrapper for the four lines above
+/next-step                             # optional if you already have an active change and need implementation sequencing
 /review-fix [optional findings]
 /explain <change-name> <task-selector>   # optional learning/review step
 /execute <change-name> [task-selector]
@@ -26,10 +29,13 @@ Use this sequence most of the time:
 ```
 
 Mental model:
-- `/new-branch` = start from synced `main`, create branch with standard naming, configure upstream, and optionally publish
-- `/prime` = understand current repo and OpenSpec runtime
+- `/prime` = optional repo/runtime preflight before proposal or implementation work
+- `/next-proposal` = recommend the next formal proposal grounded in docs, changelog, git history, and runtime state
+- `/new-branch` = create the feature branch before proposal artifacts are written
+- `$openspec-propose` = create proposal artifacts on that branch
 - `/next-step` = pick the highest-leverage next implementation step
 - `/plan` = produce an execution-ready plan from OpenSpec artifacts
+- `/change-ready` = optional human-in-the-loop wrapper that stops once the change is ready for `/execute`
 - `/review-fix` = convert review findings into a minimal fix plan in `/explain` structure
 - `/explain` = explain task slices before coding (read-only)
 - `/execute` = implement task slices with explicit validation
@@ -123,6 +129,45 @@ Examples:
 ```text
 /next-step
 /next-step pdf pipeline
+```
+
+### `/next-proposal`
+
+Use when:
+- deciding what proposal should exist next
+- wanting a standalone recommendation grounded in docs, changelog, git history, code, and OpenSpec runtime
+
+What it does:
+- evaluates top proposal candidates
+- checks whether existing active changes should block new proposal work
+- recommends one winner plus exact branch, proposal, and planning handoff commands
+
+Examples:
+
+```text
+/next-proposal
+/next-proposal market data operations
+```
+
+### `/change-ready`
+
+Use when:
+- you want the repository guided from proposal discovery to plan-ready state with human approval at each major gate
+- you expect implementation to be handed to another model after planning is complete
+
+What it does:
+- runs proposal discovery
+- pauses for human selection
+- creates the branch
+- creates proposal artifacts
+- runs planning
+- stops with an implementation handoff for `/execute`
+
+Examples:
+
+```text
+/change-ready
+/change-ready market data operations
 ```
 
 ### `/plan`
@@ -295,9 +340,13 @@ Note:
 
 ## Best Practices
 
-- Run `/prime` before non-trivial planning/execution.
+- Run `/prime` when you want an explicit repo/runtime preflight before starting proposal or implementation work.
+- Use `/next-proposal` when you want a standalone recommendation for what to formally propose next.
+- Create the branch before running `$openspec-propose` so proposal artifacts are created on the feature branch, not `main`.
+- Use `/change-ready` when you want a gated 1-to-5 workflow that stops before coding.
 - Use `/next-step` when direction is unclear.
 - Use `/plan` before `/execute` for non-trivial changes.
+- Treat `/plan` as the model-handoff boundary when implementation will be done by a different model.
 - Use `/explain` when you want to review a slice before coding it.
 - Keep `/execute` runs task-scoped and validation-backed.
 - Use `/validate` for reality-based status, not optimistic status.

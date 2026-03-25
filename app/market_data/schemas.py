@@ -70,9 +70,15 @@ class MarketDataRefreshRunResult(BaseModel):
     status: Literal["completed"] = "completed"
     source_type: str = Field(min_length=1)
     source_provider: str = Field(min_length=1)
+    refresh_scope_mode: Literal["core", "100", "200"]
     requested_symbols: list[str] = Field(min_length=1)
+    requested_symbols_count: int = Field(ge=1)
     snapshot_key: str = Field(min_length=1)
     snapshot_captured_at: datetime
     snapshot_id: int = Field(ge=1)
     inserted_prices: int = Field(ge=0)
     updated_prices: int = Field(ge=0)
+    retry_attempted_symbols: list[str] = Field(default_factory=list)
+    retry_attempted_symbols_count: int = Field(ge=0, default=0)
+    failed_symbols: list[str] = Field(default_factory=list)
+    failed_symbols_count: int = Field(ge=0, default=0)

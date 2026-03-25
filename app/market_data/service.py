@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import re
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from decimal import Decimal
-from typing import Final, cast
+from functools import lru_cache
+from pathlib import Path
+from typing import Final, Literal, cast
 
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert as postgresql_insert
@@ -35,32 +38,13 @@ from app.shared.models import utcnow
 
 logger = get_logger(__name__)
 
-_SUPPORTED_DATASET_1_SYMBOLS: Final[frozenset[str]] = frozenset(
-    {
-        "AMD",
-        "APLD",
-        "BBAI",
-        "BRK.B",
-        "GLD",
-        "GOOGL",
-        "HOOD",
-        "META",
-        "NVDA",
-        "PLTR",
-        "QQQM",
-        "SCHD",
-        "SCHG",
-        "SMH",
-        "SOFI",
-        "SPMO",
-        "TSLA",
-        "UUUU",
-        "VOO",
-    }
-)
 _SYMBOL_PATTERN: Final[re.Pattern[str]] = re.compile(r"^[A-Z0-9][A-Z0-9.\-]*$")
 _YFINANCE_SOURCE_TYPE: Final[str] = "market_data_provider"
 _YFINANCE_SOURCE_PROVIDER: Final[str] = "yfinance"
+_SUPPORTED_LIBRARY_SIZES: Final[frozenset[int]] = frozenset({100, 200})
+_REFRESH_SCOPE_MODES: Final[frozenset[str]] = frozenset({"core", "100", "200"})
+
+MarketDataRefreshScopeMode = Literal["core", "100", "200"]
 
 
 @dataclass(frozen=True)
@@ -94,6 +78,32 @@ class _YFinanceRefreshPlan:
     normalized_snapshot_captured_at: datetime
     provider_config: YFinanceAdapterConfig
     snapshot_key: str
+
+
+@dataclass(frozen=True)
+class _YFinanceScopeFetchResult:
+    """Fetched yfinance rows and recovery diagnostics for one refresh scope run."""
+
+    rows: list[YFinanceNormalizedRow]
+    provider_metadata: dict[str, object]
+    retry_attempted_symbols: list[str]
+    failed_symbols: list[str]
+
+
+@dataclass(frozen=True)
+class _MarketDataSymbolUniverse:
+    """Versioned market-data symbol universe loaded from repository JSON."""
+
+    required_portfolio_symbols: tuple[str, ...]
+    core_refresh_symbols: tuple[str, ...]
+    starter_100_symbols: tuple[str, ...]
+    starter_200_symbols: tuple[str, ...]
+
+    @property
+    def supported_scope(self) -> frozenset[str]:
+        """Return current supported ingestion scope as normalized symbol set."""
+
+        return frozenset(self.starter_200_symbols)
 
 
 class MarketDataClientError(ValueError):
@@ -182,12 +192,17 @@ async def ingest_yfinance_daily_close_snapshot(
 async def refresh_yfinance_supported_universe(
     *,
     db: AsyncSession,
+    refresh_scope_mode: str | None = None,
     snapshot_captured_at: datetime | None = None,
     settings: Settings | None = None,
 ) -> MarketDataRefreshRunResult:
     """Run one operator-facing full refresh for the supported symbol universe."""
 
-    supported_symbols = list_supported_market_data_symbols()
+    normalized_refresh_scope_mode = _normalize_refresh_scope_mode(refresh_scope_mode)
+    supported_symbols = _resolve_refresh_scope_symbols(
+        refresh_scope_mode=normalized_refresh_scope_mode,
+        settings=settings,
+    )
     refresh_plan = _build_yfinance_refresh_plan(
         symbols=supported_symbols,
         snapshot_captured_at=snapshot_captured_at,
@@ -197,29 +212,50 @@ async def refresh_yfinance_supported_universe(
         "market_data.refresh_started",
         source_provider=_YFINANCE_SOURCE_PROVIDER,
         refresh_scope="supported_universe",
+        refresh_scope_mode=normalized_refresh_scope_mode,
         requested_symbols=refresh_plan.normalized_symbols,
         requested_symbols_count=len(refresh_plan.normalized_symbols),
         snapshot_key=refresh_plan.snapshot_key,
     )
 
+    retry_attempted_symbols: list[str] = []
+    failed_symbols: list[str] = []
     try:
-        ingest_result = await ingest_yfinance_daily_close_snapshot(
-            db=db,
-            symbols=refresh_plan.normalized_symbols,
-            snapshot_captured_at=refresh_plan.normalized_snapshot_captured_at,
-            settings=settings,
-        )
+        if normalized_refresh_scope_mode == "core":
+            ingest_result = await ingest_yfinance_daily_close_snapshot(
+                db=db,
+                symbols=refresh_plan.normalized_symbols,
+                snapshot_captured_at=refresh_plan.normalized_snapshot_captured_at,
+                settings=settings,
+            )
+        else:
+            fetch_result = await _fetch_yfinance_rows_with_non_portfolio_tolerance(
+                symbols=refresh_plan.normalized_symbols,
+                provider_config=refresh_plan.provider_config,
+                settings=settings,
+            )
+            retry_attempted_symbols = fetch_result.retry_attempted_symbols
+            failed_symbols = fetch_result.failed_symbols
+            ingest_result = await _ingest_fetched_yfinance_scope_rows(
+                db=db,
+                refresh_plan=refresh_plan,
+                fetched_rows=fetch_result.rows,
+                provider_metadata=fetch_result.provider_metadata,
+            )
     except MarketDataClientError as exc:
         logger.error(
             "market_data.refresh_failed",
             source_provider=_YFINANCE_SOURCE_PROVIDER,
             refresh_scope="supported_universe",
+            refresh_scope_mode=normalized_refresh_scope_mode,
             requested_symbols=refresh_plan.normalized_symbols,
             requested_symbols_count=len(refresh_plan.normalized_symbols),
             snapshot_key=refresh_plan.snapshot_key,
             error=str(exc),
             error_type=type(exc).__name__,
             status_code=exc.status_code,
+            retry_attempted_symbols_count=len(retry_attempted_symbols),
+            failed_symbols_count=len(failed_symbols),
             exc_info=True,
         )
         raise
@@ -227,25 +263,190 @@ async def refresh_yfinance_supported_universe(
     refresh_result = MarketDataRefreshRunResult(
         source_type=_YFINANCE_SOURCE_TYPE,
         source_provider=_YFINANCE_SOURCE_PROVIDER,
+        refresh_scope_mode=normalized_refresh_scope_mode,
         requested_symbols=refresh_plan.normalized_symbols,
+        requested_symbols_count=len(refresh_plan.normalized_symbols),
         snapshot_key=refresh_plan.snapshot_key,
         snapshot_captured_at=refresh_plan.normalized_snapshot_captured_at,
         snapshot_id=ingest_result.snapshot_id,
         inserted_prices=ingest_result.inserted_prices,
         updated_prices=ingest_result.updated_prices,
+        retry_attempted_symbols=retry_attempted_symbols,
+        retry_attempted_symbols_count=len(retry_attempted_symbols),
+        failed_symbols=failed_symbols,
+        failed_symbols_count=len(failed_symbols),
     )
     logger.info(
         "market_data.refresh_completed",
         source_provider=refresh_result.source_provider,
         refresh_scope="supported_universe",
+        refresh_scope_mode=refresh_result.refresh_scope_mode,
         status=refresh_result.status,
         snapshot_id=refresh_result.snapshot_id,
         snapshot_key=refresh_result.snapshot_key,
-        requested_symbols_count=len(refresh_result.requested_symbols),
+        requested_symbols_count=refresh_result.requested_symbols_count,
         inserted_prices=refresh_result.inserted_prices,
         updated_prices=refresh_result.updated_prices,
+        retry_attempted_symbols_count=refresh_result.retry_attempted_symbols_count,
+        failed_symbols_count=refresh_result.failed_symbols_count,
     )
     return refresh_result
+
+
+async def _fetch_yfinance_rows_with_non_portfolio_tolerance(
+    *,
+    symbols: list[str],
+    provider_config: YFinanceAdapterConfig,
+    settings: Settings | None,
+) -> _YFinanceScopeFetchResult:
+    """Fetch per symbol with one retry pass; fail-fast only on required symbol failures."""
+
+    universe = _get_market_data_symbol_universe(settings=settings)
+    required_portfolio_symbols = set(universe.required_portfolio_symbols)
+
+    fetched_rows: list[YFinanceNormalizedRow] = []
+    rows_by_symbol: dict[str, int] = {}
+    currencies_by_symbol: dict[str, str] = {}
+    first_pass_errors: dict[str, YFinanceAdapterError] = {}
+
+    for symbol in symbols:
+        try:
+            symbol_rows, symbol_metadata = await fetch_yfinance_daily_close_rows(
+                symbols=(symbol,),
+                config=provider_config,
+            )
+        except YFinanceAdapterError as exc:
+            first_pass_errors[symbol] = exc
+            continue
+        fetched_rows.extend(symbol_rows)
+        rows_by_symbol[symbol] = len(symbol_rows)
+        currency_code = _extract_symbol_currency_from_metadata(
+            metadata=symbol_metadata,
+            symbol=symbol,
+            rows=symbol_rows,
+        )
+        if currency_code is not None:
+            currencies_by_symbol[symbol] = currency_code
+
+    retry_attempted_symbols: list[str] = []
+    final_errors: dict[str, YFinanceAdapterError] = {}
+    if first_pass_errors:
+        retry_attempted_symbols = [symbol for symbol in symbols if symbol in first_pass_errors]
+        logger.info(
+            "market_data.refresh_retrying",
+            source_provider=_YFINANCE_SOURCE_PROVIDER,
+            retry_attempted_symbols=retry_attempted_symbols,
+            retry_attempted_symbols_count=len(retry_attempted_symbols),
+        )
+        for symbol in retry_attempted_symbols:
+            try:
+                symbol_rows, symbol_metadata = await fetch_yfinance_daily_close_rows(
+                    symbols=(symbol,),
+                    config=provider_config,
+                )
+            except YFinanceAdapterError as exc:
+                final_errors[symbol] = exc
+                continue
+            fetched_rows.extend(symbol_rows)
+            rows_by_symbol[symbol] = len(symbol_rows)
+            currency_code = _extract_symbol_currency_from_metadata(
+                metadata=symbol_metadata,
+                symbol=symbol,
+                rows=symbol_rows,
+            )
+            if currency_code is not None:
+                currencies_by_symbol[symbol] = currency_code
+
+    failed_symbols = [symbol for symbol in symbols if symbol in final_errors]
+    required_failures = [
+        symbol for symbol in failed_symbols if symbol in required_portfolio_symbols
+    ]
+    if required_failures:
+        required_failures_text = ", ".join(required_failures)
+        first_required_failure = required_failures[0]
+        required_failure = final_errors[first_required_failure]
+        raise MarketDataClientError(
+            "YFinance retry could not recover required portfolio symbol(s): "
+            f"{required_failures_text}.",
+            status_code=required_failure.status_code,
+        ) from required_failure
+
+    if not fetched_rows:
+        raise MarketDataClientError(
+            "YFinance response contained no valid daily close rows after retry for refresh scope.",
+            status_code=502,
+        )
+
+    provider_metadata: dict[str, object] = {
+        "provider": "yfinance",
+        "period": provider_config.period,
+        "interval": provider_config.interval,
+        "auto_adjust": provider_config.auto_adjust,
+        "repair": provider_config.repair,
+        "requested_symbols": symbols,
+        "rows_by_symbol": rows_by_symbol,
+        "currencies_by_symbol": currencies_by_symbol,
+        "retry_attempted_symbols": retry_attempted_symbols,
+        "retry_attempted_symbols_count": len(retry_attempted_symbols),
+        "failed_symbols": failed_symbols,
+        "failed_symbols_count": len(failed_symbols),
+    }
+    return _YFinanceScopeFetchResult(
+        rows=fetched_rows,
+        provider_metadata=provider_metadata,
+        retry_attempted_symbols=retry_attempted_symbols,
+        failed_symbols=failed_symbols,
+    )
+
+
+def _extract_symbol_currency_from_metadata(
+    *,
+    metadata: dict[str, object],
+    symbol: str,
+    rows: list[YFinanceNormalizedRow],
+) -> str | None:
+    """Extract one symbol currency from adapter metadata with row fallback."""
+
+    metadata_currencies = metadata.get("currencies_by_symbol")
+    if isinstance(metadata_currencies, dict):
+        typed_metadata_currencies = cast(dict[str, object], metadata_currencies)
+        candidate_currency = typed_metadata_currencies.get(symbol)
+        if isinstance(candidate_currency, str):
+            normalized_currency = candidate_currency.strip().upper()
+            if normalized_currency:
+                return normalized_currency
+
+    if rows:
+        return rows[0].currency_code
+    return None
+
+
+async def _ingest_fetched_yfinance_scope_rows(
+    *,
+    db: AsyncSession,
+    refresh_plan: _YFinanceRefreshPlan,
+    fetched_rows: list[YFinanceNormalizedRow],
+    provider_metadata: dict[str, object],
+) -> MarketDataSnapshotWriteResult:
+    """Persist one already-fetched yfinance scope payload into the snapshot boundary."""
+
+    price_rows = [_to_price_write(row=row) for row in fetched_rows]
+    snapshot_metadata: dict[str, object] = {
+        **provider_metadata,
+        "requested_symbols": refresh_plan.normalized_symbols,
+        "response_rows": len(price_rows),
+    }
+    return await ingest_market_data_snapshot(
+        db=db,
+        request=MarketDataSnapshotWriteRequest(
+            source_type=_YFINANCE_SOURCE_TYPE,
+            source_provider=_YFINANCE_SOURCE_PROVIDER,
+            snapshot_key=refresh_plan.snapshot_key,
+            snapshot_captured_at=refresh_plan.normalized_snapshot_captured_at,
+            snapshot_metadata=snapshot_metadata,
+            prices=price_rows,
+        ),
+    )
 
 
 async def ingest_market_data_snapshot(
@@ -415,10 +616,61 @@ def _to_price_write(*, row: YFinanceNormalizedRow) -> MarketDataPriceWrite:
     )
 
 
-def list_supported_market_data_symbols() -> list[str]:
-    """Return the current supported market-data symbol universe in stable order."""
+def list_supported_market_data_symbols(*, settings: Settings | None = None) -> list[str]:
+    """Return current supported refresh scope in stable sorted order."""
 
-    return sorted(_SUPPORTED_DATASET_1_SYMBOLS)
+    universe = _get_market_data_symbol_universe(settings=settings)
+    return sorted(universe.core_refresh_symbols)
+
+
+def list_market_data_library_symbols(
+    *,
+    size: int = 200,
+    settings: Settings | None = None,
+) -> list[str]:
+    """Return starter market-data library symbols for size 100 or 200."""
+
+    if size not in _SUPPORTED_LIBRARY_SIZES:
+        raise MarketDataClientError(
+            "Market-data symbol library size must be one of: 100, 200.",
+            status_code=422,
+        )
+
+    universe = _get_market_data_symbol_universe(settings=settings)
+    if size == 100:
+        return list(universe.starter_100_symbols)
+    return list(universe.starter_200_symbols)
+
+
+def _resolve_refresh_scope_symbols(
+    *,
+    refresh_scope_mode: MarketDataRefreshScopeMode,
+    settings: Settings | None = None,
+) -> list[str]:
+    """Resolve deterministic symbol list for one refresh scope mode."""
+
+    if refresh_scope_mode == "core":
+        return list_supported_market_data_symbols(settings=settings)
+    if refresh_scope_mode == "100":
+        return list_market_data_library_symbols(size=100, settings=settings)
+    return list_market_data_library_symbols(size=200, settings=settings)
+
+
+def _normalize_refresh_scope_mode(value: str | None) -> MarketDataRefreshScopeMode:
+    """Normalize and validate operator refresh scope mode input."""
+
+    if value is None:
+        return "core"
+
+    normalized_value = _normalize_required_text(value, field="refresh_scope_mode").lower()
+    if normalized_value not in _REFRESH_SCOPE_MODES:
+        supported_modes = ", ".join(sorted(_REFRESH_SCOPE_MODES))
+        raise MarketDataClientError(
+            "Field 'refresh_scope_mode' (refresh scope mode) must be one of: "
+            f"{supported_modes}.",
+            status_code=422,
+        )
+    return cast(MarketDataRefreshScopeMode, normalized_value)
 
 
 def _normalize_requested_symbols(*, symbols: list[str]) -> list[str]:
@@ -789,12 +1041,194 @@ def _normalize_symbol(value: object, *, field: str) -> str:
             f"Field '{field}' must be a safe ticker-style symbol.",
             status_code=422,
         )
-    if normalized_symbol not in _SUPPORTED_DATASET_1_SYMBOLS:
+    supported_scope = _get_market_data_symbol_universe().supported_scope
+    if normalized_symbol not in supported_scope:
         raise MarketDataClientError(
             f"Symbol '{normalized_symbol}' is outside the current dataset_1-supported market-data scope.",
             status_code=422,
         )
     return normalized_symbol
+
+
+def _get_market_data_symbol_universe(
+    *,
+    settings: Settings | None = None,
+) -> _MarketDataSymbolUniverse:
+    """Resolve one validated market-data symbol universe from configured path."""
+
+    effective_settings = settings if settings is not None else get_settings()
+    return _load_market_data_symbol_universe_from_path(
+        universe_path=effective_settings.market_data_symbol_universe_path,
+    )
+
+
+@lru_cache(maxsize=8)
+def _load_market_data_symbol_universe_from_path(
+    *,
+    universe_path: str,
+) -> _MarketDataSymbolUniverse:
+    """Load and validate market-data symbol universe JSON from one path."""
+
+    resolved_universe_path = Path(universe_path)
+    try:
+        raw_payload = resolved_universe_path.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise MarketDataClientError(
+            "Failed to read configured market-data symbol universe file: "
+            f"{resolved_universe_path}.",
+            status_code=500,
+        ) from exc
+
+    try:
+        payload = json.loads(raw_payload)
+    except json.JSONDecodeError as exc:
+        raise MarketDataClientError(
+            "Configured market-data symbol universe file contains invalid JSON: "
+            f"{resolved_universe_path}.",
+            status_code=500,
+        ) from exc
+
+    if not isinstance(payload, dict):
+        raise MarketDataClientError(
+            "Configured market-data symbol universe file must contain one JSON object.",
+            status_code=500,
+        )
+    typed_payload = cast(dict[str, object], payload)
+
+    required_portfolio_symbols = _parse_symbol_array_from_universe_payload(
+        payload=typed_payload,
+        field="required_portfolio_symbols",
+    )
+    core_refresh_symbols = _parse_symbol_array_from_universe_payload(
+        payload=typed_payload,
+        field="core_refresh_symbols",
+    )
+    starter_100_symbols = _parse_symbol_array_from_universe_payload(
+        payload=typed_payload,
+        field="starter_100_symbols",
+    )
+    starter_200_symbols = _parse_symbol_array_from_universe_payload(
+        payload=typed_payload,
+        field="starter_200_symbols",
+    )
+
+    if len(starter_100_symbols) != 100:
+        raise MarketDataClientError(
+            "Field 'starter_100_symbols' must contain exactly 100 unique symbols.",
+            status_code=500,
+        )
+    if len(starter_200_symbols) != 200:
+        raise MarketDataClientError(
+            "Field 'starter_200_symbols' must contain exactly 200 unique symbols.",
+            status_code=500,
+        )
+
+    _ensure_symbol_subset(
+        subset_symbols=required_portfolio_symbols,
+        superset_symbols=core_refresh_symbols,
+        subset_field="required_portfolio_symbols",
+        superset_field="core_refresh_symbols",
+    )
+    _ensure_symbol_subset(
+        subset_symbols=required_portfolio_symbols,
+        superset_symbols=starter_100_symbols,
+        subset_field="required_portfolio_symbols",
+        superset_field="starter_100_symbols",
+    )
+    _ensure_symbol_subset(
+        subset_symbols=required_portfolio_symbols,
+        superset_symbols=starter_200_symbols,
+        subset_field="required_portfolio_symbols",
+        superset_field="starter_200_symbols",
+    )
+    _ensure_symbol_subset(
+        subset_symbols=starter_100_symbols,
+        superset_symbols=starter_200_symbols,
+        subset_field="starter_100_symbols",
+        superset_field="starter_200_symbols",
+    )
+    _ensure_symbol_subset(
+        subset_symbols=core_refresh_symbols,
+        superset_symbols=starter_200_symbols,
+        subset_field="core_refresh_symbols",
+        superset_field="starter_200_symbols",
+    )
+
+    return _MarketDataSymbolUniverse(
+        required_portfolio_symbols=required_portfolio_symbols,
+        core_refresh_symbols=core_refresh_symbols,
+        starter_100_symbols=starter_100_symbols,
+        starter_200_symbols=starter_200_symbols,
+    )
+
+
+def _parse_symbol_array_from_universe_payload(
+    *,
+    payload: dict[str, object],
+    field: str,
+) -> tuple[str, ...]:
+    """Parse and validate one symbol-array field from universe JSON payload."""
+
+    raw_symbols = payload.get(field)
+    if not isinstance(raw_symbols, list):
+        raise MarketDataClientError(
+            f"Field '{field}' in market-data symbol universe must be a JSON array.",
+            status_code=500,
+        )
+    raw_symbol_values = cast(list[object], raw_symbols)
+
+    normalized_symbols: list[str] = []
+    seen_symbols: set[str] = set()
+    duplicate_symbols: set[str] = set()
+    for raw_symbol in raw_symbol_values:
+        if not isinstance(raw_symbol, str):
+            raise MarketDataClientError(
+                f"Field '{field}' must contain only ticker symbol strings.",
+                status_code=500,
+            )
+        normalized_symbol = raw_symbol.strip().upper()
+        if not normalized_symbol:
+            raise MarketDataClientError(
+                f"Field '{field}' must not contain blank ticker symbols.",
+                status_code=500,
+            )
+        if _SYMBOL_PATTERN.fullmatch(normalized_symbol) is None:
+            raise MarketDataClientError(
+                f"Field '{field}' contains unsupported ticker symbol '{normalized_symbol}'.",
+                status_code=500,
+            )
+        if normalized_symbol in seen_symbols:
+            duplicate_symbols.add(normalized_symbol)
+            continue
+        seen_symbols.add(normalized_symbol)
+        normalized_symbols.append(normalized_symbol)
+
+    if duplicate_symbols:
+        duplicate_symbol_text = ", ".join(sorted(duplicate_symbols))
+        raise MarketDataClientError(
+            f"Field '{field}' contains duplicate ticker symbols: {duplicate_symbol_text}.",
+            status_code=500,
+        )
+    return tuple(normalized_symbols)
+
+
+def _ensure_symbol_subset(
+    *,
+    subset_symbols: tuple[str, ...],
+    superset_symbols: tuple[str, ...],
+    subset_field: str,
+    superset_field: str,
+) -> None:
+    """Validate subset relation across two symbol collections."""
+
+    missing_symbols = sorted(set(subset_symbols) - set(superset_symbols))
+    if missing_symbols:
+        missing_symbol_text = ", ".join(missing_symbols)
+        raise MarketDataClientError(
+            f"Field '{subset_field}' includes symbols missing from '{superset_field}': "
+            f"{missing_symbol_text}.",
+            status_code=500,
+        )
 
 
 def _normalize_source_identity(value: object, *, field: str) -> str:

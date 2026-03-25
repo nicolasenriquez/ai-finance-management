@@ -88,6 +88,12 @@ just ci
 
 ## Local Data-Sync Operations
 
+Prerequisites:
+
+- `DATABASE_URL` is configured
+- migrations are at head (`just db-upgrade`)
+- for `just` recipes in this section, `db-check` and `db-upgrade` are already enforced before command execution
+
 Run `dataset_1` bootstrap only (`ingest -> persist -> rebuild`):
 
 ```bash
@@ -106,13 +112,30 @@ Run combined fail-fast sync (`bootstrap -> refresh`):
 just data-sync-local
 ```
 
+Build or refresh the versioned market-data symbol universe library (required portfolio + starter 100/200):
+
+```bash
+just market-symbol-universe-build
+```
+
 Optional overrides:
 
 ```bash
 just data-bootstrap-dataset1 app/golden_sets/dataset_1/202602_stocks.pdf
 just market-refresh-yfinance 2026-03-25T00:00:00Z
 just data-sync-local app/golden_sets/dataset_1/202602_stocks.pdf 2026-03-25T00:00:00Z
+just market-refresh-yfinance 2026-03-25T00:00:00Z core
+just market-refresh-yfinance 2026-03-25T00:00:00Z 100
+just market-refresh-yfinance 2026-03-25T00:00:00Z 200
+just data-sync-local app/golden_sets/dataset_1/202602_stocks.pdf 2026-03-25T00:00:00Z core
+just market-symbol-universe-build app/golden_sets/dataset_1/202602_stocks.json app/market_data/symbol_universe.v1.json
 ```
+
+Smoke evidence contract for `market-refresh-yfinance` and `data-sync-local`:
+
+- successful runs should capture typed evidence (`refresh_scope_mode`, `source_provider`, `requested_symbols`, `requested_symbols_count`, `snapshot_key`, `snapshot_captured_at`, `snapshot_id`, `inserted_prices`, `updated_prices`)
+- blocked runs should capture structured fail-fast payload (`status`, `stage`, `status_code`, `error`)
+- blocked outcomes are first-class operational evidence and must not be reported as partial success
 
 ## Git Hooks
 

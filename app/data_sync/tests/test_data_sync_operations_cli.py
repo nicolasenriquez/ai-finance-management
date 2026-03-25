@@ -65,6 +65,19 @@ def test_parse_iso_datetime_rejects_naive_values() -> None:
         )
 
 
+def test_parse_refresh_scope_rejects_unsupported_value() -> None:
+    """CLI parser should reject unsupported refresh-scope selectors."""
+
+    with pytest.raises(SystemExit):
+        data_sync_operations.build_parser().parse_args(
+            [
+                "market-refresh-yfinance",
+                "--refresh-scope",
+                "999",
+            ]
+        )
+
+
 @pytest.mark.asyncio
 async def test_async_main_bootstrap_prints_json_result(
     monkeypatch: pytest.MonkeyPatch,
@@ -132,10 +145,12 @@ async def test_async_main_market_refresh_emits_fail_fast_error(
     async def fake_refresh(
         *,
         db: object,
+        refresh_scope_mode: str | None,
         snapshot_captured_at: datetime | None,
         settings: object | None = None,
     ) -> MarketDataRefreshRunResult:
         del db
+        assert refresh_scope_mode is None
         del snapshot_captured_at
         del settings
         raise DataSyncClientError(
@@ -170,12 +185,14 @@ async def test_async_main_data_sync_local_passes_both_optional_arguments(
         *,
         db: object,
         dataset_pdf_path: Path | None,
+        refresh_scope_mode: str | None,
         snapshot_captured_at: datetime | None,
         settings: object | None = None,
     ) -> DataSyncLocalRunResult:
         del db
         del settings
         assert dataset_pdf_path == Path("dataset_override.pdf")
+        assert refresh_scope_mode == "200"
         assert snapshot_captured_at == expected_snapshot
         return DataSyncLocalRunResult(
             bootstrap=DatasetBootstrapRunResult(
@@ -199,7 +216,9 @@ async def test_async_main_data_sync_local_passes_both_optional_arguments(
             market_refresh=MarketDataRefreshRunResult(
                 source_type="market_data_provider",
                 source_provider="yfinance",
+                refresh_scope_mode="core",
                 requested_symbols=["AMD", "VOO"],
+                requested_symbols_count=2,
                 snapshot_key="yfinance-supported-2026-03-25",
                 snapshot_captured_at=expected_snapshot,
                 snapshot_id=21,
@@ -218,6 +237,8 @@ async def test_async_main_data_sync_local_passes_both_optional_arguments(
             "dataset_override.pdf",
             "--snapshot-captured-at",
             "2026-03-25T18:30:00Z",
+            "--refresh-scope",
+            "200",
         ],
     )
     monkeypatch.setattr("app.core.database.AsyncSessionLocal", _fake_session_local)
@@ -230,3 +251,59 @@ async def test_async_main_data_sync_local_passes_both_optional_arguments(
     assert payload["status"] == "completed"
     assert payload["bootstrap"]["source_document_id"] == 11
     assert payload["market_refresh"]["source_provider"] == "yfinance"
+
+
+@pytest.mark.asyncio
+async def test_async_main_market_refresh_passes_refresh_scope_argument(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Market refresh command should propagate explicit refresh scope to service layer."""
+
+    expected_snapshot = datetime(2026, 3, 25, 18, 30, tzinfo=UTC)
+
+    async def fake_refresh(
+        *,
+        db: object,
+        refresh_scope_mode: str | None,
+        snapshot_captured_at: datetime | None,
+        settings: object | None = None,
+    ) -> MarketDataRefreshRunResult:
+        del db
+        del settings
+        assert refresh_scope_mode == "100"
+        assert snapshot_captured_at == expected_snapshot
+        return MarketDataRefreshRunResult(
+            source_type="market_data_provider",
+            source_provider="yfinance",
+            refresh_scope_mode="100",
+            requested_symbols=["AMD", "VOO"],
+            requested_symbols_count=2,
+            snapshot_key="yfinance-supported-2026-03-25",
+            snapshot_captured_at=expected_snapshot,
+            snapshot_id=31,
+            inserted_prices=2,
+            updated_prices=0,
+        )
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "data_sync_operations.py",
+            "market-refresh-yfinance",
+            "--snapshot-captured-at",
+            "2026-03-25T18:30:00Z",
+            "--refresh-scope",
+            "100",
+        ],
+    )
+    monkeypatch.setattr("app.core.database.AsyncSessionLocal", _fake_session_local)
+    monkeypatch.setattr(data_sync_operations, "run_market_refresh_yfinance", fake_refresh)
+
+    exit_code = await data_sync_operations.async_main()
+
+    assert exit_code == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["status"] == "completed"
+    assert payload["refresh_scope_mode"] == "100"

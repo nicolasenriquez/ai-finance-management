@@ -16,6 +16,7 @@ Defaults:
 Examples:
 - `/new-branch feat market-data-sync-ops`
 - `/new-branch docs yfinance-refresh-runbook`
+- `/new-branch feat market-data-scheduler-runbook`
 - `/new-branch fix slug=auto working_tree=pass`
 - `/new-branch feat portfolio-summary-cards working_tree=stash`
 
@@ -172,7 +173,7 @@ Commands run:
 - <list>
 
 Next action:
-- continue workflow on this branch (e.g., /prime, /next-step, /plan ...)
+- continue workflow on this branch (e.g., `$openspec-propose "<change-name>"`, `/plan <change-name>`, `/next-step`)
 ```
 
 ## Guardrails

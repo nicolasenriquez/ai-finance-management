@@ -214,6 +214,18 @@ Fallbacks:
 - `/explain <change-name> <task-selector>` for walkthrough-first
 - `$openspec-apply-change` as implementation skill fallback
 
+### 11) Build the Implementation Handoff
+
+End with a concise handoff block that another model or operator can use without rereading the whole plan.
+
+Include:
+- resolved `change-name`
+- execution readiness: `execute-ready` | `blocked`
+- first recommended task selector or bundle
+- exact `/execute <change-name> <selector>` command when ready
+- blockers or decisions still outstanding
+- validation expectations for the first execution slice
+
 ## Output Format
 
 ### 1) Change Snapshot
@@ -258,6 +270,14 @@ Fallbacks:
 
 ### 8) Documentation Checklist
 - docs to update for changed behavior/contracts
+
+### 9) Implementation Handoff
+- change name
+- readiness: `execute-ready` | `blocked`
+- first recommended selector
+- exact `/execute` command
+- blockers or open questions
+- first-slice validation expectations
 - whether `CHANGELOG.md` must be updated now
 - spec/delta alignment checks as relevant
 
