@@ -19,6 +19,8 @@ from app.market_data.service import (
     MarketDataClientError,
     ingest_market_data_snapshot,
     ingest_yfinance_daily_close_snapshot,
+    list_supported_market_data_symbols,
+    refresh_yfinance_supported_universe,
 )
 from app.pdf_persistence.models import CanonicalPdfRecord, ImportJob, SourceDocument
 from app.portfolio_ledger.models import (
@@ -477,6 +479,89 @@ async def test_provider_ingest_is_idempotent_and_non_mutating(
     assert len(rows) == 1
     assert rows[0].price_value == Decimal("511.000000000")
     assert after_counts == before_counts
+
+
+@pytest.mark.integration
+@pytest.mark.asyncio
+async def test_supported_universe_refresh_is_idempotent_and_non_mutating(
+    test_db_session: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Full supported-universe refresh should be idempotent and preserve ledger truth."""
+
+    await _truncate_tables_if_present(test_db_session)
+    await _seed_ledger_truth(test_db_session)
+    before_counts = await _fetch_truth_counts(test_db_session)
+    await test_db_session.rollback()
+
+    expected_symbols = tuple(list_supported_market_data_symbols())
+    call_count = 0
+
+    async def fake_fetch(
+        *,
+        symbols: tuple[str, ...],
+        config: object,
+    ) -> tuple[list[YFinanceNormalizedRow], dict[str, object]]:
+        nonlocal call_count
+        del config
+        assert symbols == expected_symbols
+        call_count += 1
+        call_offset = Decimal(call_count - 1)
+
+        rows: list[YFinanceNormalizedRow] = []
+        rows_by_symbol: dict[str, int] = {}
+        for index, symbol in enumerate(symbols):
+            close_value = Decimal("100.000000000") + Decimal(index) + call_offset
+            rows.append(
+                YFinanceNormalizedRow(
+                    instrument_symbol=symbol,
+                    trading_date=date(2026, 3, 24),
+                    close_value=close_value,
+                    currency_code="USD",
+                    source_payload={"provider": "yfinance", "field": "Close", "symbol": symbol},
+                )
+            )
+            rows_by_symbol[symbol] = 1
+        return (
+            rows,
+            {
+                "provider": "yfinance",
+                "rows_by_symbol": rows_by_symbol,
+            },
+        )
+
+    monkeypatch.setattr("app.market_data.service.fetch_yfinance_daily_close_rows", fake_fetch)
+
+    first = await refresh_yfinance_supported_universe(
+        db=test_db_session,
+        snapshot_captured_at=datetime(2026, 3, 24, 15, 0, tzinfo=UTC),
+        settings=_provider_settings(),
+    )
+    second = await refresh_yfinance_supported_universe(
+        db=test_db_session,
+        snapshot_captured_at=datetime(2026, 3, 24, 15, 0, tzinfo=UTC),
+        settings=_provider_settings(),
+    )
+
+    rows_result = await test_db_session.execute(select(PriceHistory))
+    rows = rows_result.scalars().all()
+    after_counts = await _fetch_truth_counts(test_db_session)
+
+    assert tuple(first.requested_symbols) == expected_symbols
+    assert tuple(second.requested_symbols) == expected_symbols
+    assert first.snapshot_key == second.snapshot_key
+    assert first.inserted_prices == len(expected_symbols)
+    assert first.updated_prices == 0
+    assert second.inserted_prices == 0
+    assert second.updated_prices == len(expected_symbols)
+    assert len(rows) == len(expected_symbols)
+    assert after_counts == before_counts
+
+    index_voo = list(expected_symbols).index("VOO")
+    expected_voo_price = Decimal("100.000000000") + Decimal(index_voo) + Decimal("1.000000000")
+    voo_rows = [row for row in rows if row.instrument_symbol == "VOO"]
+    assert len(voo_rows) == 1
+    assert voo_rows[0].price_value == expected_voo_price
 
 
 @pytest.mark.integration

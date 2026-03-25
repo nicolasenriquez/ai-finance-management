@@ -16,6 +16,7 @@ Current implementation status:
 - portfolio analytics API (`/api/portfolio/summary`, `/api/portfolio/lots/{instrument_symbol}`) is implemented with ledger-only KPI v1 scope
 - market-data ingestion boundary is implemented with idempotent snapshot writes and explicit non-mutation guarantees for canonical/ledger truth
 - first external market-data provider adapter (`yfinance`) is implemented with deterministic day-level close normalization and provider-backed ingest routed through the existing market-data boundary
+- local data-sync operations are implemented for `dataset_1` bootstrap and `yfinance` refresh (`data-bootstrap-dataset1`, `market-refresh-yfinance`, `data-sync-local`)
 
 ## Repository Baseline
 
@@ -29,6 +30,9 @@ just test
 just frontend-ci
 just ci
 just test-integration
+just data-bootstrap-dataset1
+just market-refresh-yfinance
+just data-sync-local
 openspec validate --specs --all
 ```
 
@@ -107,6 +111,8 @@ For each golden set dataset:
 - inspect extraction report for dataset 1
 - inspect stored rows
 - inspect portfolio analytics response shape
+- run one supported-universe `yfinance` refresh smoke invocation and record explicit success/failure evidence (including failing symbol/reason on rejection)
+- run one combined local sync smoke invocation and record stage-specific failure context when refresh is blocked by provider/network/runtime conditions
 
 ## Reporting Rule
 
@@ -129,3 +135,4 @@ For persistence phases, validation must also confirm:
 - market-data ingestion rejects payload-level duplicate symbol/time keys before DB mutation
 - market-data refresh path does not create, update, or delete canonical, ledger, lot, lot-disposition, dividend, or corporate-action truth rows
 - provider-adapter tests prove fail-fast behavior for unsupported config semantics and incomplete requested-symbol coverage
+- when manual provider smoke checks fail, capture the explicit adapter/service rejection and track it as an operational blocker before change closeout

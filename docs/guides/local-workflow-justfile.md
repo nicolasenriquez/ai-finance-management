@@ -86,6 +86,34 @@ Full local pre-CI gate:
 just ci
 ```
 
+## Local Data-Sync Operations
+
+Run `dataset_1` bootstrap only (`ingest -> persist -> rebuild`):
+
+```bash
+just data-bootstrap-dataset1
+```
+
+Run supported-universe `yfinance` refresh only:
+
+```bash
+just market-refresh-yfinance
+```
+
+Run combined fail-fast sync (`bootstrap -> refresh`):
+
+```bash
+just data-sync-local
+```
+
+Optional overrides:
+
+```bash
+just data-bootstrap-dataset1 app/golden_sets/dataset_1/202602_stocks.pdf
+just market-refresh-yfinance 2026-03-25T00:00:00Z
+just data-sync-local app/golden_sets/dataset_1/202602_stocks.pdf 2026-03-25T00:00:00Z
+```
+
 ## Git Hooks
 
 Install hooks:

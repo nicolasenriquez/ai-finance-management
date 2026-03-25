@@ -278,7 +278,7 @@ Definition of Done:
 
 ### Item 5.2: Add broker/provider API integration
 
-Status: In progress (first-slice yfinance provider adapter implemented 2026-03-24)
+Status: In progress (first-slice yfinance adapter + operational local command workflows implemented 2026-03-25)
 
 Delivered in first slice:
 
@@ -287,11 +287,18 @@ Delivered in first slice:
 - preserve explicit provenance and deterministic snapshot identity for provider-backed writes
 - enforce fail-fast provider behavior for unsafe/incomplete symbol coverage and unsupported config semantics
 - validate provider-backed idempotency and ledger/canonical non-mutation with deterministic tests
+- add one explicit full-refresh orchestration seam (`refresh_yfinance_supported_universe`) anchored to the supported symbol universe
+- harden close-payload normalization for approved runtime series/tabular shapes with explicit unsupported-shape rejection
+- add operator command workflows for local/manual execution:
+  - `data-bootstrap-dataset1` (ingest -> persist -> rebuild)
+  - `market-refresh-yfinance` (supported-universe refresh)
+  - `data-sync-local` (strict fail-fast sequence: bootstrap then refresh)
 
 Remaining for full item:
 
-- define broker-authenticated provider path and credential/runtime posture
-- evaluate multi-provider expansion once first-adapter operations are stable
+- stabilize live-provider operational smoke/runbook evidence for environment-dependent provider failures
+- formalize schedule-ready invocation posture on top of the current local operator commands
+- evaluate broker-authenticated and multi-provider expansion only after the current operational workflow is stable
 - keep transaction-import/API-source reconciliation explicitly out of this market-data-only slice unless a dedicated change expands scope
 
 Definition of Done:

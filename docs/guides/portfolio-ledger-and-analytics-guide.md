@@ -38,6 +38,7 @@ As of 2026-03-24, the implemented contract is:
 - Market-data persistence boundary: `market_data_snapshot` -> `price_history` via `app/market_data`
 - Market-data write boundary enforces explicit source provenance, timezone-safe snapshot timestamps, canonical symbol forms, and deterministic symbol/time-key idempotency
 - Market-data read boundary exists for persisted symbol price history and remains internal-only (no public market-data API route yet)
+- Local operator market-data commands are available (`data-bootstrap-dataset1`, `market-refresh-yfinance`, `data-sync-local`) and remain command-level (no public market-data router in this slice)
 
 Current boundary:
 

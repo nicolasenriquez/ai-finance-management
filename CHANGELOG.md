@@ -22,6 +22,22 @@ Use this structure for new entries:
 
 `type` guidance: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`.
 
+## 2026-03-25
+
+### feat(data-sync-operations): add local dataset bootstrap and yfinance refresh command workflows
+- Summary: Added a new `app/data_sync` orchestration slice and `scripts.data_sync_operations` module CLI with three fail-fast operator commands: `data-bootstrap-dataset1`, `market-refresh-yfinance`, and `data-sync-local`; wired equivalent `just` recipes and fixed invocation to module mode (`uv run python -m scripts.data_sync_operations ...`) so imports resolve deterministically.
+- Why: Phase-6 operational execution needed a reproducible local workflow to bootstrap `dataset_1` and refresh market data without introducing a public market-data router, while preserving strict fail-fast stage behavior and auditable run evidence.
+- Files: `app/data_sync/{__init__.py,schemas.py,service.py,tests/test_data_sync_operations_cli.py}`, `scripts/data_sync_operations.py`, `justfile`, `app/market_data/providers/yfinance_adapter.py`, `docs/product/{roadmap.md,backlog-sprints.md,decisions.md}`, `docs/guides/{local-workflow-justfile.md,validation-baseline.md,yfinance-integration-guide.md,portfolio-ledger-and-analytics-guide.md}`, `docs/standards/market-data-provider-standard.md`, `CHANGELOG.md`.
+- Validation: `uv run ruff check app/data_sync scripts/data_sync_operations.py app/data_sync/tests/test_data_sync_operations_cli.py` (pass), `uv run black app/data_sync scripts/data_sync_operations.py app/data_sync/tests/test_data_sync_operations_cli.py --check --diff` (pass), `uv run mypy app/data_sync app/market_data/providers/yfinance_adapter.py app/market_data/service.py` (pass), `uv run pyright app/data_sync app/market_data/providers/yfinance_adapter.py app/market_data/service.py` (0 errors), `uv run ty check app` (pass), `uv run pytest -v app/data_sync/tests/test_data_sync_operations_cli.py app/market_data/tests/test_yfinance_adapter_unit.py app/market_data/tests/test_service_unit.py` (24 passed), `uv run python -m scripts.data_sync_operations data-sync-local --snapshot-captured-at 2026-03-25T00:00:00Z` (bootstrap stage completed; refresh failed fast with structured `market_refresh` 502 provider error).
+- Notes: Public market-data API route and scheduler/queue automation remain deferred; command-level workflows are the active operational boundary in this slice.
+
+### docs(market-data-operations): align phase-6 posture around yfinance operational refresh workflow
+- Summary: Updated roadmap, backlog, decisions, validation baseline, provider standard, and yfinance integration guidance to reflect the implemented supported-universe refresh seam (`refresh_yfinance_supported_universe`) as the current operational path, with manual invocation now explicit and schedule infrastructure intentionally deferred.
+- Why: Keep planning and implementation artifacts aligned with delivered `app/market_data` behavior and avoid implying broker-authenticated expansion as the immediate next phase-6 step.
+- Files: `docs/product/{roadmap.md,backlog-sprints.md,decisions.md}`, `docs/guides/{validation-baseline.md,yfinance-integration-guide.md}`, `docs/standards/market-data-provider-standard.md`, `CHANGELOG.md`.
+- Validation: `openspec validate add-yfinance-market-data-operations --type change --strict --json` (run during closeout), `openspec validate --specs --all --json` (run during closeout).
+- Notes: Non-goals remain explicit: no broker-authenticated provider integration, no multi-provider expansion, no public market-data API expansion, no ledger/canonical mutation, and no valuation KPI/frontend market-value expansion in this slice.
+
 ## 2026-03-23
 
 ## 2026-03-24

@@ -6,12 +6,16 @@ This guide defines how to use `yfinance` as the first external market-data provi
 
 Use this guide for planning and implementation of Sprint `5.2` provider integration.
 
-## Current Implementation Status (2026-03-24)
+## Current Implementation Status (2026-03-25)
 
 Implemented now:
 
 - Adapter module: `app/market_data/providers/yfinance_adapter.py`
 - Service orchestration entrypoint: `app/market_data/service.py::ingest_yfinance_daily_close_snapshot`
+- Service-level full-refresh workflow: `app/market_data/service.py::refresh_yfinance_supported_universe`
+- Supported-universe resolver: `app/market_data/service.py::list_supported_market_data_symbols`
+- Local operator CLI entrypoints: `scripts/data_sync_operations.py` (`data-bootstrap-dataset1`, `market-refresh-yfinance`, `data-sync-local`)
+- Local operator just recipes: `just data-bootstrap-dataset1`, `just market-refresh-yfinance`, `just data-sync-local`
 - Settings surface: `market_data_yfinance_period`, `market_data_yfinance_interval`, `market_data_yfinance_timeout_seconds`, `market_data_yfinance_max_retries`, `market_data_yfinance_retry_backoff_seconds`, `market_data_yfinance_auto_adjust`, `market_data_yfinance_repair`
 
 First-slice semantics frozen in code:
@@ -22,11 +26,19 @@ First-slice semantics frozen in code:
 - `auto_adjust` must be `False`
 - `repair` must be `False`
 - requested symbol coverage is all-or-nothing
+- close-payload normalization supports both series and tabular runtime shapes; unsupported shapes fail fast
 
 Automated coverage is deterministic:
 
 - unit and integration tests use mocks/monkeypatching for provider behavior
 - CI validation does not depend on live yfinance network calls
+
+Operational posture in this slice:
+
+- refresh orchestration is implemented at the service boundary and exposed through local command entrypoints
+- combined local sync is deterministic and fail-fast (`bootstrap -> refresh`; refresh is skipped if bootstrap fails)
+- scheduler/queue infrastructure is intentionally deferred
+- public market-data route surface remains deferred in this change
 
 ## Scope and Non-Goals
 
@@ -167,7 +179,8 @@ Recommended:
 
 Optional manual verification:
 
-- one explicit local command to fetch live data for smoke checks
+- one explicit local command to fetch live data for smoke checks (for example `uv run python -m scripts.data_sync_operations market-refresh-yfinance` or `just market-refresh-yfinance`)
+- one explicit combined local sync smoke run (`uv run python -m scripts.data_sync_operations data-sync-local` or `just data-sync-local`)
 - manual checks must not replace deterministic automated tests
 
 ## Security and Configuration

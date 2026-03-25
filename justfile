@@ -180,6 +180,44 @@ dev: db-check db-upgrade
     exit "$command_status"
 
 # -----------------------------------------------------------------------------
+# Data Sync Operations
+# -----------------------------------------------------------------------------
+
+# Run dataset_1 bootstrap (ingest -> persist -> rebuild).
+# Optional override: `just data-bootstrap-dataset1 <dataset_pdf_path>`.
+data-bootstrap-dataset1 dataset_pdf_path="": db-check db-upgrade
+    #!/usr/bin/env bash
+    if [[ -n "{{dataset_pdf_path}}" ]]; then
+      uv run python -m scripts.data_sync_operations data-bootstrap-dataset1 --dataset-pdf-path "{{dataset_pdf_path}}"
+    else
+      uv run python -m scripts.data_sync_operations data-bootstrap-dataset1
+    fi
+
+# Run yfinance supported-universe refresh.
+# Optional override: `just market-refresh-yfinance <snapshot_captured_at_iso8601>`.
+market-refresh-yfinance snapshot_captured_at="": db-check db-upgrade
+    #!/usr/bin/env bash
+    if [[ -n "{{snapshot_captured_at}}" ]]; then
+      uv run python -m scripts.data_sync_operations market-refresh-yfinance --snapshot-captured-at "{{snapshot_captured_at}}"
+    else
+      uv run python -m scripts.data_sync_operations market-refresh-yfinance
+    fi
+
+# Run local sync in strict order: bootstrap first, then market refresh.
+# Optional overrides: `just data-sync-local <dataset_pdf_path> <snapshot_captured_at_iso8601>`.
+data-sync-local dataset_pdf_path="" snapshot_captured_at="": db-check db-upgrade
+    #!/usr/bin/env bash
+    if [[ -n "{{dataset_pdf_path}}" ]] && [[ -n "{{snapshot_captured_at}}" ]]; then
+      uv run python -m scripts.data_sync_operations data-sync-local --dataset-pdf-path "{{dataset_pdf_path}}" --snapshot-captured-at "{{snapshot_captured_at}}"
+    elif [[ -n "{{dataset_pdf_path}}" ]]; then
+      uv run python -m scripts.data_sync_operations data-sync-local --dataset-pdf-path "{{dataset_pdf_path}}"
+    elif [[ -n "{{snapshot_captured_at}}" ]]; then
+      uv run python -m scripts.data_sync_operations data-sync-local --snapshot-captured-at "{{snapshot_captured_at}}"
+    else
+      uv run python -m scripts.data_sync_operations data-sync-local
+    fi
+
+# -----------------------------------------------------------------------------
 # Code Quality
 # -----------------------------------------------------------------------------
 

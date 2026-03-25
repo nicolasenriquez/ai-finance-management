@@ -18,6 +18,7 @@ from app.core.config import Settings, get_settings
 from app.core.logging import get_logger
 from app.market_data.models import MarketDataSnapshot, PriceHistory
 from app.market_data.providers.yfinance_adapter import (
+    YFinanceAdapterConfig,
     YFinanceAdapterError,
     YFinanceNormalizedRow,
     build_yfinance_adapter_config,
@@ -26,6 +27,7 @@ from app.market_data.providers.yfinance_adapter import (
 from app.market_data.schemas import (
     MarketDataPriceRow,
     MarketDataPriceWrite,
+    MarketDataRefreshRunResult,
     MarketDataSnapshotWriteRequest,
     MarketDataSnapshotWriteResult,
 )
@@ -84,6 +86,16 @@ class _NormalizedPriceWrite:
         return f"{self.instrument_symbol}|{market_timestamp_key}|{trading_date_key}"
 
 
+@dataclass(frozen=True)
+class _YFinanceRefreshPlan:
+    """One deterministic yfinance refresh plan for consistent ingest behavior."""
+
+    normalized_symbols: list[str]
+    normalized_snapshot_captured_at: datetime
+    provider_config: YFinanceAdapterConfig
+    snapshot_key: str
+
+
 class MarketDataClientError(ValueError):
     """Raised when market-data boundary input cannot be processed safely."""
 
@@ -105,51 +117,32 @@ async def ingest_yfinance_daily_close_snapshot(
 ) -> MarketDataSnapshotWriteResult:
     """Fetch and persist yfinance day-level close rows through market-data ingestion."""
 
-    effective_settings = settings if settings is not None else get_settings()
-    normalized_symbols = _normalize_requested_symbols(symbols=symbols)
-    normalized_snapshot_captured_at = _normalize_timestamp_with_timezone(
-        snapshot_captured_at if snapshot_captured_at is not None else utcnow(),
-        field="snapshot_captured_at",
+    refresh_plan = _build_yfinance_refresh_plan(
+        symbols=symbols,
+        snapshot_captured_at=snapshot_captured_at,
+        settings=settings,
     )
-    if normalized_snapshot_captured_at is None:
-        raise MarketDataClientError(
-            "Field 'snapshot_captured_at' must include a timestamp value.",
-            status_code=422,
-        )
-
-    try:
-        provider_config = build_yfinance_adapter_config(
-            period=effective_settings.market_data_yfinance_period,
-            interval=effective_settings.market_data_yfinance_interval,
-            timeout_seconds=effective_settings.market_data_yfinance_timeout_seconds,
-            max_retries=effective_settings.market_data_yfinance_max_retries,
-            retry_backoff_seconds=effective_settings.market_data_yfinance_retry_backoff_seconds,
-            auto_adjust=effective_settings.market_data_yfinance_auto_adjust,
-            repair=effective_settings.market_data_yfinance_repair,
-        )
-    except YFinanceAdapterError as exc:
-        raise MarketDataClientError(str(exc), status_code=exc.status_code) from exc
 
     logger.info(
         "market_data.provider_ingest_started",
         source_provider=_YFINANCE_SOURCE_PROVIDER,
-        requested_symbols=len(normalized_symbols),
-        period=provider_config.period,
-        interval=provider_config.interval,
+        requested_symbols=len(refresh_plan.normalized_symbols),
+        period=refresh_plan.provider_config.period,
+        interval=refresh_plan.provider_config.interval,
     )
 
     try:
         fetched_rows, provider_metadata = await fetch_yfinance_daily_close_rows(
-            symbols=tuple(normalized_symbols),
-            config=provider_config,
+            symbols=tuple(refresh_plan.normalized_symbols),
+            config=refresh_plan.provider_config,
         )
     except YFinanceAdapterError as exc:
         logger.error(
             "market_data.provider_ingest_failed",
             source_provider=_YFINANCE_SOURCE_PROVIDER,
-            requested_symbols=normalized_symbols,
-            period=provider_config.period,
-            interval=provider_config.interval,
+            requested_symbols=refresh_plan.normalized_symbols,
+            period=refresh_plan.provider_config.period,
+            interval=refresh_plan.provider_config.interval,
             error=str(exc),
             error_type=type(exc).__name__,
             exc_info=True,
@@ -157,17 +150,9 @@ async def ingest_yfinance_daily_close_snapshot(
         raise MarketDataClientError(str(exc), status_code=exc.status_code) from exc
 
     price_rows = [_to_price_write(row=row) for row in fetched_rows]
-    snapshot_key = _build_yfinance_snapshot_key(
-        symbols=normalized_symbols,
-        period=provider_config.period,
-        interval=provider_config.interval,
-        auto_adjust=provider_config.auto_adjust,
-        repair=provider_config.repair,
-        snapshot_captured_at=normalized_snapshot_captured_at,
-    )
     snapshot_metadata: dict[str, object] = {
         **provider_metadata,
-        "requested_symbols": normalized_symbols,
+        "requested_symbols": refresh_plan.normalized_symbols,
         "response_rows": len(price_rows),
     }
 
@@ -176,8 +161,8 @@ async def ingest_yfinance_daily_close_snapshot(
         request=MarketDataSnapshotWriteRequest(
             source_type=_YFINANCE_SOURCE_TYPE,
             source_provider=_YFINANCE_SOURCE_PROVIDER,
-            snapshot_key=snapshot_key,
-            snapshot_captured_at=normalized_snapshot_captured_at,
+            snapshot_key=refresh_plan.snapshot_key,
+            snapshot_captured_at=refresh_plan.normalized_snapshot_captured_at,
             snapshot_metadata=snapshot_metadata,
             prices=price_rows,
         ),
@@ -185,13 +170,82 @@ async def ingest_yfinance_daily_close_snapshot(
     logger.info(
         "market_data.provider_ingest_completed",
         source_provider=_YFINANCE_SOURCE_PROVIDER,
-        requested_symbols=len(normalized_symbols),
+        requested_symbols=len(refresh_plan.normalized_symbols),
         response_rows=len(price_rows),
         snapshot_id=ingest_result.snapshot_id,
         inserted_prices=ingest_result.inserted_prices,
         updated_prices=ingest_result.updated_prices,
     )
     return ingest_result
+
+
+async def refresh_yfinance_supported_universe(
+    *,
+    db: AsyncSession,
+    snapshot_captured_at: datetime | None = None,
+    settings: Settings | None = None,
+) -> MarketDataRefreshRunResult:
+    """Run one operator-facing full refresh for the supported symbol universe."""
+
+    supported_symbols = list_supported_market_data_symbols()
+    refresh_plan = _build_yfinance_refresh_plan(
+        symbols=supported_symbols,
+        snapshot_captured_at=snapshot_captured_at,
+        settings=settings,
+    )
+    logger.info(
+        "market_data.refresh_started",
+        source_provider=_YFINANCE_SOURCE_PROVIDER,
+        refresh_scope="supported_universe",
+        requested_symbols=refresh_plan.normalized_symbols,
+        requested_symbols_count=len(refresh_plan.normalized_symbols),
+        snapshot_key=refresh_plan.snapshot_key,
+    )
+
+    try:
+        ingest_result = await ingest_yfinance_daily_close_snapshot(
+            db=db,
+            symbols=refresh_plan.normalized_symbols,
+            snapshot_captured_at=refresh_plan.normalized_snapshot_captured_at,
+            settings=settings,
+        )
+    except MarketDataClientError as exc:
+        logger.error(
+            "market_data.refresh_failed",
+            source_provider=_YFINANCE_SOURCE_PROVIDER,
+            refresh_scope="supported_universe",
+            requested_symbols=refresh_plan.normalized_symbols,
+            requested_symbols_count=len(refresh_plan.normalized_symbols),
+            snapshot_key=refresh_plan.snapshot_key,
+            error=str(exc),
+            error_type=type(exc).__name__,
+            status_code=exc.status_code,
+            exc_info=True,
+        )
+        raise
+
+    refresh_result = MarketDataRefreshRunResult(
+        source_type=_YFINANCE_SOURCE_TYPE,
+        source_provider=_YFINANCE_SOURCE_PROVIDER,
+        requested_symbols=refresh_plan.normalized_symbols,
+        snapshot_key=refresh_plan.snapshot_key,
+        snapshot_captured_at=refresh_plan.normalized_snapshot_captured_at,
+        snapshot_id=ingest_result.snapshot_id,
+        inserted_prices=ingest_result.inserted_prices,
+        updated_prices=ingest_result.updated_prices,
+    )
+    logger.info(
+        "market_data.refresh_completed",
+        source_provider=refresh_result.source_provider,
+        refresh_scope="supported_universe",
+        status=refresh_result.status,
+        snapshot_id=refresh_result.snapshot_id,
+        snapshot_key=refresh_result.snapshot_key,
+        requested_symbols_count=len(refresh_result.requested_symbols),
+        inserted_prices=refresh_result.inserted_prices,
+        updated_prices=refresh_result.updated_prices,
+    )
+    return refresh_result
 
 
 async def ingest_market_data_snapshot(
@@ -361,6 +415,12 @@ def _to_price_write(*, row: YFinanceNormalizedRow) -> MarketDataPriceWrite:
     )
 
 
+def list_supported_market_data_symbols() -> list[str]:
+    """Return the current supported market-data symbol universe in stable order."""
+
+    return sorted(_SUPPORTED_DATASET_1_SYMBOLS)
+
+
 def _normalize_requested_symbols(*, symbols: list[str]) -> list[str]:
     """Normalize requested symbol list and reject duplicates after normalization."""
 
@@ -390,6 +450,55 @@ def _normalize_requested_symbols(*, symbols: list[str]) -> list[str]:
         )
 
     return normalized_symbols
+
+
+def _build_yfinance_refresh_plan(
+    *,
+    symbols: list[str],
+    snapshot_captured_at: datetime | None,
+    settings: Settings | None,
+) -> _YFinanceRefreshPlan:
+    """Build one deterministic yfinance refresh plan for reuse across workflows."""
+
+    effective_settings = settings if settings is not None else get_settings()
+    normalized_symbols = _normalize_requested_symbols(symbols=symbols)
+    normalized_snapshot_captured_at = _normalize_timestamp_with_timezone(
+        snapshot_captured_at if snapshot_captured_at is not None else utcnow(),
+        field="snapshot_captured_at",
+    )
+    if normalized_snapshot_captured_at is None:
+        raise MarketDataClientError(
+            "Field 'snapshot_captured_at' must include a timestamp value.",
+            status_code=422,
+        )
+
+    try:
+        provider_config = build_yfinance_adapter_config(
+            period=effective_settings.market_data_yfinance_period,
+            interval=effective_settings.market_data_yfinance_interval,
+            timeout_seconds=effective_settings.market_data_yfinance_timeout_seconds,
+            max_retries=effective_settings.market_data_yfinance_max_retries,
+            retry_backoff_seconds=effective_settings.market_data_yfinance_retry_backoff_seconds,
+            auto_adjust=effective_settings.market_data_yfinance_auto_adjust,
+            repair=effective_settings.market_data_yfinance_repair,
+        )
+    except YFinanceAdapterError as exc:
+        raise MarketDataClientError(str(exc), status_code=exc.status_code) from exc
+
+    snapshot_key = _build_yfinance_snapshot_key(
+        symbols=normalized_symbols,
+        period=provider_config.period,
+        interval=provider_config.interval,
+        auto_adjust=provider_config.auto_adjust,
+        repair=provider_config.repair,
+        snapshot_captured_at=normalized_snapshot_captured_at,
+    )
+    return _YFinanceRefreshPlan(
+        normalized_symbols=normalized_symbols,
+        normalized_snapshot_captured_at=normalized_snapshot_captured_at,
+        provider_config=provider_config,
+        snapshot_key=snapshot_key,
+    )
 
 
 def _build_yfinance_snapshot_key(

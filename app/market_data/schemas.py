@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Self
+from typing import Literal, Self
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -62,3 +62,17 @@ class MarketDataPriceRow(BaseModel):
     source_provider: str = Field(min_length=1)
     snapshot_key: str = Field(min_length=1)
     snapshot_captured_at: datetime
+
+
+class MarketDataRefreshRunResult(BaseModel):
+    """Structured result for one operator-triggered market-data refresh run."""
+
+    status: Literal["completed"] = "completed"
+    source_type: str = Field(min_length=1)
+    source_provider: str = Field(min_length=1)
+    requested_symbols: list[str] = Field(min_length=1)
+    snapshot_key: str = Field(min_length=1)
+    snapshot_captured_at: datetime
+    snapshot_id: int = Field(ge=1)
+    inserted_prices: int = Field(ge=0)
+    updated_prices: int = Field(ge=0)

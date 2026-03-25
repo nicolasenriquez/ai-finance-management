@@ -65,7 +65,14 @@
 - Validated that market-data refresh remains idempotent and does not mutate canonical records, ledger events, lots, lot dispositions, dividends, or corporate actions.
 - Implemented first external provider adapter (`yfinance`) for day-level close ingestion through `ingest_yfinance_daily_close_snapshot` and the existing market-data persistence contract.
 - Froze first-slice provider semantics to deterministic day-level `Close` ingestion (`interval=1d`, `trading_date`, `auto_adjust=False`, `repair=False`) with bounded snapshot-key identity.
-- Next in this phase: expand provider coverage toward broker-authenticated feeds and scheduling/operational posture while preserving current non-goals (no ledger mutation, no public market-data API expansion, no valuation KPI expansion in this slice).
+- Implemented one explicit full-refresh orchestration seam for the supported symbol universe via `refresh_yfinance_supported_universe`, keeping execution manual and schedule-ready in this slice.
+- Hardened provider payload-shape normalization to safely handle approved runtime `Close` shapes (series + tabular) and fail fast on unsupported payloads.
+- Implemented local operator command workflows for deterministic `dataset_1` bootstrap and refresh execution:
+  - `just data-bootstrap-dataset1`
+  - `just market-refresh-yfinance`
+  - `just data-sync-local`
+  - equivalent module CLI: `uv run python -m scripts.data_sync_operations <command>`
+- Next in this phase: stabilize operational runbooks/scheduling posture and then expand analytics contracts to market-enriched KPIs, while preserving current non-goals (no ledger mutation, no public market-data router in this slice).
 
 ## Phase 7: Database Hardening and Deployment Readiness
 
