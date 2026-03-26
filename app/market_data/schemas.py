@@ -82,3 +82,6 @@ class MarketDataRefreshRunResult(BaseModel):
     retry_attempted_symbols_count: int = Field(ge=0, default=0)
     failed_symbols: list[str] = Field(default_factory=list)
     failed_symbols_count: int = Field(ge=0, default=0)
+    history_fallback_symbols: list[str] = Field(default_factory=list)
+    history_fallback_periods_by_symbol: dict[str, str] = Field(default_factory=dict)
+    currency_assumed_symbols: list[str] = Field(default_factory=list)

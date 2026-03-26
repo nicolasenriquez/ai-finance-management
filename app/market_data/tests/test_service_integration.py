@@ -289,6 +289,7 @@ def _provider_settings() -> Settings:
         market_data_yfinance_timeout_seconds=30.0,
         market_data_yfinance_max_retries=0,
         market_data_yfinance_retry_backoff_seconds=0.0,
+        market_data_yfinance_request_spacing_seconds=0.0,
         market_data_yfinance_auto_adjust=False,
         market_data_yfinance_repair=False,
     )
@@ -581,6 +582,7 @@ async def test_provider_ingest_is_idempotent_and_non_mutating(
 
 
 @pytest.mark.integration
+@pytest.mark.market_scope_pr_smoke
 @pytest.mark.asyncio
 async def test_supported_universe_refresh_is_idempotent_and_non_mutating(
     test_db_session: AsyncSession,
@@ -718,6 +720,7 @@ async def test_supported_universe_refresh_adapter_item_keys_are_idempotent_and_n
 
 
 @pytest.mark.integration
+@pytest.mark.market_scope_heavy
 @pytest.mark.asyncio
 async def test_supported_universe_refresh_scope_100_is_idempotent_and_non_mutating(
     test_db_session: AsyncSession,
@@ -803,6 +806,177 @@ async def test_supported_universe_refresh_scope_100_is_idempotent_and_non_mutati
     assert len(rows) == len(expected_symbols)
     assert after_counts == before_counts
     assert all(call_count_by_symbol.get(symbol, 0) == 2 for symbol in expected_symbols)
+
+
+@pytest.mark.integration
+@pytest.mark.market_scope_very_heavy
+@pytest.mark.asyncio
+async def test_supported_universe_refresh_scope_200_is_idempotent_and_non_mutating(
+    test_db_session: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Scope-200 refresh should be idempotent and preserve ledger truth."""
+
+    await _truncate_tables_if_present(test_db_session)
+    await _seed_ledger_truth(test_db_session)
+    before_counts = await _fetch_truth_counts(test_db_session)
+    await test_db_session.rollback()
+
+    expected_symbols = tuple(list_market_data_library_symbols(size=200))
+    symbol_index_by_name = {symbol: index for index, symbol in enumerate(expected_symbols)}
+    call_count_by_symbol: dict[str, int] = {}
+
+    async def fake_fetch(
+        *,
+        symbols: tuple[str, ...],
+        config: object,
+    ) -> tuple[list[YFinanceNormalizedRow], dict[str, object]]:
+        del config
+        assert len(symbols) == 1
+        symbol = symbols[0]
+        assert symbol in symbol_index_by_name
+
+        call_count_by_symbol[symbol] = call_count_by_symbol.get(symbol, 0) + 1
+        symbol_offset = Decimal(symbol_index_by_name[symbol])
+        run_offset = Decimal(call_count_by_symbol[symbol] - 1)
+        close_value = Decimal("100.000000000") + symbol_offset + run_offset
+
+        return (
+            [
+                YFinanceNormalizedRow(
+                    instrument_symbol=symbol,
+                    trading_date=date(2026, 3, 24),
+                    close_value=close_value,
+                    currency_code="USD",
+                    source_payload={"provider": "yfinance", "field": "Close", "symbol": symbol},
+                )
+            ],
+            {
+                "provider": "yfinance",
+                "rows_by_symbol": {symbol: 1},
+                "currencies_by_symbol": {symbol: "USD"},
+            },
+        )
+
+    monkeypatch.setattr("app.market_data.service.fetch_yfinance_daily_close_rows", fake_fetch)
+
+    first = await refresh_yfinance_supported_universe(
+        db=test_db_session,
+        refresh_scope_mode="200",
+        snapshot_captured_at=datetime(2026, 3, 24, 15, 0, tzinfo=UTC),
+        settings=_provider_settings(),
+    )
+    second = await refresh_yfinance_supported_universe(
+        db=test_db_session,
+        refresh_scope_mode="200",
+        snapshot_captured_at=datetime(2026, 3, 24, 15, 0, tzinfo=UTC),
+        settings=_provider_settings(),
+    )
+
+    rows_result = await test_db_session.execute(select(PriceHistory))
+    rows = rows_result.scalars().all()
+    after_counts = await _fetch_truth_counts(test_db_session)
+
+    assert tuple(first.requested_symbols) == expected_symbols
+    assert tuple(second.requested_symbols) == expected_symbols
+    assert first.refresh_scope_mode == "200"
+    assert second.refresh_scope_mode == "200"
+    assert first.requested_symbols_count == len(expected_symbols)
+    assert second.requested_symbols_count == len(expected_symbols)
+    assert first.snapshot_key == second.snapshot_key
+    assert first.inserted_prices == len(expected_symbols)
+    assert first.updated_prices == 0
+    assert second.inserted_prices == 0
+    assert second.updated_prices == len(expected_symbols)
+    assert first.retry_attempted_symbols_count == 0
+    assert first.failed_symbols_count == 0
+    assert second.retry_attempted_symbols_count == 0
+    assert second.failed_symbols_count == 0
+    assert len(rows) == len(expected_symbols)
+    assert after_counts == before_counts
+    assert all(call_count_by_symbol.get(symbol, 0) == 2 for symbol in expected_symbols)
+
+
+@pytest.mark.integration
+@pytest.mark.market_scope_pr_smoke
+@pytest.mark.asyncio
+async def test_refresh_pr_smoke_core_plus_non_core_sample_is_idempotent_and_non_mutating(
+    test_db_session: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """PR smoke refresh should validate core plus a representative non-core sample."""
+
+    await _truncate_tables_if_present(test_db_session)
+    await _seed_ledger_truth(test_db_session)
+    before_counts = await _fetch_truth_counts(test_db_session)
+    await test_db_session.rollback()
+
+    core_symbols = list_supported_market_data_symbols()
+    starter_100 = list_market_data_library_symbols(size=100)
+    non_core_sample = [symbol for symbol in starter_100 if symbol not in core_symbols][:8]
+    assert len(non_core_sample) == 8
+    smoke_symbols = tuple(core_symbols + non_core_sample)
+    symbol_index_by_name = {symbol: index for index, symbol in enumerate(smoke_symbols)}
+    invocation_count = 0
+
+    async def fake_fetch(
+        *,
+        symbols: tuple[str, ...],
+        config: object,
+    ) -> tuple[list[YFinanceNormalizedRow], dict[str, object]]:
+        nonlocal invocation_count
+        del config
+        assert symbols == smoke_symbols
+        invocation_count += 1
+        run_offset = Decimal(invocation_count - 1)
+
+        rows = [
+            YFinanceNormalizedRow(
+                instrument_symbol=symbol,
+                trading_date=date(2026, 3, 24),
+                close_value=Decimal("100.000000000")
+                + Decimal(symbol_index_by_name[symbol])
+                + run_offset,
+                currency_code="USD",
+                source_payload={"provider": "yfinance", "field": "Close", "symbol": symbol},
+            )
+            for symbol in symbols
+        ]
+        return (
+            rows,
+            {
+                "provider": "yfinance",
+                "rows_by_symbol": dict.fromkeys(symbols, 1),
+                "currencies_by_symbol": dict.fromkeys(symbols, "USD"),
+            },
+        )
+
+    monkeypatch.setattr("app.market_data.service.fetch_yfinance_daily_close_rows", fake_fetch)
+
+    first = await ingest_yfinance_daily_close_snapshot(
+        db=test_db_session,
+        symbols=list(smoke_symbols),
+        snapshot_captured_at=datetime(2026, 3, 24, 15, 0, tzinfo=UTC),
+        settings=_provider_settings(),
+    )
+    second = await ingest_yfinance_daily_close_snapshot(
+        db=test_db_session,
+        symbols=list(smoke_symbols),
+        snapshot_captured_at=datetime(2026, 3, 24, 15, 0, tzinfo=UTC),
+        settings=_provider_settings(),
+    )
+
+    rows_result = await test_db_session.execute(select(PriceHistory))
+    rows = rows_result.scalars().all()
+    after_counts = await _fetch_truth_counts(test_db_session)
+
+    assert first.inserted_prices == len(smoke_symbols)
+    assert first.updated_prices == 0
+    assert second.inserted_prices == 0
+    assert second.updated_prices == len(smoke_symbols)
+    assert first.snapshot_id == second.snapshot_id
+    assert len(rows) == len(smoke_symbols)
+    assert after_counts == before_counts
 
 
 @pytest.mark.integration

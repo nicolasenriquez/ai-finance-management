@@ -7,13 +7,14 @@ import importlib
 import math
 import re
 import time
-from collections.abc import Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 from typing import Final, TypeGuard, cast
 
 _CURRENCY_PATTERN: Final[re.Pattern[str]] = re.compile(r"^[A-Z]{3,8}$")
+_CANONICAL_HISTORY_PERIOD_ORDER: Final[tuple[str, ...]] = ("5y", "3y", "1y", "6mo")
 _YFINANCE_PROVIDER_SYMBOL_ALIASES: Final[dict[str, str]] = {
     "BRK.B": "BRK-B",
 }
@@ -24,6 +25,8 @@ class YFinanceAdapterConfig:
     """Configuration surface for yfinance provider fetch behavior."""
 
     period: str
+    history_fallback_periods: tuple[str, ...]
+    default_currency: str
     interval: str
     timeout_seconds: float
     max_retries: int
@@ -64,6 +67,8 @@ def build_yfinance_adapter_config(
     max_retries: int,
     retry_backoff_seconds: float,
     request_spacing_seconds: float = 0.0,
+    history_fallback_periods: Iterable[str] | None = None,
+    default_currency: str = "USD",
     auto_adjust: bool,
     repair: bool,
 ) -> YFinanceAdapterConfig:
@@ -74,6 +79,24 @@ def build_yfinance_adapter_config(
     if not normalized_period:
         raise YFinanceAdapterError(
             "YFinance period must be configured as a non-empty string.",
+            status_code=422,
+        )
+    normalized_history_fallback_periods: tuple[str, ...]
+    if history_fallback_periods is None:
+        normalized_history_fallback_periods = ("3y", "1y", "6mo")
+    else:
+        normalized_history_fallback_periods = _normalize_history_fallback_periods(
+            history_fallback_periods=history_fallback_periods,
+        )
+    normalized_history_fallback_periods = _apply_shorter_history_period_filter(
+        periods=normalized_history_fallback_periods,
+        primary_period=normalized_period,
+    )
+
+    normalized_default_currency = default_currency.strip().upper()
+    if _CURRENCY_PATTERN.fullmatch(normalized_default_currency) is None:
+        raise YFinanceAdapterError(
+            "YFinance default_currency must be a supported uppercase currency code.",
             status_code=422,
         )
     if normalized_interval != "1d":
@@ -114,6 +137,8 @@ def build_yfinance_adapter_config(
 
     return YFinanceAdapterConfig(
         period=normalized_period,
+        history_fallback_periods=normalized_history_fallback_periods,
+        default_currency=normalized_default_currency,
         interval=normalized_interval,
         timeout_seconds=timeout_seconds,
         max_retries=max_retries,
@@ -121,6 +146,71 @@ def build_yfinance_adapter_config(
         request_spacing_seconds=request_spacing_seconds,
         auto_adjust=auto_adjust,
         repair=repair,
+    )
+
+
+def _normalize_history_fallback_periods(
+    *,
+    history_fallback_periods: Iterable[str],
+) -> tuple[str, ...]:
+    """Normalize one ordered period fallback ladder and enforce bounded uniqueness."""
+
+    normalized_periods: list[str] = []
+    seen_periods: set[str] = set()
+    for raw_period in history_fallback_periods:
+        normalized_period = raw_period.strip()
+        if not normalized_period:
+            raise YFinanceAdapterError(
+                "YFinance history_fallback_periods must contain only non-empty values.",
+                status_code=422,
+            )
+        normalized_period_key = normalized_period.lower()
+        if normalized_period_key in seen_periods:
+            raise YFinanceAdapterError(
+                "YFinance history_fallback_periods must not include duplicates.",
+                status_code=422,
+            )
+        seen_periods.add(normalized_period_key)
+        normalized_periods.append(normalized_period)
+
+    if not normalized_periods:
+        raise YFinanceAdapterError(
+            "YFinance history_fallback_periods must include at least one fallback period.",
+            status_code=422,
+        )
+    return tuple(normalized_periods)
+
+
+def _apply_shorter_history_period_filter(
+    *,
+    periods: tuple[str, ...],
+    primary_period: str,
+) -> tuple[str, ...]:
+    """Filter fallback periods to avoid duplicate/non-shorter primary-period attempts."""
+
+    if not periods:
+        return periods
+
+    normalized_primary_period_key = primary_period.strip().lower()
+    canonical_index_by_period = {
+        period: index for index, period in enumerate(_CANONICAL_HISTORY_PERIOD_ORDER)
+    }
+    normalized_period_keys = [period.strip().lower() for period in periods]
+
+    if normalized_primary_period_key in canonical_index_by_period and all(
+        period_key in canonical_index_by_period for period_key in normalized_period_keys
+    ):
+        primary_index = canonical_index_by_period[normalized_primary_period_key]
+        period_keys_set = set(normalized_period_keys)
+        return tuple(
+            canonical_period
+            for canonical_period in _CANONICAL_HISTORY_PERIOD_ORDER
+            if canonical_index_by_period[canonical_period] > primary_index
+            and canonical_period in period_keys_set
+        )
+
+    return tuple(
+        period for period in periods if period.strip().lower() != normalized_primary_period_key
     )
 
 
@@ -167,18 +257,17 @@ def _fetch_yfinance_daily_close_rows_sync(
     missing_symbols: list[str] = []
     rows_by_symbol: dict[str, int] = {}
     currencies_by_symbol: dict[str, str] = {}
+    history_fallback_symbols: list[str] = []
+    history_fallback_periods_by_symbol: dict[str, str] = {}
+    currency_assumed_symbols: list[str] = []
 
     for symbol_index, symbol in enumerate(symbols):
         if symbol_index > 0 and config.request_spacing_seconds > 0:
             time.sleep(config.request_spacing_seconds)
-        currency_code = _fetch_symbol_currency(
-            yf=yf,
-            symbol=symbol,
-        )
         symbol_rows = _fetch_symbol_rows(
             yf=yf,
             symbol=symbol,
-            currency_code=currency_code,
+            currency_code=None,
             config=config,
         )
         if not symbol_rows:
@@ -186,7 +275,13 @@ def _fetch_yfinance_daily_close_rows_sync(
             continue
         rows.extend(symbol_rows)
         rows_by_symbol[symbol] = len(symbol_rows)
-        currencies_by_symbol[symbol] = currency_code
+        currencies_by_symbol[symbol] = symbol_rows[0].currency_code
+        effective_period = _extract_symbol_effective_period_from_rows(rows=symbol_rows)
+        if effective_period is not None and effective_period != config.period:
+            history_fallback_symbols.append(symbol)
+            history_fallback_periods_by_symbol[symbol] = effective_period
+        if _rows_use_assumed_default_currency(rows=symbol_rows):
+            currency_assumed_symbols.append(symbol)
 
     if missing_symbols:
         missing_text = ", ".join(missing_symbols)
@@ -211,6 +306,9 @@ def _fetch_yfinance_daily_close_rows_sync(
         "requested_symbols": list(symbols),
         "rows_by_symbol": rows_by_symbol,
         "currencies_by_symbol": currencies_by_symbol,
+        "history_fallback_symbols": history_fallback_symbols,
+        "history_fallback_periods_by_symbol": history_fallback_periods_by_symbol,
+        "currency_assumed_symbols": currency_assumed_symbols,
     }
     return rows, metadata
 
@@ -231,43 +329,72 @@ def _fetch_symbol_rows(
     *,
     yf: object,
     symbol: str,
-    currency_code: str,
+    currency_code: str | None,
     config: YFinanceAdapterConfig,
 ) -> list[YFinanceNormalizedRow]:
     """Fetch one symbol history and normalize into day-level close rows."""
 
-    download_result = _download_symbol_history(
+    download_result_candidate = _download_symbol_history(
         yf=yf,
         symbol=symbol,
         config=config,
     )
+    effective_period = config.period
+    download_result = download_result_candidate
+    if _is_download_result_with_period(download_result_candidate):
+        download_result = download_result_candidate[0]
+        effective_period = download_result_candidate[1]
+
     close_series = _extract_close_series(download_result=download_result, symbol=symbol)
     series_items = _extract_close_items(close_series=close_series, symbol=symbol)
 
-    normalized_rows: list[YFinanceNormalizedRow] = []
-    provider_symbol = _resolve_provider_symbol(symbol=symbol)
+    normalized_points: list[tuple[date, Decimal]] = []
     for raw_market_key, raw_close in series_items:
         if _is_missing_numeric_value(raw_close):
             continue
         trading_day = _coerce_trading_date(raw_market_key=raw_market_key, symbol=symbol)
         close_value = _coerce_decimal(raw_value=raw_close, symbol=symbol)
+        normalized_points.append((trading_day, close_value))
+
+    if not normalized_points:
+        return []
+
+    resolved_currency_code = currency_code
+    currency_source = "provider"
+    if resolved_currency_code is None:
+        try:
+            resolved_currency_code = _fetch_symbol_currency(
+                yf=yf,
+                symbol=symbol,
+            )
+        except YFinanceAdapterError as exc:
+            if _is_missing_currency_metadata_error(exc):
+                resolved_currency_code = config.default_currency
+                currency_source = "assumed_default"
+            else:
+                raise
+
+    normalized_rows: list[YFinanceNormalizedRow] = []
+    provider_symbol = _resolve_provider_symbol(symbol=symbol)
+    for trading_day, close_value in normalized_points:
         source_payload: dict[str, object] = {
             "provider": "yfinance",
             "field": "Close",
             "symbol": symbol,
             "provider_symbol": provider_symbol,
             "trading_date": trading_day.isoformat(),
-            "period": config.period,
+            "period": effective_period,
             "interval": config.interval,
             "auto_adjust": config.auto_adjust,
             "repair": config.repair,
+            "currency_source": currency_source,
         }
         normalized_rows.append(
             YFinanceNormalizedRow(
                 instrument_symbol=symbol,
                 trading_date=trading_day,
                 close_value=close_value,
-                currency_code=currency_code,
+                currency_code=resolved_currency_code,
                 source_payload=source_payload,
             )
         )
@@ -291,14 +418,26 @@ def _fetch_symbol_currency(
 
     provider_symbol = _resolve_provider_symbol(symbol=symbol)
     ticker_client = ticker_ctor(provider_symbol)
-    fast_info = _get_mapping_attribute_or_none(ticker_client, attribute_name="fast_info")
+    fast_info, fast_info_access_failed = _get_mapping_attribute_or_none(
+        ticker_client,
+        attribute_name="fast_info",
+    )
     currency_candidate = _extract_mapping_string(fast_info, key="currency")
 
+    info_access_failed = False
     if currency_candidate is None:
-        info_mapping = _get_mapping_attribute_or_none(ticker_client, attribute_name="info")
+        info_mapping, info_access_failed = _get_mapping_attribute_or_none(
+            ticker_client,
+            attribute_name="info",
+        )
         currency_candidate = _extract_mapping_string(info_mapping, key="currency")
 
     if currency_candidate is None:
+        if fast_info_access_failed or info_access_failed:
+            raise YFinanceAdapterError(
+                f"YFinance currency metadata access failed for symbol '{symbol}'.",
+                status_code=502,
+            )
         raise YFinanceAdapterError(
             f"YFinance did not provide currency metadata for symbol '{symbol}'.",
             status_code=502,
@@ -313,21 +452,27 @@ def _fetch_symbol_currency(
     return normalized_currency
 
 
+def _is_missing_currency_metadata_error(exc: YFinanceAdapterError) -> bool:
+    """Return whether adapter error represents missing provider currency metadata."""
+
+    return "did not provide currency metadata" in str(exc)
+
+
 def _get_mapping_attribute_or_none(
     value: object,
     *,
     attribute_name: str,
-) -> Mapping[str, object] | None:
+) -> tuple[Mapping[str, object] | None, bool]:
     """Return mapping attribute value when available and safely accessible."""
 
     try:
         attribute_value = getattr(value, attribute_name)
     except Exception:
-        return None
+        return None, True
 
     if isinstance(attribute_value, Mapping):
-        return cast(Mapping[str, object], attribute_value)
-    return None
+        return cast(Mapping[str, object], attribute_value), False
+    return None, False
 
 
 def _download_symbol_history(
@@ -335,8 +480,8 @@ def _download_symbol_history(
     yf: object,
     symbol: str,
     config: YFinanceAdapterConfig,
-) -> object:
-    """Download one symbol history with bounded retry behavior."""
+) -> object | tuple[object, str]:
+    """Download one symbol history with bounded retry and fallback behavior."""
 
     download_function = getattr(yf, "download", None)
     if not callable(download_function):
@@ -344,6 +489,37 @@ def _download_symbol_history(
             "YFinance provider client does not expose download function.",
             status_code=502,
         )
+    typed_download_function = download_function
+
+    attempted_periods: list[str] = []
+    periods_to_try = (config.period, *config.history_fallback_periods)
+    for period in periods_to_try:
+        attempted_periods.append(period)
+        result = _download_symbol_history_for_period(
+            download_function=typed_download_function,
+            symbol=symbol,
+            period=period,
+            config=config,
+        )
+        if result is not None:
+            return result, period
+
+    attempted_periods_text = ", ".join(attempted_periods)
+    raise YFinanceAdapterError(
+        "YFinance exhausted configured history fallback periods for symbol "
+        f"'{symbol}' (attempted: {attempted_periods_text}).",
+        status_code=502,
+    )
+
+
+def _download_symbol_history_for_period(
+    *,
+    download_function: Callable[..., object],
+    symbol: str,
+    period: str,
+    config: YFinanceAdapterConfig,
+) -> object | None:
+    """Download one symbol period with bounded transport retries."""
 
     attempt = 0
     last_error: Exception | None = None
@@ -352,7 +528,7 @@ def _download_symbol_history(
         try:
             result = download_function(
                 tickers=provider_symbol,
-                period=config.period,
+                period=period,
                 interval=config.interval,
                 auto_adjust=config.auto_adjust,
                 repair=config.repair,
@@ -361,13 +537,8 @@ def _download_symbol_history(
                 timeout=config.timeout_seconds,
             )
             if _is_empty_frame(result):
-                raise YFinanceAdapterError(
-                    f"YFinance returned empty history for symbol '{symbol}'.",
-                    status_code=502,
-                )
+                return None
             return result
-        except YFinanceAdapterError:
-            raise
         except Exception as exc:
             last_error = exc
             if attempt >= config.max_retries:
@@ -375,14 +546,13 @@ def _download_symbol_history(
             if config.retry_backoff_seconds > 0:
                 time.sleep(config.retry_backoff_seconds)
             attempt += 1
-            continue
-        attempt += 1
 
     reason = "unknown provider failure"
     if last_error is not None:
         reason = _format_provider_exception_reason(last_error)
     raise YFinanceAdapterError(
-        f"YFinance failed while downloading history for symbol '{symbol}' ({reason}).",
+        f"YFinance failed while downloading history for symbol '{symbol}' "
+        f"using period '{period}' ({reason}).",
         status_code=502,
     ) from last_error
 
@@ -507,6 +677,44 @@ def _is_two_item_tuple(candidate: object) -> TypeGuard[tuple[object, object]]:
     # widen element type to object before length check.
     normalized_candidate = cast(tuple[object, ...], candidate)  # ty: ignore[redundant-cast]
     return len(normalized_candidate) == 2
+
+
+def _is_download_result_with_period(
+    candidate: object,
+) -> TypeGuard[tuple[object, str]]:
+    """Return whether download result includes payload plus effective period tuple."""
+
+    if not _is_two_item_tuple(candidate):
+        return False
+    _, period = candidate
+    return isinstance(period, str)
+
+
+def _extract_symbol_effective_period_from_rows(
+    *,
+    rows: list[YFinanceNormalizedRow],
+) -> str | None:
+    """Extract one effective provider period from normalized row payload metadata."""
+
+    if not rows:
+        return None
+    first_payload = rows[0].source_payload
+    raw_period = first_payload.get("period")
+    if isinstance(raw_period, str):
+        normalized_period = raw_period.strip()
+        if normalized_period:
+            return normalized_period
+    return None
+
+
+def _rows_use_assumed_default_currency(*, rows: list[YFinanceNormalizedRow]) -> bool:
+    """Return whether normalized rows were emitted with assumed default currency."""
+
+    if not rows:
+        return False
+    first_payload = rows[0].source_payload
+    raw_currency_source = first_payload.get("currency_source")
+    return raw_currency_source == "assumed_default"
 
 
 def _coerce_trading_date(*, raw_market_key: object, symbol: str) -> date:

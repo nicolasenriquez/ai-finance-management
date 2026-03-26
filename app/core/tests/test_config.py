@@ -46,6 +46,8 @@ def test_settings_defaults() -> None:
         assert settings.market_data_yfinance_max_retries == 1
         assert settings.market_data_yfinance_retry_backoff_seconds == 0.5
         assert settings.market_data_yfinance_request_spacing_seconds == 1.0
+        assert settings.market_data_yfinance_history_fallback_periods == ["3y", "1y", "6mo"]
+        assert settings.market_data_yfinance_default_currency == "USD"
         assert settings.market_data_yfinance_auto_adjust is False
         assert settings.market_data_yfinance_repair is False
         assert (
@@ -75,6 +77,8 @@ def test_settings_from_environment() -> None:
             "MARKET_DATA_YFINANCE_MAX_RETRIES": "3",
             "MARKET_DATA_YFINANCE_RETRY_BACKOFF_SECONDS": "1.25",
             "MARKET_DATA_YFINANCE_REQUEST_SPACING_SECONDS": "0.75",
+            "MARKET_DATA_YFINANCE_HISTORY_FALLBACK_PERIODS": '["6mo","3mo","1mo"]',
+            "MARKET_DATA_YFINANCE_DEFAULT_CURRENCY": "cad",
             "MARKET_DATA_YFINANCE_AUTO_ADJUST": "false",
             "MARKET_DATA_YFINANCE_REPAIR": "false",
             "MARKET_DATA_SYMBOL_UNIVERSE_PATH": "app/market_data/custom_symbol_universe.json",
@@ -98,6 +102,8 @@ def test_settings_from_environment() -> None:
         assert settings.market_data_yfinance_max_retries == 3
         assert settings.market_data_yfinance_retry_backoff_seconds == 1.25
         assert settings.market_data_yfinance_request_spacing_seconds == 0.75
+        assert settings.market_data_yfinance_history_fallback_periods == ["6mo", "3mo", "1mo"]
+        assert settings.market_data_yfinance_default_currency == "cad"
         assert settings.market_data_yfinance_auto_adjust is False
         assert settings.market_data_yfinance_repair is False
         assert (

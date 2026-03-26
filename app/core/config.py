@@ -61,6 +61,12 @@ class Settings(BaseSettings):
         ge=0.0,
         le=60.0,
     )
+    market_data_yfinance_history_fallback_periods: list[str] = Field(
+        default_factory=lambda: ["3y", "1y", "6mo"],
+        min_length=1,
+        max_length=10,
+    )
+    market_data_yfinance_default_currency: str = Field(default="USD", min_length=3, max_length=8)
     market_data_yfinance_auto_adjust: bool = False
     market_data_yfinance_repair: bool = False
     market_data_symbol_universe_path: str = "app/market_data/symbol_universe.v1.json"

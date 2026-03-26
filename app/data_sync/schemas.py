@@ -36,7 +36,11 @@ class DatasetBootstrapRunResult(BaseModel):
 
 
 class DataSyncLocalRunResult(BaseModel):
-    """Structured result for one combined local data-sync run."""
+    """Structured result for one combined local data-sync run.
+
+    The `market_refresh` payload includes typed retry and recovery diagnostics
+    from market-data operations.
+    """
 
     status: Literal["completed"] = "completed"
     bootstrap: DatasetBootstrapRunResult

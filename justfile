@@ -428,7 +428,39 @@ test-integration: test-db-upgrade
       test_url="${test_url#\'}"
     fi
 
-    DATABASE_URL="$test_url" uv run pytest -v -m integration
+    DATABASE_URL="$test_url" uv run pytest -v -m "integration and not market_scope_heavy and not market_scope_very_heavy"
+
+# Run heavy integration tests only (scope-100 refresh).
+test-integration-heavy-100: test-db-upgrade
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    test_url="${TEST_DATABASE_URL:-}"
+    if [[ -z "$test_url" ]] && [[ -f .env ]]; then
+      test_url="$(grep -E '^[[:space:]]*TEST_DATABASE_URL=' .env | tail -n 1 | cut -d '=' -f2- || true)"
+      test_url="${test_url%\"}"
+      test_url="${test_url#\"}"
+      test_url="${test_url%\'}"
+      test_url="${test_url#\'}"
+    fi
+
+    DATABASE_URL="$test_url" uv run pytest -v -m "integration and market_scope_heavy"
+
+# Run very-heavy integration tests only (scope-200 refresh).
+test-integration-heavy-200: test-db-upgrade
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    test_url="${TEST_DATABASE_URL:-}"
+    if [[ -z "$test_url" ]] && [[ -f .env ]]; then
+      test_url="$(grep -E '^[[:space:]]*TEST_DATABASE_URL=' .env | tail -n 1 | cut -d '=' -f2- || true)"
+      test_url="${test_url%\"}"
+      test_url="${test_url#\"}"
+      test_url="${test_url%\'}"
+      test_url="${test_url#\'}"
+    fi
+
+    DATABASE_URL="$test_url" uv run pytest -v -m "integration and market_scope_very_heavy"
 
 # Frontend unit tests.
 frontend-test:
