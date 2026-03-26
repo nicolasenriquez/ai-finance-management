@@ -1,20 +1,4 @@
-# data-sync-operations Specification
-
-## Purpose
-TBD - created by archiving change add-yfinance-data-sync-operations. Update Purpose after archive.
-## Requirements
-### Requirement: Data sync operations SHALL provide a local `dataset_1` bootstrap workflow
-The system SHALL provide an operator-facing local workflow that executes the canonical `dataset_1` bootstrap pipeline (ingest -> persist -> ledger rebuild) through existing service boundaries.
-
-#### Scenario: Operator runs dataset bootstrap successfully
-- **WHEN** the operator triggers the `dataset_1` bootstrap workflow
-- **THEN** the system executes ingestion, persistence, and ledger rebuild in the defined order
-- **THEN** the workflow returns explicit success evidence including processed document/source identifiers
-
-#### Scenario: Bootstrap step fails
-- **WHEN** any bootstrap stage cannot complete safely
-- **THEN** the workflow fails explicitly and exits non-zero
-- **THEN** later bootstrap stages in that run are not executed
+## MODIFIED Requirements
 
 ### Requirement: Data sync operations SHALL provide a local `yfinance` refresh workflow
 The system SHALL provide an operator-facing local workflow that triggers market-data refresh through the existing `yfinance` service seam for one resolved supported-universe scope mode (`core`, `100`, or `200`), preserving strict required-portfolio coverage while surfacing bounded partial-success evidence for approved non-portfolio blocker failures in `100/200`.

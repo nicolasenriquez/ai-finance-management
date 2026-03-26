@@ -54,8 +54,13 @@ class Settings(BaseSettings):
     market_data_yfinance_period: str = "5y"
     market_data_yfinance_interval: str = "1d"
     market_data_yfinance_timeout_seconds: float = Field(default=30.0, gt=0.0)
-    market_data_yfinance_max_retries: int = Field(default=2, ge=0, le=5)
+    market_data_yfinance_max_retries: int = Field(default=1, ge=0, le=5)
     market_data_yfinance_retry_backoff_seconds: float = Field(default=0.5, ge=0.0, le=60.0)
+    market_data_yfinance_request_spacing_seconds: float = Field(
+        default=1.0,
+        ge=0.0,
+        le=60.0,
+    )
     market_data_yfinance_auto_adjust: bool = False
     market_data_yfinance_repair: bool = False
     market_data_symbol_universe_path: str = "app/market_data/symbol_universe.v1.json"

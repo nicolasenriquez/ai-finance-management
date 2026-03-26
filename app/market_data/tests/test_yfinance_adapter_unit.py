@@ -221,6 +221,67 @@ async def test_fetch_rejects_missing_requested_symbol_coverage(
 
 
 @pytest.mark.asyncio
+async def test_fetch_applies_symbol_request_spacing_between_symbols(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Adapter should wait between symbol requests when spacing is configured."""
+
+    sleep_calls: list[float] = []
+
+    def fake_currency(*, yf: object, symbol: str) -> str:
+        del yf
+        del symbol
+        return "USD"
+
+    def fake_rows(
+        *,
+        yf: object,
+        symbol: str,
+        currency_code: str,
+        config: YFinanceAdapterConfig,
+    ) -> list[YFinanceNormalizedRow]:
+        del yf
+        del currency_code
+        del config
+        return [
+            YFinanceNormalizedRow(
+                instrument_symbol=symbol,
+                trading_date=date(2026, 3, 24),
+                close_value=Decimal("100.000000000"),
+                currency_code="USD",
+                source_payload={"provider": "yfinance", "field": "Close", "symbol": symbol},
+            )
+        ]
+
+    def fake_sleep(delay_seconds: float) -> None:
+        sleep_calls.append(delay_seconds)
+
+    monkeypatch.setattr(
+        "app.market_data.providers.yfinance_adapter._fetch_symbol_currency", fake_currency
+    )
+    monkeypatch.setattr("app.market_data.providers.yfinance_adapter._fetch_symbol_rows", fake_rows)
+    monkeypatch.setattr("app.market_data.providers.yfinance_adapter.time.sleep", fake_sleep)
+
+    config = build_yfinance_adapter_config(
+        period="5y",
+        interval="1d",
+        timeout_seconds=30.0,
+        max_retries=1,
+        retry_backoff_seconds=0.0,
+        request_spacing_seconds=1.0,
+        auto_adjust=False,
+        repair=False,
+    )
+    rows, _ = await fetch_yfinance_daily_close_rows(
+        symbols=("VOO", "NVDA", "META"),
+        config=config,
+    )
+
+    assert len(rows) == 3
+    assert sleep_calls == [1.0, 1.0]
+
+
+@pytest.mark.asyncio
 async def test_fetch_returns_rows_and_metadata_when_provider_is_complete(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

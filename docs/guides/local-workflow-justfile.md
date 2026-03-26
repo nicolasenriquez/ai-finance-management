@@ -31,6 +31,18 @@ cp .env.example .env
 just install
 ```
 
+Define isolated runtime and test database URLs in `.env`:
+
+```bash
+DATABASE_URL=postgresql+asyncpg://<user>:<pass>@localhost:5432/ai_finance_management
+TEST_DATABASE_URL=postgresql+asyncpg://<user>:<pass>@localhost:5432/ai_finance_management_test
+```
+
+Guardrail notes:
+
+- `just dev` now runs `db-runtime-guard` and fails fast if runtime DB resolves to a test database target.
+- `just test` and `just test-integration` now require `TEST_DATABASE_URL` and reject equal runtime/test URLs.
+
 If PostgreSQL is not already running from Postgres.app, start Docker DB:
 
 ```bash
@@ -69,6 +81,11 @@ just test
 just test-integration
 just backend-ci
 ```
+
+Database-target behavior:
+
+- `just test` runs pytest with `DATABASE_URL` bound to `TEST_DATABASE_URL` for that command context.
+- `just test-integration` runs `alembic upgrade head` against `TEST_DATABASE_URL` first, then runs integration tests with test DB context.
 
 Frontend-focused gates:
 

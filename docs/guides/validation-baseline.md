@@ -43,8 +43,14 @@ openspec validate --specs --all
 Command intent:
 
 - `just ci`: local pre-CI gate (backend + frontend)
-- `just test`: non-integration/unit-focused test run
-- `just test-integration`: integration-only tests (requires DB readiness/migrations)
+- `just test`: non-integration/unit-focused test run using isolated `TEST_DATABASE_URL`
+- `just test-integration`: integration-only tests using isolated `TEST_DATABASE_URL` with test-db migration preflight (`test-db-upgrade`)
+
+Database URL isolation prerequisites:
+
+- `DATABASE_URL` and `TEST_DATABASE_URL` must both be configured
+- `DATABASE_URL` and `TEST_DATABASE_URL` must not resolve to the same value
+- runtime workflows must not target `_test` database names
 
 Expected service checks:
 
@@ -64,6 +70,13 @@ docker-compose ps
 
 # Option B: local PostgreSQL app/service
 uv run alembic upgrade head
+```
+
+Expected test DB setup check:
+
+```bash
+just test-db-check
+just test-db-upgrade
 ```
 
 ## Extraction Baseline
