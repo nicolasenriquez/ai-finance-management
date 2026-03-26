@@ -92,6 +92,28 @@ Rules:
 - add a body when it materially improves clarity
 - describe the behavioral or repository outcome, not just filenames
 - use `@ARGUMENTS` only to improve specificity
+- prefer a professional Markdown body because this text is often reused in GitHub PR and squash flows
+
+Body format standard (when body is present):
+
+```text
+## Summary
+- <what changed and why>
+- <primary behavior/contract impact>
+
+## Validation
+- <what was run>
+- <result>
+
+## Notes
+- <scope caveat, follow-up, or migration note if any>
+```
+
+Formatting constraints:
+
+- use single-level bullets only
+- keep bullets short and factual
+- avoid free-form paragraph-only bodies unless the change is trivial
 
 ### 6. Create the local commit
 
