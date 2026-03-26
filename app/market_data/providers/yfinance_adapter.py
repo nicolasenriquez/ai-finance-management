@@ -28,6 +28,7 @@ class YFinanceAdapterConfig:
     timeout_seconds: float
     max_retries: int
     retry_backoff_seconds: float
+    request_spacing_seconds: float
     auto_adjust: bool
     repair: bool
 
@@ -62,6 +63,7 @@ def build_yfinance_adapter_config(
     timeout_seconds: float,
     max_retries: int,
     retry_backoff_seconds: float,
+    request_spacing_seconds: float = 0.0,
     auto_adjust: bool,
     repair: bool,
 ) -> YFinanceAdapterConfig:
@@ -94,6 +96,11 @@ def build_yfinance_adapter_config(
             "YFinance retry_backoff_seconds must be zero or greater.",
             status_code=422,
         )
+    if request_spacing_seconds < 0:
+        raise YFinanceAdapterError(
+            "YFinance request_spacing_seconds must be zero or greater.",
+            status_code=422,
+        )
     if auto_adjust:
         raise YFinanceAdapterError(
             "YFinance first-slice integration requires auto_adjust=False.",
@@ -111,6 +118,7 @@ def build_yfinance_adapter_config(
         timeout_seconds=timeout_seconds,
         max_retries=max_retries,
         retry_backoff_seconds=retry_backoff_seconds,
+        request_spacing_seconds=request_spacing_seconds,
         auto_adjust=auto_adjust,
         repair=repair,
     )
@@ -160,7 +168,9 @@ def _fetch_yfinance_daily_close_rows_sync(
     rows_by_symbol: dict[str, int] = {}
     currencies_by_symbol: dict[str, str] = {}
 
-    for symbol in symbols:
+    for symbol_index, symbol in enumerate(symbols):
+        if symbol_index > 0 and config.request_spacing_seconds > 0:
+            time.sleep(config.request_spacing_seconds)
         currency_code = _fetch_symbol_currency(
             yf=yf,
             symbol=symbol,

@@ -17,6 +17,49 @@ install:
 # Database
 # -----------------------------------------------------------------------------
 
+# Guard local runtime from accidentally pointing at a test database.
+db-runtime-guard:
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    raw_url="${DATABASE_URL:-}"
+    if [[ -z "$raw_url" ]] && [[ -f .env ]]; then
+      raw_url="$(grep -E '^[[:space:]]*DATABASE_URL=' .env | tail -n 1 | cut -d '=' -f2- || true)"
+      raw_url="${raw_url%\"}"
+      raw_url="${raw_url#\"}"
+      raw_url="${raw_url%\'}"
+      raw_url="${raw_url#\'}"
+    fi
+
+    if [[ -z "$raw_url" ]]; then
+      echo "DATABASE_URL is not set. Export it or define DATABASE_URL in .env."
+      exit 1
+    fi
+
+    test_url="${TEST_DATABASE_URL:-}"
+    if [[ -z "$test_url" ]] && [[ -f .env ]]; then
+      test_url="$(grep -E '^[[:space:]]*TEST_DATABASE_URL=' .env | tail -n 1 | cut -d '=' -f2- || true)"
+      test_url="${test_url%\"}"
+      test_url="${test_url#\"}"
+      test_url="${test_url%\'}"
+      test_url="${test_url#\'}"
+    fi
+
+    if [[ -n "$test_url" ]] && [[ "$raw_url" == "$test_url" ]]; then
+      echo "DATABASE_URL and TEST_DATABASE_URL resolve to the same value."
+      echo "Refusing to start runtime with shared dev/test database."
+      exit 1
+    fi
+
+    runtime_db_name="${raw_url##*/}"
+    runtime_db_name="${runtime_db_name%%\?*}"
+    if [[ "$runtime_db_name" == *_test ]]; then
+      echo "Refusing to run app against test database: ${runtime_db_name}"
+      exit 1
+    fi
+
+    echo "Runtime DB guard passed: ${runtime_db_name}"
+
 # Verify PostgreSQL is reachable using DATABASE_URL (env or .env).
 db-check:
     #!/usr/bin/env bash
@@ -162,7 +205,7 @@ frontend:
 # 2) DB migrations
 # 3) backend + frontend in parallel
 # Stops both processes when either exits or on Ctrl+C.
-dev: db-check db-upgrade
+dev: db-runtime-guard db-check db-upgrade
     #!/usr/bin/env bash
     backend_pid=0
     frontend_pid=0
@@ -302,13 +345,90 @@ frontend-type:
 # Tests
 # -----------------------------------------------------------------------------
 
+# Verify test DB URL is configured and isolated from runtime DATABASE_URL.
+test-db-check:
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    test_url="${TEST_DATABASE_URL:-}"
+    if [[ -z "$test_url" ]] && [[ -f .env ]]; then
+      test_url="$(grep -E '^[[:space:]]*TEST_DATABASE_URL=' .env | tail -n 1 | cut -d '=' -f2- || true)"
+      test_url="${test_url%\"}"
+      test_url="${test_url#\"}"
+      test_url="${test_url%\'}"
+      test_url="${test_url#\'}"
+    fi
+
+    if [[ -z "$test_url" ]]; then
+      echo "TEST_DATABASE_URL is not set. Add it to .env or export it before running tests."
+      exit 1
+    fi
+
+    runtime_url="${DATABASE_URL:-}"
+    if [[ -z "$runtime_url" ]] && [[ -f .env ]]; then
+      runtime_url="$(grep -E '^[[:space:]]*DATABASE_URL=' .env | tail -n 1 | cut -d '=' -f2- || true)"
+      runtime_url="${runtime_url%\"}"
+      runtime_url="${runtime_url#\"}"
+      runtime_url="${runtime_url%\'}"
+      runtime_url="${runtime_url#\'}"
+    fi
+
+    if [[ -n "$runtime_url" ]] && [[ "$test_url" == "$runtime_url" ]]; then
+      echo "TEST_DATABASE_URL must differ from DATABASE_URL."
+      exit 1
+    fi
+
+    test_db_name="${test_url##*/}"
+    test_db_name="${test_db_name%%\?*}"
+    echo "Test DB check passed: ${test_db_name}"
+
+# Apply migrations to the isolated test database.
+test-db-upgrade: test-db-check
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    test_url="${TEST_DATABASE_URL:-}"
+    if [[ -z "$test_url" ]] && [[ -f .env ]]; then
+      test_url="$(grep -E '^[[:space:]]*TEST_DATABASE_URL=' .env | tail -n 1 | cut -d '=' -f2- || true)"
+      test_url="${test_url%\"}"
+      test_url="${test_url#\"}"
+      test_url="${test_url%\'}"
+      test_url="${test_url#\'}"
+    fi
+
+    DATABASE_URL="$test_url" uv run alembic upgrade head
+
 # Run unit and non-integration tests.
-test:
-    uv run pytest -v -m "not integration"
+test: test-db-check
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    test_url="${TEST_DATABASE_URL:-}"
+    if [[ -z "$test_url" ]] && [[ -f .env ]]; then
+      test_url="$(grep -E '^[[:space:]]*TEST_DATABASE_URL=' .env | tail -n 1 | cut -d '=' -f2- || true)"
+      test_url="${test_url%\"}"
+      test_url="${test_url#\"}"
+      test_url="${test_url%\'}"
+      test_url="${test_url#\'}"
+    fi
+
+    DATABASE_URL="$test_url" uv run pytest -v -m "not integration"
 
 # Run integration tests only.
-test-integration: db-check db-upgrade
-    uv run pytest -v -m integration
+test-integration: test-db-upgrade
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    test_url="${TEST_DATABASE_URL:-}"
+    if [[ -z "$test_url" ]] && [[ -f .env ]]; then
+      test_url="$(grep -E '^[[:space:]]*TEST_DATABASE_URL=' .env | tail -n 1 | cut -d '=' -f2- || true)"
+      test_url="${test_url%\"}"
+      test_url="${test_url#\"}"
+      test_url="${test_url%\'}"
+      test_url="${test_url#\'}"
+    fi
+
+    DATABASE_URL="$test_url" uv run pytest -v -m integration
 
 # Frontend unit tests.
 frontend-test:

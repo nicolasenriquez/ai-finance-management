@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import re
@@ -309,7 +310,11 @@ async def _fetch_yfinance_rows_with_non_portfolio_tolerance(
     currencies_by_symbol: dict[str, str] = {}
     first_pass_errors: dict[str, YFinanceAdapterError] = {}
 
-    for symbol in symbols:
+    for symbol_index, symbol in enumerate(symbols):
+        await _sleep_for_symbol_spacing(
+            symbol_index=symbol_index,
+            request_spacing_seconds=provider_config.request_spacing_seconds,
+        )
         try:
             symbol_rows, symbol_metadata = await fetch_yfinance_daily_close_rows(
                 symbols=(symbol,),
@@ -338,7 +343,11 @@ async def _fetch_yfinance_rows_with_non_portfolio_tolerance(
             retry_attempted_symbols=retry_attempted_symbols,
             retry_attempted_symbols_count=len(retry_attempted_symbols),
         )
-        for symbol in retry_attempted_symbols:
+        for retry_index, symbol in enumerate(retry_attempted_symbols):
+            await _sleep_for_symbol_spacing(
+                symbol_index=retry_index,
+                request_spacing_seconds=provider_config.request_spacing_seconds,
+            )
             try:
                 symbol_rows, symbol_metadata = await fetch_yfinance_daily_close_rows(
                     symbols=(symbol,),
@@ -419,6 +428,18 @@ def _extract_symbol_currency_from_metadata(
     if rows:
         return rows[0].currency_code
     return None
+
+
+async def _sleep_for_symbol_spacing(
+    *,
+    symbol_index: int,
+    request_spacing_seconds: float,
+) -> None:
+    """Pace symbol requests to reduce upstream throttling risk."""
+
+    if symbol_index <= 0 or request_spacing_seconds <= 0:
+        return
+    await asyncio.sleep(request_spacing_seconds)
 
 
 async def _ingest_fetched_yfinance_scope_rows(
@@ -731,6 +752,7 @@ def _build_yfinance_refresh_plan(
             timeout_seconds=effective_settings.market_data_yfinance_timeout_seconds,
             max_retries=effective_settings.market_data_yfinance_max_retries,
             retry_backoff_seconds=effective_settings.market_data_yfinance_retry_backoff_seconds,
+            request_spacing_seconds=effective_settings.market_data_yfinance_request_spacing_seconds,
             auto_adjust=effective_settings.market_data_yfinance_auto_adjust,
             repair=effective_settings.market_data_yfinance_repair,
         )

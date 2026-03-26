@@ -14,6 +14,7 @@ from app.market_data.providers.yfinance_adapter import YFinanceAdapterError, YFi
 from app.market_data.schemas import MarketDataPriceWrite, MarketDataSnapshotWriteRequest
 from app.market_data.service import (
     MarketDataClientError,
+    MarketDataRefreshScopeMode,
     ingest_market_data_snapshot,
     ingest_yfinance_daily_close_snapshot,
     list_market_data_library_symbols,
@@ -61,6 +62,7 @@ def _provider_settings() -> Settings:
         market_data_yfinance_timeout_seconds=30.0,
         market_data_yfinance_max_retries=1,
         market_data_yfinance_retry_backoff_seconds=0.0,
+        market_data_yfinance_request_spacing_seconds=0.0,
         market_data_yfinance_auto_adjust=False,
         market_data_yfinance_repair=False,
     )
@@ -483,6 +485,98 @@ async def test_refresh_supported_universe_uses_starter_100_scope_symbols(
     assert result.retry_attempted_symbols_count == 0
     assert result.failed_symbols == []
     assert result.failed_symbols_count == 0
+
+
+@pytest.mark.asyncio
+async def test_refresh_supported_universe_applies_symbol_request_spacing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Scope refresh should wait between symbol fetches when spacing is configured."""
+
+    captured_symbols: list[str] = []
+    spacing_calls: list[float] = []
+
+    async def fake_fetch(
+        *,
+        symbols: tuple[str, ...],
+        config: object,
+    ) -> tuple[list[YFinanceNormalizedRow], dict[str, object]]:
+        del config
+        symbol = symbols[0]
+        captured_symbols.append(symbol)
+        return (
+            [
+                YFinanceNormalizedRow(
+                    instrument_symbol=symbol,
+                    trading_date=date(2026, 3, 24),
+                    close_value=Decimal("100.000000000"),
+                    currency_code="USD",
+                    source_payload={"provider": "yfinance", "field": "Close", "symbol": symbol},
+                )
+            ],
+            {
+                "provider": "yfinance",
+                "rows_by_symbol": {symbol: 1},
+                "currencies_by_symbol": {symbol: "USD"},
+            },
+        )
+
+    async def fake_sleep(delay_seconds: float) -> None:
+        spacing_calls.append(delay_seconds)
+
+    async def fake_ingest(
+        *,
+        db: AsyncSession,
+        request: MarketDataSnapshotWriteRequest,
+    ) -> object:
+        del db
+
+        class _FakeResult:
+            snapshot_id = 900
+            inserted_prices = len(request.prices)
+            updated_prices = 0
+
+        return _FakeResult()
+
+    monkeypatch.setattr("app.market_data.service.fetch_yfinance_daily_close_rows", fake_fetch)
+    monkeypatch.setattr("app.market_data.service.asyncio.sleep", fake_sleep)
+    monkeypatch.setattr("app.market_data.service.ingest_market_data_snapshot", fake_ingest)
+
+    def fake_resolve_scope_symbols(
+        *,
+        refresh_scope_mode: MarketDataRefreshScopeMode,
+        settings: Settings | None,
+    ) -> list[str]:
+        del refresh_scope_mode
+        del settings
+        return ["VOO", "NVDA", "META"]
+
+    monkeypatch.setattr(
+        "app.market_data.service._resolve_refresh_scope_symbols",
+        fake_resolve_scope_symbols,
+    )
+
+    spaced_settings = Settings(
+        database_url="postgresql+asyncpg://test:test@localhost:5432/test",
+        market_data_yfinance_period="5y",
+        market_data_yfinance_interval="1d",
+        market_data_yfinance_timeout_seconds=30.0,
+        market_data_yfinance_max_retries=1,
+        market_data_yfinance_retry_backoff_seconds=0.0,
+        market_data_yfinance_request_spacing_seconds=1.0,
+        market_data_yfinance_auto_adjust=False,
+        market_data_yfinance_repair=False,
+    )
+    result = await refresh_yfinance_supported_universe(
+        db=cast(AsyncSession, _NeverCalledSession()),
+        refresh_scope_mode="100",
+        snapshot_captured_at=datetime(2026, 3, 24, 15, 0, tzinfo=UTC),
+        settings=spaced_settings,
+    )
+
+    assert captured_symbols == ["VOO", "NVDA", "META"]
+    assert spacing_calls == [1.0, 1.0]
+    assert result.snapshot_id == 900
 
 
 @pytest.mark.asyncio

@@ -108,6 +108,16 @@ cp .env.example .env
 just install
 ```
 
+Configure separate development and test databases in `.env`:
+
+```bash
+# Runtime app DB (used by just dev / backend)
+DATABASE_URL=postgresql+asyncpg://<user>:<pass>@localhost:5432/ai_finance_management
+
+# Isolated test DB (used by just test / just test-integration)
+TEST_DATABASE_URL=postgresql+asyncpg://<user>:<pass>@localhost:5432/ai_finance_management_test
+```
+
 If you use Docker for local PostgreSQL:
 
 ```bash

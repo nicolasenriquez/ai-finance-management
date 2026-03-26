@@ -24,6 +24,19 @@ Use this structure for new entries:
 
 ## 2026-03-25
 
+### fix(dev-workflow): isolate runtime and test databases in just recipes
+- Summary: Added `db-runtime-guard` to `just dev` to block running the app against a test database or a shared dev/test URL, and introduced `test-db-check` + `test-db-upgrade` so `just test` and `just test-integration` require and use `TEST_DATABASE_URL` instead of mutating runtime `DATABASE_URL`.
+- Why: Local development sessions were repeatedly showing empty data after test runs because integration/unit test paths truncate or recreate tables and were targeting the same database as runtime.
+- Files: `justfile`, `.env.example`, `README.md`, `CHANGELOG.md`.
+- Validation: `justfile` recipe logic reviewed end-to-end for URL resolution from env/`.env`, runtime-vs-test separation checks, and DATABASE_URL override behavior on pytest/alembic test paths.
+- Notes: Existing local `.env` files must define `TEST_DATABASE_URL` to use updated test recipes.
+
+### fix(market-data-refresh): set single-retry default and add per-symbol request pacing
+- Summary: Updated yfinance defaults to one retry (`market_data_yfinance_max_retries=1`) and introduced configurable per-symbol pacing (`market_data_yfinance_request_spacing_seconds`, default `1.0`); wired pacing through refresh-plan adapter config and staged per-symbol refresh loops while preserving strict `core` and bounded `100/200` tolerance behavior.
+- Why: Reduce throttling exposure in live runs and keep retry behavior conservative/predictable while maintaining fail-fast coverage guarantees for required portfolio symbols.
+- Files: `app/core/config.py`, `app/market_data/{providers/yfinance_adapter.py,service.py,tests/test_yfinance_adapter_unit.py,tests/test_service_unit.py}`, `app/core/tests/test_config.py`, `CHANGELOG.md`.
+- Validation: `UV_CACHE_DIR=/tmp/uv-cache uv run pytest -q app/core/tests/test_config.py app/market_data/tests/test_yfinance_adapter_unit.py app/market_data/tests/test_service_unit.py` (40 passed), `UV_CACHE_DIR=/tmp/uv-cache uv run ruff check app/core/config.py app/core/tests/test_config.py app/market_data/providers/yfinance_adapter.py app/market_data/service.py app/market_data/tests/test_yfinance_adapter_unit.py app/market_data/tests/test_service_unit.py` (pass), `UV_CACHE_DIR=/tmp/uv-cache uv run pyright app/core/config.py app/market_data/providers/yfinance_adapter.py app/market_data/service.py app/market_data/tests/test_service_unit.py app/market_data/tests/test_yfinance_adapter_unit.py` (0 errors), `UV_CACHE_DIR=/tmp/uv-cache uv run mypy app/core/config.py app/market_data/providers/yfinance_adapter.py app/market_data/service.py` (pass), `UV_CACHE_DIR=/tmp/uv-cache uv run black --check --diff app/core/config.py app/core/tests/test_config.py app/market_data/providers/yfinance_adapter.py app/market_data/service.py app/market_data/tests/test_yfinance_adapter_unit.py app/market_data/tests/test_service_unit.py` (pass).
+
 ### feat(market-data-refresh): allow partial-success retries for starter scopes while keeping core strict
 - Summary: Updated `refresh_yfinance_supported_universe` so `core` remains strict fail-fast, while `100/200` scopes fetch per symbol, run one retry pass for first-pass failures, persist successful rows, and report retry/failure diagnostics (`retry_attempted_symbols*`, `failed_symbols*`) in the typed refresh result.
 - Why: Live provider behavior is intermittently unstable; operators need controlled onboarding at `100/200` without blocking the entire refresh when only non-portfolio symbols fail, while still failing immediately if required portfolio coverage cannot be recovered.
