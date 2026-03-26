@@ -224,6 +224,13 @@ async def test_async_main_data_sync_local_passes_both_optional_arguments(
                 snapshot_id=21,
                 inserted_prices=2,
                 updated_prices=0,
+                retry_attempted_symbols=["AMD"],
+                retry_attempted_symbols_count=1,
+                failed_symbols=[],
+                failed_symbols_count=0,
+                history_fallback_symbols=["AMD"],
+                history_fallback_periods_by_symbol={"AMD": "1y"},
+                currency_assumed_symbols=["AMD"],
             ),
         )
 
@@ -251,6 +258,8 @@ async def test_async_main_data_sync_local_passes_both_optional_arguments(
     assert payload["status"] == "completed"
     assert payload["bootstrap"]["source_document_id"] == 11
     assert payload["market_refresh"]["source_provider"] == "yfinance"
+    assert payload["market_refresh"]["history_fallback_symbols"] == ["AMD"]
+    assert payload["market_refresh"]["currency_assumed_symbols"] == ["AMD"]
 
 
 @pytest.mark.asyncio
@@ -284,6 +293,9 @@ async def test_async_main_market_refresh_passes_refresh_scope_argument(
             snapshot_id=31,
             inserted_prices=2,
             updated_prices=0,
+            history_fallback_symbols=["AMD"],
+            history_fallback_periods_by_symbol={"AMD": "1y"},
+            currency_assumed_symbols=["AMD"],
         )
 
     monkeypatch.setattr(
@@ -307,3 +319,5 @@ async def test_async_main_market_refresh_passes_refresh_scope_argument(
     payload = json.loads(capsys.readouterr().out)
     assert payload["status"] == "completed"
     assert payload["refresh_scope_mode"] == "100"
+    assert payload["history_fallback_symbols"] == ["AMD"]
+    assert payload["currency_assumed_symbols"] == ["AMD"]

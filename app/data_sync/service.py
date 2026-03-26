@@ -238,6 +238,10 @@ async def run_market_refresh_yfinance(
         requested_symbols_count=result.requested_symbols_count,
         inserted_prices=result.inserted_prices,
         updated_prices=result.updated_prices,
+        retry_attempted_symbols_count=result.retry_attempted_symbols_count,
+        failed_symbols_count=result.failed_symbols_count,
+        history_fallback_symbols_count=len(result.history_fallback_symbols),
+        currency_assumed_symbols_count=len(result.currency_assumed_symbols),
     )
     return result
 
@@ -293,6 +297,10 @@ async def run_data_sync_local(
         snapshot_id=result.market_refresh.snapshot_id,
         snapshot_key=result.market_refresh.snapshot_key,
         requested_symbols_count=result.market_refresh.requested_symbols_count,
+        retry_attempted_symbols_count=result.market_refresh.retry_attempted_symbols_count,
+        failed_symbols_count=result.market_refresh.failed_symbols_count,
+        history_fallback_symbols_count=len(result.market_refresh.history_fallback_symbols),
+        currency_assumed_symbols_count=len(result.market_refresh.currency_assumed_symbols),
     )
     return result
 

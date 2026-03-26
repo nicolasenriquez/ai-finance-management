@@ -224,6 +224,11 @@ Implications:
 - provenance and idempotency requirements from the current market-data boundary remain mandatory
 - current provider execution posture is manual and schedule-ready through local operator command surfaces (`just market-refresh-yfinance`, `just data-sync-local`) on top of the market-data service seam
 - operator refresh execution uses an explicit staged scope contract (`core` default, `100`, `200`) propagated through service and CLI boundaries for controlled onboarding
+- approved live-provider recovery is bounded and explicit:
+  - empty history may use ordered shorter-period fallback (`5y -> 3y -> 1y -> 6mo` default)
+  - missing currency metadata may use configured default currency (`USD` default)
+  - explicit invalid currency metadata and unsupported payloads still fail fast
+- refresh outcomes must expose typed recovery diagnostics (`history_fallback_symbols`, `history_fallback_periods_by_symbol`, `currency_assumed_symbols`) alongside retry/failure evidence
 - approved day-level temporal-key variants for operational refresh are explicit and bounded (`date`/`datetime`, `to_pydatetime()` to `date`/`datetime`, scalar `item()` conversions); unsupported temporal keys must fail fast
 - operator smoke closeout must capture structured success evidence or structured blocker evidence (`status`, `stage`, `status_code`, `error`) rather than implicit/partial success
 - public market-data routes remain deferred; command-level operations are the active execution boundary in this slice

@@ -6,7 +6,7 @@ This guide defines how to use `yfinance` as the first external market-data provi
 
 Use this guide for planning and implementation of Sprint `5.2` provider integration.
 
-## Current Implementation Status (2026-03-25)
+## Current Implementation Status (2026-03-26)
 
 Implemented now:
 
@@ -20,7 +20,7 @@ Implemented now:
 - Symbol-universe generator: `scripts/build_market_symbol_universe.py`
 - Local operator just recipes: `just data-bootstrap-dataset1`, `just market-refresh-yfinance`, `just data-sync-local`
 - Local symbol-universe build recipe: `just market-symbol-universe-build`
-- Settings surface: `market_data_yfinance_period`, `market_data_yfinance_interval`, `market_data_yfinance_timeout_seconds`, `market_data_yfinance_max_retries`, `market_data_yfinance_retry_backoff_seconds`, `market_data_yfinance_auto_adjust`, `market_data_yfinance_repair`, `market_data_symbol_universe_path`
+- Settings surface: `market_data_yfinance_period`, `market_data_yfinance_interval`, `market_data_yfinance_timeout_seconds`, `market_data_yfinance_max_retries`, `market_data_yfinance_retry_backoff_seconds`, `market_data_yfinance_request_spacing_seconds`, `market_data_yfinance_history_fallback_periods`, `market_data_yfinance_default_currency`, `market_data_yfinance_auto_adjust`, `market_data_yfinance_repair`, `market_data_symbol_universe_path`
 
 First-slice semantics frozen in code:
 
@@ -30,6 +30,10 @@ First-slice semantics frozen in code:
 - `auto_adjust` must be `False`
 - `repair` must be `False`
 - requested symbol coverage is all-or-nothing
+- semantic recovery is bounded and explicit:
+  - empty-history fallback ladder: `5y -> 3y -> 1y -> 6mo` by default
+  - missing currency metadata fallback: configured default currency (`USD` by default)
+  - explicit invalid currency metadata remains fail-fast
 - close-payload normalization supports both series and tabular runtime shapes; unsupported shapes fail fast
 - approved day-level temporal-key variants are explicit and bounded: `date`/`datetime`, values with `to_pydatetime()` returning `date`/`datetime`, and scalar values exposing `item()` that resolve to `date`/`datetime`
 
@@ -128,7 +132,9 @@ Implemented defaults and constraints for deterministic behavior:
 
 - day-level data only (`interval=1d`)
 - explicit period from configuration (`market_data_yfinance_period`, default `5y`)
-- explicit timeout and bounded retry/backoff
+- explicit timeout and bounded retry/backoff (`market_data_yfinance_max_retries` defaults to `1`)
+- explicit ordered history fallback ladder (`market_data_yfinance_history_fallback_periods`)
+- explicit default-currency fallback for missing metadata (`market_data_yfinance_default_currency`)
 - explicit symbol list from supported universe
 - no broad multi-feature payload expansion in this slice
 
@@ -152,10 +158,15 @@ Example:
 
 `symbol-fingerprint` is a bounded hash of the normalized symbol set to keep `snapshot_key` within the `String(128)` database constraint.
 
+When one or more symbols recover through shorter fallback periods, `snapshot_key` remains anchored to the originally requested contract. Effective fallback periods are recorded in metadata/evidence (`history_fallback_periods_by_symbol`) instead of changing snapshot identity.
+
 ## Error Handling and Retries
 
 - Missing/invalid provider response shape: fail fast with explicit client error.
 - Network/provider transient failures: bounded retries with explicit logging.
+- Semantic empty-history failures: try configured ordered fallback periods before final symbol failure.
+- Missing currency metadata after approved reads: apply configured default currency and record `currency_assumed_symbols`.
+- Explicit unsupported currency values: fail fast; do not replace with default currency.
 - Hard provider failures: fail request explicitly; do not ingest partial rows silently.
 - Unexpected provider exceptions are surfaced with compact error reason text in 502 responses to improve blocker evidence quality.
 
@@ -198,7 +209,7 @@ Optional manual verification:
   - `uv run python -m scripts.data_sync_operations market-refresh-yfinance --refresh-scope 200`
   - equivalent just commands: `just market-refresh-yfinance "" core`, `just market-refresh-yfinance "" 100`, `just market-refresh-yfinance "" 200`
 - run one explicit combined local sync smoke run with scope when needed (`uv run python -m scripts.data_sync_operations data-sync-local --refresh-scope core` or `just data-sync-local "" "" core`)
-- for successful smoke runs, capture typed evidence (`refresh_scope_mode`, `source_provider`, `requested_symbols`, `requested_symbols_count`, `snapshot_key`, `snapshot_captured_at`, `snapshot_id`, `inserted_prices`, `updated_prices`)
+- for successful smoke runs, capture typed evidence (`refresh_scope_mode`, `source_provider`, `requested_symbols`, `requested_symbols_count`, `snapshot_key`, `snapshot_captured_at`, `snapshot_id`, `inserted_prices`, `updated_prices`, `retry_attempted_symbols`, `failed_symbols`, `history_fallback_symbols`, `history_fallback_periods_by_symbol`, `currency_assumed_symbols`)
 - for blocked smoke runs, capture structured fail-fast payload (`status`, `stage`, `status_code`, `error`) plus selected scope and treat it as blocker evidence instead of partial success
 - manual checks must not replace deterministic automated tests
 

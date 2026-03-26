@@ -22,6 +22,15 @@ Use this structure for new entries:
 
 `type` guidance: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`.
 
+## 2026-03-26
+
+### feat(market-data-refresh): stabilize yfinance live-provider coverage with bounded fallback diagnostics
+- Summary: Added configurable yfinance semantic recovery controls (`market_data_yfinance_history_fallback_periods`, `market_data_yfinance_default_currency`) and implemented bounded empty-history fallback (`5y -> 3y -> 1y -> 6mo` default) plus explicit default-currency assignment for missing metadata while preserving fail-fast behavior for unsupported payloads and explicit invalid currency values; extended refresh result/schema and scope metadata to expose `history_fallback_symbols`, `history_fallback_periods_by_symbol`, and `currency_assumed_symbols`; propagated typed evidence through data-sync surfaces and CLI tests.
+- Why: Phase-6 operational refresh was blocked by predictable live-provider gaps (`empty history`, missing currency metadata). The repo needed explicit, auditable recovery without broad graceful degradation or relaxed required-symbol failure semantics.
+- Files: `app/core/{config.py,tests/test_config.py}`, `app/market_data/{providers/yfinance_adapter.py,schemas.py,service.py,tests/test_yfinance_adapter_unit.py,tests/test_service_unit.py}`, `app/data_sync/{schemas.py,service.py,tests/test_data_sync_operations_cli.py}`, `README.md`, `docs/guides/{yfinance-integration-guide.md,validation-baseline.md}`, `docs/product/{roadmap.md,backlog-sprints.md,decisions.md}`, `openspec/changes/stabilize-yfinance-live-provider-coverage/tasks.md`, `CHANGELOG.md`.
+- Validation: `UV_CACHE_DIR=/tmp/uv-cache uv run pytest -q app/core/tests/test_config.py app/market_data/tests/test_yfinance_adapter_unit.py app/market_data/tests/test_service_unit.py app/data_sync/tests/test_data_sync_operations_cli.py` (53 passed), `UV_CACHE_DIR=/tmp/uv-cache uv run pytest -q app/market_data/tests/test_yfinance_adapter_unit.py::test_fetch_raises_explicit_error_when_history_fallback_ladder_is_exhausted app/market_data/tests/test_service_unit.py::test_refresh_core_surfaces_exhausted_history_fallback_for_required_symbols` (2 passed; explicit blocker-path evidence), `UV_CACHE_DIR=/tmp/uv-cache uv run ruff check ...` (pass on touched scope), `UV_CACHE_DIR=/tmp/uv-cache uv run black --check ...` (pass on touched scope), `UV_CACHE_DIR=/tmp/uv-cache uv run mypy app/` (pass), `UV_CACHE_DIR=/tmp/uv-cache uv run pyright app/` (0 errors), `UV_CACHE_DIR=/tmp/uv-cache uv run ty check app` (pass), `openspec validate stabilize-yfinance-live-provider-coverage --type change --strict --json` (pass), `openspec validate --specs --all --json` (16/16 passed).
+- Notes: OpenSpec emitted non-blocking PostHog DNS flush warnings (`edge.openspec.dev`) in the restricted network sandbox after successful validation output.
+
 ## 2026-03-25
 
 ### fix(dev-workflow): isolate runtime and test databases in just recipes

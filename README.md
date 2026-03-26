@@ -118,6 +118,28 @@ DATABASE_URL=postgresql+asyncpg://<user>:<pass>@localhost:5432/ai_finance_manage
 TEST_DATABASE_URL=postgresql+asyncpg://<user>:<pass>@localhost:5432/ai_finance_management_test
 ```
 
+YFinance operational defaults for staged refresh (`core`, `100`, `200`):
+
+```bash
+# Primary day-level window and bounded semantic fallbacks for empty history
+MARKET_DATA_YFINANCE_PERIOD=5y
+MARKET_DATA_YFINANCE_HISTORY_FALLBACK_PERIODS=["3y","1y","6mo"]
+
+# Conservative transport pressure + pacing
+MARKET_DATA_YFINANCE_MAX_RETRIES=1
+MARKET_DATA_YFINANCE_RETRY_BACKOFF_SECONDS=0.5
+MARKET_DATA_YFINANCE_REQUEST_SPACING_SECONDS=1.0
+
+# Missing metadata recovery (explicit invalid currency still fails fast)
+MARKET_DATA_YFINANCE_DEFAULT_CURRENCY=USD
+```
+
+Refresh result evidence now includes bounded recovery diagnostics:
+
+- `retry_attempted_symbols`, `failed_symbols`
+- `history_fallback_symbols`, `history_fallback_periods_by_symbol`
+- `currency_assumed_symbols`
+
 If you use Docker for local PostgreSQL:
 
 ```bash

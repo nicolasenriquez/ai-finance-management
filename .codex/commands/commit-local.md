@@ -93,6 +93,7 @@ Rules:
 - describe the behavioral or repository outcome, not just filenames
 - use `@ARGUMENTS` only to improve specificity
 - prefer a professional Markdown body because this text is often reused in GitHub PR and squash flows
+- do not append PR-number suffixes in the subject (for example `(#123)`); keep subject timeless and branch-agnostic
 
 Body format standard (when body is present):
 
@@ -114,6 +115,13 @@ Formatting constraints:
 - use single-level bullets only
 - keep bullets short and factual
 - avoid free-form paragraph-only bodies unless the change is trivial
+
+PR vs squash guidance:
+
+- keep the same section structure in commit bodies and PR descriptions (`Summary`, `Validation`, `Notes`) for consistency
+- do not copy-paste full PR text into commit bodies
+- commit body should be concise because GitHub squash merge often uses it as the default merge description
+- PR body can add extra reviewer context (for example `What Changed`) beyond the commit body
 
 ### 6. Create the local commit
 

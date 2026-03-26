@@ -76,8 +76,8 @@
 - Extended operator command surfaces with optional refresh-scope propagation (`--refresh-scope core|100|200` in CLI and equivalent `just` positional override) to support controlled onboarding.
 - Stabilized operator runbook/evidence posture for `market-refresh-yfinance` and `data-sync-local`: successful runs must emit typed refresh/sync evidence and blocked runs must emit structured fail-fast payloads (`status`, `stage`, `status_code`, `error`).
 - Stabilized approved day-level temporal-key normalization for current live operations (`date`/`datetime`, `to_pydatetime()` returning `date`/`datetime`, scalar `item()` conversions) while preserving explicit fail-fast rejection for unsupported keys.
-- Latest staged refresh smoke evidence (2026-03-26): `core` blocked at `stage=market_refresh` with `status_code=502` (`empty history` for `QQQM`), `100` blocked with `status_code=502` (`missing currency metadata` for `AMD`), and `200` blocked with `status_code=502` (`missing currency metadata` for `XLF`); all recorded as blocker evidence rather than partial success.
-- Next in this phase: resolve live-provider blocker patterns before expanding analytics contracts to market-enriched KPIs, while preserving non-goals (no ledger mutation, no public market-data router, no scheduler/queue infrastructure in this slice).
+- Stabilized live-provider blocker patterns (2026-03-26): refresh now applies a bounded empty-history fallback ladder (`5y -> 3y -> 1y -> 6mo`) and explicit default-currency fallback (`USD`) for missing metadata, while keeping strict fail-fast behavior for unsupported payloads/invalid currency and required-symbol exhaustion.
+- Next in this phase: capture fresh staged live smoke evidence (`core -> 100 -> 200`) under the stabilized recovery contract, then evaluate market-enriched KPI expansion while preserving non-goals (no ledger mutation, no public market-data router, no scheduler/queue infrastructure in this slice).
 
 ## Phase 7: Database Hardening and Deployment Readiness
 

@@ -18,6 +18,7 @@ Current implementation status:
 - first external market-data provider adapter (`yfinance`) is implemented with deterministic day-level close normalization and provider-backed ingest routed through the existing market-data boundary
 - local data-sync operations are implemented for `dataset_1` bootstrap and `yfinance` refresh (`data-bootstrap-dataset1`, `market-refresh-yfinance`, `data-sync-local`)
 - market-data operational smoke contract is stabilized: approved live temporal-key variants are bounded and blocked runs are captured as structured evidence instead of partial success
+- live-provider stabilization contract is implemented: bounded empty-history fallback ladder, bounded default-currency assumption for missing metadata, and typed refresh recovery diagnostics (`history_fallback_*`, `currency_assumed_*`)
 
 ## Repository Baseline
 
@@ -132,6 +133,7 @@ For each golden set dataset:
 - run staged onboarding refresh smoke sequence (`core -> 100 -> 200`) and record explicit success/blocker evidence for each stage
 - run one combined local sync smoke invocation and record:
   - success evidence fields from typed refresh/sync output (`refresh_scope_mode`, `source_provider`, `requested_symbols`, `requested_symbols_count`, `snapshot_key`, `snapshot_captured_at`, `snapshot_id`, insert/update counters)
+  - recovery evidence fields from typed refresh output (`retry_attempted_symbols`, `failed_symbols`, `history_fallback_symbols`, `history_fallback_periods_by_symbol`, `currency_assumed_symbols`)
   - blocker evidence fields from fail-fast payload (`status`, `stage`, `status_code`, `error`)
 
 ## Reporting Rule
@@ -156,4 +158,5 @@ For persistence phases, validation must also confirm:
 - market-data refresh path does not create, update, or delete canonical, ledger, lot, lot-disposition, dividend, or corporate-action truth rows
 - market-data provider normalization accepts only the approved day-level temporal variants and rejects unsupported variants explicitly
 - provider-adapter tests prove fail-fast behavior for unsupported config semantics and incomplete requested-symbol coverage
+- provider-adapter and refresh tests prove explicit blocker evidence when configured history fallback is exhausted for required symbols
 - when manual provider smoke checks fail, capture the explicit adapter/service rejection with `status`, `stage`, `status_code`, and `error` and track it as an operational blocker before change closeout

@@ -46,6 +46,18 @@ class _FakeDownloadResult:
         return None
 
 
+class _FakeEmptyDownloadResult:
+    """Minimal download payload representing provider empty-history response."""
+
+    empty = True
+
+    def get(self, key: str) -> object | None:
+        """Return no close payload for empty-history simulation."""
+
+        del key
+        return None
+
+
 class _FakeCloseSeries:
     """Minimal series-like object exposing items()."""
 
@@ -133,6 +145,32 @@ def test_build_config_rejects_repair_true() -> None:
             repair=True,
         )
     assert exc_info.value.status_code == 422
+
+
+def test_build_config_defaults_keep_period_override_compatible() -> None:
+    """Default fallback ladder should remain valid when primary period is overridden."""
+
+    config_1y = build_yfinance_adapter_config(
+        period="1y",
+        interval="1d",
+        timeout_seconds=30.0,
+        max_retries=1,
+        retry_backoff_seconds=0.0,
+        auto_adjust=False,
+        repair=False,
+    )
+    assert config_1y.history_fallback_periods == ("6mo",)
+
+    config_6mo = build_yfinance_adapter_config(
+        period="6mo",
+        interval="1d",
+        timeout_seconds=30.0,
+        max_retries=1,
+        retry_backoff_seconds=0.0,
+        auto_adjust=False,
+        repair=False,
+    )
+    assert config_6mo.history_fallback_periods == ()
 
 
 @pytest.mark.asyncio
@@ -538,10 +576,10 @@ async def test_fetch_currency_falls_back_to_info_when_fast_info_property_access_
 
 
 @pytest.mark.asyncio
-async def test_fetch_currency_raises_adapter_error_when_info_property_access_raises_key_error(
+async def test_fetch_currency_fails_when_info_property_access_raises_key_error(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Currency resolution should fail with adapter error if info property access fails."""
+    """Currency resolution should fail fast when metadata access fails."""
 
     class _FakeTickerClient:
         """Minimal ticker metadata client with info property access failure."""
@@ -597,12 +635,273 @@ async def test_fetch_currency_raises_adapter_error_when_info_property_access_rai
 
     with pytest.raises(
         YFinanceAdapterError,
-        match="did not provide currency metadata",
+        match="currency metadata access failed",
     ) as exc_info:
         await fetch_yfinance_daily_close_rows(
             symbols=("VOO",),
             config=_valid_config(),
         )
+    assert exc_info.value.status_code == 502
+
+
+@pytest.mark.asyncio
+async def test_fetch_recovers_empty_history_using_shorter_period_fallback(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Adapter should retry empty-history symbols with configured shorter periods."""
+
+    attempted_periods: list[str] = []
+
+    class _FakeTickerClient:
+        """Minimal ticker metadata client exposing deterministic USD currency."""
+
+        def __init__(self) -> None:
+            """Store deterministic USD currency mappings."""
+
+            self.fast_info: dict[str, str] = {"currency": "USD"}
+            self.info: dict[str, str] = {"currency": "USD"}
+
+    class _FakeYFinanceModule:
+        """Minimal yfinance module exposing one empty-history then one successful fallback."""
+
+        @staticmethod
+        def Ticker(symbol: str) -> _FakeTickerClient:
+            del symbol
+            return _FakeTickerClient()
+
+        @staticmethod
+        def download(
+            *,
+            tickers: str,
+            period: str,
+            interval: str,
+            auto_adjust: bool,
+            repair: bool,
+            progress: bool,
+            threads: bool,
+            timeout: float,
+        ) -> object:
+            del tickers
+            del interval
+            del auto_adjust
+            del repair
+            del progress
+            del threads
+            del timeout
+            attempted_periods.append(period)
+            if period == "5y":
+                return _FakeEmptyDownloadResult()
+            if period == "3y":
+                return _FakeDownloadResult(
+                    _FakeCloseSeries(points=[(datetime(2026, 3, 24, tzinfo=UTC), 120.0)])
+                )
+            return _FakeEmptyDownloadResult()
+
+    monkeypatch.setattr(
+        "app.market_data.providers.yfinance_adapter._load_yfinance_module",
+        lambda: _FakeYFinanceModule(),
+    )
+
+    rows, metadata = await fetch_yfinance_daily_close_rows(
+        symbols=("QQQM",),
+        config=_valid_config(),
+    )
+
+    assert attempted_periods == ["5y", "3y"]
+    assert len(rows) == 1
+    assert rows[0].instrument_symbol == "QQQM"
+    assert metadata["history_fallback_symbols"] == ["QQQM"]
+    assert metadata["history_fallback_periods_by_symbol"] == {"QQQM": "3y"}
+
+
+@pytest.mark.asyncio
+async def test_fetch_raises_explicit_error_when_history_fallback_ladder_is_exhausted(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Adapter should report one explicit error when all shorter-period fallbacks fail."""
+
+    attempted_periods: list[str] = []
+
+    class _FakeTickerClient:
+        """Minimal ticker metadata client exposing deterministic USD currency."""
+
+        def __init__(self) -> None:
+            """Store deterministic USD currency mappings."""
+
+            self.fast_info: dict[str, str] = {"currency": "USD"}
+            self.info: dict[str, str] = {"currency": "USD"}
+
+    class _FakeYFinanceModule:
+        """Minimal yfinance module that always returns empty-history payloads."""
+
+        @staticmethod
+        def Ticker(symbol: str) -> _FakeTickerClient:
+            del symbol
+            return _FakeTickerClient()
+
+        @staticmethod
+        def download(
+            *,
+            tickers: str,
+            period: str,
+            interval: str,
+            auto_adjust: bool,
+            repair: bool,
+            progress: bool,
+            threads: bool,
+            timeout: float,
+        ) -> object:
+            del tickers
+            del interval
+            del auto_adjust
+            del repair
+            del progress
+            del threads
+            del timeout
+            attempted_periods.append(period)
+            return _FakeEmptyDownloadResult()
+
+    monkeypatch.setattr(
+        "app.market_data.providers.yfinance_adapter._load_yfinance_module",
+        lambda: _FakeYFinanceModule(),
+    )
+
+    with pytest.raises(
+        YFinanceAdapterError,
+        match="exhausted configured history fallback periods",
+    ) as exc_info:
+        await fetch_yfinance_daily_close_rows(
+            symbols=("QQQM",),
+            config=_valid_config(),
+        )
+
+    assert exc_info.value.status_code == 502
+    assert attempted_periods == ["5y", "3y", "1y", "6mo"]
+
+
+@pytest.mark.asyncio
+async def test_fetch_uses_operational_default_currency_when_metadata_is_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Adapter should continue with configured default currency when metadata is absent."""
+
+    class _FakeTickerClient:
+        """Minimal ticker metadata client with missing currency metadata."""
+
+        def __init__(self) -> None:
+            """Store empty currency mappings for fallback contract tests."""
+
+            self.fast_info: dict[str, str] = {}
+            self.info: dict[str, str] = {}
+
+    class _FakeYFinanceModule:
+        """Minimal yfinance module with valid price rows and missing currency metadata."""
+
+        @staticmethod
+        def Ticker(symbol: str) -> _FakeTickerClient:
+            del symbol
+            return _FakeTickerClient()
+
+        @staticmethod
+        def download(
+            *,
+            tickers: str,
+            period: str,
+            interval: str,
+            auto_adjust: bool,
+            repair: bool,
+            progress: bool,
+            threads: bool,
+            timeout: float,
+        ) -> object:
+            del tickers
+            del period
+            del interval
+            del auto_adjust
+            del repair
+            del progress
+            del threads
+            del timeout
+            return _FakeDownloadResult(
+                _FakeCloseSeries(points=[(datetime(2026, 3, 24, tzinfo=UTC), 101.5)])
+            )
+
+    monkeypatch.setattr(
+        "app.market_data.providers.yfinance_adapter._load_yfinance_module",
+        lambda: _FakeYFinanceModule(),
+    )
+
+    rows, metadata = await fetch_yfinance_daily_close_rows(
+        symbols=("AMD",),
+        config=_valid_config(),
+    )
+
+    assert len(rows) == 1
+    assert rows[0].currency_code == "USD"
+    assert metadata["currency_assumed_symbols"] == ["AMD"]
+
+
+@pytest.mark.asyncio
+async def test_fetch_rejects_explicit_invalid_currency_even_with_default_currency_enabled(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Adapter should fail fast when provider returns explicit invalid currency text."""
+
+    class _FakeTickerClient:
+        """Minimal ticker metadata client exposing unsupported currency payload."""
+
+        def __init__(self) -> None:
+            """Store invalid currency payload used for fail-fast contract tests."""
+
+            self.fast_info: dict[str, str] = {"currency": "US$"}
+            self.info: dict[str, str] = {}
+
+    class _FakeYFinanceModule:
+        """Minimal yfinance module returning valid rows with invalid currency metadata."""
+
+        @staticmethod
+        def Ticker(symbol: str) -> _FakeTickerClient:
+            del symbol
+            return _FakeTickerClient()
+
+        @staticmethod
+        def download(
+            *,
+            tickers: str,
+            period: str,
+            interval: str,
+            auto_adjust: bool,
+            repair: bool,
+            progress: bool,
+            threads: bool,
+            timeout: float,
+        ) -> object:
+            del tickers
+            del period
+            del interval
+            del auto_adjust
+            del repair
+            del progress
+            del threads
+            del timeout
+            return _FakeDownloadResult(
+                _FakeCloseSeries(points=[(datetime(2026, 3, 24, tzinfo=UTC), 118.25)])
+            )
+
+    monkeypatch.setattr(
+        "app.market_data.providers.yfinance_adapter._load_yfinance_module",
+        lambda: _FakeYFinanceModule(),
+    )
+
+    with pytest.raises(
+        YFinanceAdapterError,
+        match="unsupported currency metadata",
+    ) as exc_info:
+        await fetch_yfinance_daily_close_rows(
+            symbols=("XLF",),
+            config=_valid_config(),
+        )
+
     assert exc_info.value.status_code == 502
 
 

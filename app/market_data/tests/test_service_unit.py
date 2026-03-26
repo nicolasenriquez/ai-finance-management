@@ -672,6 +672,135 @@ async def test_refresh_scope_100_allows_non_portfolio_failures_after_retry(
 
 
 @pytest.mark.asyncio
+async def test_refresh_scope_100_emits_history_and_currency_recovery_evidence(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Scope 100 should expose typed evidence for history/currency recovery decisions."""
+
+    expected_symbols = list_market_data_library_symbols(size=100)
+    core_symbols = set(list_supported_market_data_symbols())
+    non_portfolio_symbol: str | None = None
+    for symbol in expected_symbols:
+        if symbol not in core_symbols:
+            non_portfolio_symbol = symbol
+            break
+    if non_portfolio_symbol is None:
+        pytest.fail("Starter-100 scope is expected to include at least one non-portfolio symbol.")
+
+    attempts_by_symbol: dict[str, int] = {}
+    captured_request: dict[str, MarketDataSnapshotWriteRequest] = {}
+
+    async def fake_fetch(
+        *,
+        symbols: tuple[str, ...],
+        config: object,
+    ) -> tuple[list[YFinanceNormalizedRow], dict[str, object]]:
+        del config
+        assert len(symbols) == 1
+        symbol = symbols[0]
+        attempts_by_symbol[symbol] = attempts_by_symbol.get(symbol, 0) + 1
+
+        if symbol == non_portfolio_symbol and attempts_by_symbol[symbol] == 1:
+            raise YFinanceAdapterError(
+                f"YFinance returned empty history for symbol '{symbol}'.",
+                status_code=502,
+            )
+
+        symbol_metadata: dict[str, object] = {
+            "provider": "yfinance",
+            "rows_by_symbol": {symbol: 1},
+            "currencies_by_symbol": {symbol: "USD"},
+        }
+        if symbol == non_portfolio_symbol:
+            symbol_metadata["history_fallback_symbols"] = [symbol]
+            symbol_metadata["history_fallback_periods_by_symbol"] = {symbol: "1y"}
+            symbol_metadata["currency_assumed_symbols"] = [symbol]
+
+        return (
+            [
+                YFinanceNormalizedRow(
+                    instrument_symbol=symbol,
+                    trading_date=date(2026, 3, 24),
+                    close_value=Decimal("99.000000000"),
+                    currency_code="USD",
+                    source_payload={"provider": "yfinance", "field": "Close", "symbol": symbol},
+                )
+            ],
+            symbol_metadata,
+        )
+
+    async def fake_ingest(
+        *,
+        db: AsyncSession,
+        request: MarketDataSnapshotWriteRequest,
+    ) -> object:
+        del db
+        captured_request["request"] = request
+
+        class _FakeResult:
+            snapshot_id = 301
+            inserted_prices = len(request.prices)
+            updated_prices = 0
+
+        return _FakeResult()
+
+    monkeypatch.setattr("app.market_data.service.fetch_yfinance_daily_close_rows", fake_fetch)
+    monkeypatch.setattr("app.market_data.service.ingest_market_data_snapshot", fake_ingest)
+
+    result = await refresh_yfinance_supported_universe(
+        db=cast(AsyncSession, _NeverCalledSession()),
+        refresh_scope_mode="100",
+        snapshot_captured_at=datetime(2026, 3, 24, 15, 0, tzinfo=UTC),
+        settings=_provider_settings(),
+    )
+
+    assert attempts_by_symbol[non_portfolio_symbol] == 2
+    assert result.status == "completed"
+    assert result.history_fallback_symbols == [non_portfolio_symbol]
+    assert result.history_fallback_periods_by_symbol == {non_portfolio_symbol: "1y"}
+    assert result.currency_assumed_symbols == [non_portfolio_symbol]
+
+    metadata = captured_request["request"].snapshot_metadata
+    assert isinstance(metadata, dict)
+    assert metadata["history_fallback_symbols"] == [non_portfolio_symbol]
+    assert metadata["history_fallback_periods_by_symbol"] == {non_portfolio_symbol: "1y"}
+    assert metadata["currency_assumed_symbols"] == [non_portfolio_symbol]
+
+
+@pytest.mark.asyncio
+async def test_refresh_core_surfaces_exhausted_history_fallback_for_required_symbols(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Core scope should fail explicitly when required-symbol history fallback is exhausted."""
+
+    async def fake_fetch(
+        *,
+        symbols: tuple[str, ...],
+        config: object,
+    ) -> tuple[list[YFinanceNormalizedRow], dict[str, object]]:
+        del symbols
+        del config
+        raise YFinanceAdapterError(
+            "YFinance returned empty history for symbol 'QQQM'.",
+            status_code=502,
+        )
+
+    monkeypatch.setattr("app.market_data.service.fetch_yfinance_daily_close_rows", fake_fetch)
+
+    with pytest.raises(
+        MarketDataClientError,
+        match="exhausted configured history fallback periods",
+    ) as exc_info:
+        await refresh_yfinance_supported_universe(
+            db=cast(AsyncSession, _NeverCalledSession()),
+            refresh_scope_mode="core",
+            snapshot_captured_at=datetime(2026, 3, 24, 15, 0, tzinfo=UTC),
+            settings=_provider_settings(),
+        )
+    assert exc_info.value.status_code == 502
+
+
+@pytest.mark.asyncio
 async def test_refresh_scope_100_fails_when_required_symbol_still_fails_after_retry(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

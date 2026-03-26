@@ -278,7 +278,7 @@ Definition of Done:
 
 ### Item 5.2: Add broker/provider API integration
 
-Status: In progress (first-slice yfinance adapter + operational stabilization implemented 2026-03-25; live-provider smoke remains blocker-driven)
+Status: In progress (first-slice yfinance adapter + bounded live-provider recovery stabilization implemented 2026-03-26; refreshed staged live smoke evidence still pending)
 
 Delivered in first slice:
 
@@ -300,11 +300,16 @@ Delivered in first slice:
   - success evidence from typed refresh/sync results (`source_provider`, `requested_symbols`, `snapshot_key`, `snapshot_captured_at`, `snapshot_id`, insert/update counters)
   - blocked evidence from structured fail-fast payload (`status`, `stage`, `status_code`, `error`)
 - harden approved day-level temporal key variants required for current live operations (`date`/`datetime`, `to_pydatetime()` to `date`/`datetime`, scalar `item()` conversions) while preserving explicit fail-fast rejection for unsupported variants
+- add bounded semantic recovery for approved live-provider blocker patterns:
+  - ordered empty-history fallback ladder (`5y -> 3y -> 1y -> 6mo` default, configurable)
+  - explicit default-currency assignment for missing metadata (`USD` default, configurable)
+  - explicit fail-fast preservation for unsupported payloads, explicit invalid currency values, and required-symbol exhaustion
+- expose typed recovery diagnostics in refresh outcomes and snapshot metadata (`history_fallback_symbols`, `history_fallback_periods_by_symbol`, `currency_assumed_symbols`) in addition to retry/failure diagnostics
 
 Remaining for full item:
 
-- resolve environment-dependent live-provider blocker patterns surfaced by manual smoke runs (for example missing provider currency metadata)
-- resolve staged live-provider blockers across onboarding sequence (`core -> 100 -> 200`) before treating wider scopes as operationally ready
+- capture updated staged live-provider smoke evidence across onboarding sequence (`core -> 100 -> 200`) under the stabilized recovery contract
+- confirm observed live outcomes and operator tuning posture after bounded recovery (retry, fallback ladder, request pacing) before treating wider scopes as operationally ready
 - evaluate broker-authenticated and multi-provider expansion only after the current operational workflow is stable
 - keep transaction-import/API-source reconciliation explicitly out of this market-data-only slice unless a dedicated change expands scope
 

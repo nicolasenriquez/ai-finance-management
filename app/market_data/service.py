@@ -89,6 +89,9 @@ class _YFinanceScopeFetchResult:
     provider_metadata: dict[str, object]
     retry_attempted_symbols: list[str]
     failed_symbols: list[str]
+    history_fallback_symbols: list[str]
+    history_fallback_periods_by_symbol: dict[str, str]
+    currency_assumed_symbols: list[str]
 
 
 @dataclass(frozen=True)
@@ -158,7 +161,10 @@ async def ingest_yfinance_daily_close_snapshot(
             error_type=type(exc).__name__,
             exc_info=True,
         )
-        raise MarketDataClientError(str(exc), status_code=exc.status_code) from exc
+        raise MarketDataClientError(
+            _normalize_adapter_error_message_for_market_data(message=str(exc)),
+            status_code=exc.status_code,
+        ) from exc
 
     price_rows = [_to_price_write(row=row) for row in fetched_rows]
     snapshot_metadata: dict[str, object] = {
@@ -221,6 +227,9 @@ async def refresh_yfinance_supported_universe(
 
     retry_attempted_symbols: list[str] = []
     failed_symbols: list[str] = []
+    history_fallback_symbols: list[str] = []
+    history_fallback_periods_by_symbol: dict[str, str] = {}
+    currency_assumed_symbols: list[str] = []
     try:
         if normalized_refresh_scope_mode == "core":
             ingest_result = await ingest_yfinance_daily_close_snapshot(
@@ -237,6 +246,9 @@ async def refresh_yfinance_supported_universe(
             )
             retry_attempted_symbols = fetch_result.retry_attempted_symbols
             failed_symbols = fetch_result.failed_symbols
+            history_fallback_symbols = fetch_result.history_fallback_symbols
+            history_fallback_periods_by_symbol = fetch_result.history_fallback_periods_by_symbol
+            currency_assumed_symbols = fetch_result.currency_assumed_symbols
             ingest_result = await _ingest_fetched_yfinance_scope_rows(
                 db=db,
                 refresh_plan=refresh_plan,
@@ -276,6 +288,9 @@ async def refresh_yfinance_supported_universe(
         retry_attempted_symbols_count=len(retry_attempted_symbols),
         failed_symbols=failed_symbols,
         failed_symbols_count=len(failed_symbols),
+        history_fallback_symbols=history_fallback_symbols,
+        history_fallback_periods_by_symbol=history_fallback_periods_by_symbol,
+        currency_assumed_symbols=currency_assumed_symbols,
     )
     logger.info(
         "market_data.refresh_completed",
@@ -290,6 +305,8 @@ async def refresh_yfinance_supported_universe(
         updated_prices=refresh_result.updated_prices,
         retry_attempted_symbols_count=refresh_result.retry_attempted_symbols_count,
         failed_symbols_count=refresh_result.failed_symbols_count,
+        history_fallback_symbols_count=len(refresh_result.history_fallback_symbols),
+        currency_assumed_symbols_count=len(refresh_result.currency_assumed_symbols),
     )
     return refresh_result
 
@@ -308,6 +325,9 @@ async def _fetch_yfinance_rows_with_non_portfolio_tolerance(
     fetched_rows: list[YFinanceNormalizedRow] = []
     rows_by_symbol: dict[str, int] = {}
     currencies_by_symbol: dict[str, str] = {}
+    history_fallback_symbols: list[str] = []
+    history_fallback_periods_by_symbol: dict[str, str] = {}
+    currency_assumed_symbols: list[str] = []
     first_pass_errors: dict[str, YFinanceAdapterError] = {}
 
     for symbol_index, symbol in enumerate(symbols):
@@ -332,6 +352,12 @@ async def _fetch_yfinance_rows_with_non_portfolio_tolerance(
         )
         if currency_code is not None:
             currencies_by_symbol[symbol] = currency_code
+        _merge_recovery_diagnostics_from_metadata(
+            metadata=symbol_metadata,
+            history_fallback_symbols=history_fallback_symbols,
+            history_fallback_periods_by_symbol=history_fallback_periods_by_symbol,
+            currency_assumed_symbols=currency_assumed_symbols,
+        )
 
     retry_attempted_symbols: list[str] = []
     final_errors: dict[str, YFinanceAdapterError] = {}
@@ -365,6 +391,12 @@ async def _fetch_yfinance_rows_with_non_portfolio_tolerance(
             )
             if currency_code is not None:
                 currencies_by_symbol[symbol] = currency_code
+            _merge_recovery_diagnostics_from_metadata(
+                metadata=symbol_metadata,
+                history_fallback_symbols=history_fallback_symbols,
+                history_fallback_periods_by_symbol=history_fallback_periods_by_symbol,
+                currency_assumed_symbols=currency_assumed_symbols,
+            )
 
     failed_symbols = [symbol for symbol in symbols if symbol in final_errors]
     required_failures = [
@@ -399,12 +431,18 @@ async def _fetch_yfinance_rows_with_non_portfolio_tolerance(
         "retry_attempted_symbols_count": len(retry_attempted_symbols),
         "failed_symbols": failed_symbols,
         "failed_symbols_count": len(failed_symbols),
+        "history_fallback_symbols": history_fallback_symbols,
+        "history_fallback_periods_by_symbol": history_fallback_periods_by_symbol,
+        "currency_assumed_symbols": currency_assumed_symbols,
     }
     return _YFinanceScopeFetchResult(
         rows=fetched_rows,
         provider_metadata=provider_metadata,
         retry_attempted_symbols=retry_attempted_symbols,
         failed_symbols=failed_symbols,
+        history_fallback_symbols=history_fallback_symbols,
+        history_fallback_periods_by_symbol=history_fallback_periods_by_symbol,
+        currency_assumed_symbols=currency_assumed_symbols,
     )
 
 
@@ -428,6 +466,119 @@ def _extract_symbol_currency_from_metadata(
     if rows:
         return rows[0].currency_code
     return None
+
+
+def _merge_recovery_diagnostics_from_metadata(
+    *,
+    metadata: dict[str, object],
+    history_fallback_symbols: list[str],
+    history_fallback_periods_by_symbol: dict[str, str],
+    currency_assumed_symbols: list[str],
+) -> None:
+    """Merge one symbol-fetch metadata payload into recovery diagnostics."""
+
+    (
+        incoming_history_fallback_symbols,
+        incoming_history_fallback_periods_by_symbol,
+        incoming_currency_assumed_symbols,
+    ) = _extract_recovery_diagnostics_from_metadata(metadata=metadata)
+
+    for symbol in incoming_history_fallback_symbols:
+        if symbol not in history_fallback_symbols:
+            history_fallback_symbols.append(symbol)
+
+    for symbol, period in incoming_history_fallback_periods_by_symbol.items():
+        history_fallback_periods_by_symbol[symbol] = period
+
+    for symbol in incoming_currency_assumed_symbols:
+        if symbol not in currency_assumed_symbols:
+            currency_assumed_symbols.append(symbol)
+
+
+def _extract_recovery_diagnostics_from_metadata(
+    *,
+    metadata: dict[str, object],
+) -> tuple[list[str], dict[str, str], list[str]]:
+    """Extract typed recovery diagnostics from provider metadata payload."""
+
+    history_fallback_symbols = _extract_symbol_list_from_metadata(
+        metadata=metadata,
+        key="history_fallback_symbols",
+    )
+    history_fallback_periods_by_symbol = _extract_symbol_period_map_from_metadata(
+        metadata=metadata,
+        key="history_fallback_periods_by_symbol",
+    )
+    currency_assumed_symbols = _extract_symbol_list_from_metadata(
+        metadata=metadata,
+        key="currency_assumed_symbols",
+    )
+    return (
+        history_fallback_symbols,
+        history_fallback_periods_by_symbol,
+        currency_assumed_symbols,
+    )
+
+
+def _extract_symbol_list_from_metadata(
+    *,
+    metadata: dict[str, object],
+    key: str,
+) -> list[str]:
+    """Extract normalized symbol list from provider metadata key when present."""
+
+    raw_symbols = metadata.get(key)
+    if not isinstance(raw_symbols, list):
+        return []
+
+    normalized_symbols: list[str] = []
+    typed_raw_symbols = cast(list[object], raw_symbols)
+    for raw_symbol in typed_raw_symbols:
+        if isinstance(raw_symbol, str):
+            normalized_symbol = raw_symbol.strip().upper()
+            if normalized_symbol and normalized_symbol not in normalized_symbols:
+                normalized_symbols.append(normalized_symbol)
+    return normalized_symbols
+
+
+def _extract_symbol_period_map_from_metadata(
+    *,
+    metadata: dict[str, object],
+    key: str,
+) -> dict[str, str]:
+    """Extract symbol-to-period mapping from provider metadata key when present."""
+
+    raw_mapping = metadata.get(key)
+    if not isinstance(raw_mapping, dict):
+        return {}
+
+    normalized_mapping: dict[str, str] = {}
+    typed_raw_mapping = cast(dict[object, object], raw_mapping)
+    for raw_symbol, raw_period in typed_raw_mapping.items():
+        if not isinstance(raw_symbol, str) or not isinstance(raw_period, str):
+            continue
+        normalized_symbol = raw_symbol.strip().upper()
+        normalized_period = raw_period.strip()
+        if normalized_symbol and normalized_period:
+            normalized_mapping[normalized_symbol] = normalized_period
+    return normalized_mapping
+
+
+def _normalize_adapter_error_message_for_market_data(*, message: str) -> str:
+    """Normalize adapter errors into the refresh contract phrasing when needed."""
+
+    if (
+        "empty history for symbol" in message
+        and "exhausted configured history fallback" not in message
+    ):
+        symbol_match = re.search(r"symbol '([^']+)'", message)
+        if symbol_match is not None:
+            symbol = symbol_match.group(1).strip().upper()
+            return (
+                "YFinance exhausted configured history fallback periods for symbol " f"'{symbol}'."
+            )
+        return "YFinance exhausted configured history fallback periods for one symbol."
+    return message
 
 
 async def _sleep_for_symbol_spacing(
@@ -753,6 +904,8 @@ def _build_yfinance_refresh_plan(
             max_retries=effective_settings.market_data_yfinance_max_retries,
             retry_backoff_seconds=effective_settings.market_data_yfinance_retry_backoff_seconds,
             request_spacing_seconds=effective_settings.market_data_yfinance_request_spacing_seconds,
+            history_fallback_periods=effective_settings.market_data_yfinance_history_fallback_periods,
+            default_currency=effective_settings.market_data_yfinance_default_currency,
             auto_adjust=effective_settings.market_data_yfinance_auto_adjust,
             repair=effective_settings.market_data_yfinance_repair,
         )
