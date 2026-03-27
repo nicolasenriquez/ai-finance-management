@@ -39,6 +39,10 @@ If no argument is provided:
 - Diagnose blast radius explicitly for new routes, configs, contracts, schemas, dependencies, persistence boundaries, and operator workflow.
 - Call out likely blind spots explicitly, especially where current changes can propagate risk into later backlog items or future slices.
 - Treat `CHANGELOG.md` as a required documentation target whenever the change affects behavior, contracts, workflow, or delivery policy.
+- Treat artifact quality as part of planning safety:
+  - `proposal.md` capability lists must be explicit and use `None.` when empty
+  - `design.md` must include an `Open Questions` section, even if it only says `None.`
+  - `tasks.md` should place `Notes:` directly under the task they explain; section-level notes are advisory-only unless truly section-wide
 
 ## Task Quality Gate
 
@@ -53,8 +57,8 @@ Checks:
 - `Advisory Gap`: no explicit section, but plan is still low-risk
 - `Fail`: missing investigation and meaningful unknowns remain
 2. Notes on tasks
-- `Pass`: tasks include concise, useful notes where needed
-- `Advisory Gap`: notes are sparse but plan remains executable
+- `Pass`: tasks include concise, useful notes where needed and task-local notes are attached to the relevant checkbox
+- `Advisory Gap`: notes are sparse, overly section-level, or partially detached from the tasks they explain, but plan remains executable
 - `Fail`: intent or constraints are ambiguous without notes
 3. Test-first intent
 - tasks begin with failing or baseline-locking tests when behavior changes

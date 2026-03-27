@@ -278,7 +278,7 @@ Definition of Done:
 
 ### Item 5.2: Add broker/provider API integration
 
-Status: In progress (first-slice yfinance adapter + bounded live-provider recovery stabilization implemented 2026-03-26; refreshed staged live smoke evidence still pending)
+Status: In progress (first-slice yfinance adapter + bounded live-provider recovery stabilization implemented 2026-03-26; refreshed `core/100` smoke evidence captured on 2026-03-26 with blockers; `200` smoke deferred follow-up scope)
 
 Delivered in first slice:
 
@@ -308,7 +308,8 @@ Delivered in first slice:
 
 Remaining for full item:
 
-- capture updated staged live-provider smoke evidence across onboarding sequence (`core -> 100 -> 200`) under the stabilized recovery contract
+- capture and maintain updated staged live-provider smoke evidence for current closeout scope (`core -> 100`) plus one combined `data-sync-local` run under the stabilized recovery contract
+- keep `200` smoke validation as explicit deferred follow-up scope until runtime strategy/readiness target is re-approved
 - confirm observed live outcomes and operator tuning posture after bounded recovery (retry, fallback ladder, request pacing) before treating wider scopes as operationally ready
 - evaluate broker-authenticated and multi-provider expansion only after the current operational workflow is stable
 - keep transaction-import/API-source reconciliation explicitly out of this market-data-only slice unless a dedicated change expands scope

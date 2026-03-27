@@ -59,6 +59,18 @@ You can also use official OpenSpec skills directly when better fit:
 - `$openspec-archive-change`
 - `$openspec-explore`
 
+## OpenSpec Artifact Standard
+
+When repo-local commands create, review, or refine OpenSpec artifacts, they should enforce these conventions:
+
+- `proposal.md`: capability lists are explicit and use `None.` when a list is empty
+- `design.md`: always includes an `Open Questions` section; use `None.` when nothing is open
+- `tasks.md`: task notes are task-local by default and sit immediately below the relevant checkbox
+- `tasks.md`: section-level `Notes:` are only for constraints that truly apply to the whole section
+- `tasks.md`: prefer concrete executable tasks over broad section-wide commentary
+
+These rules are part of artifact quality, not cosmetic preferences. Commands that prepare a change for `/execute` should treat drift from this standard as an artifact-quality issue.
+
 ## Commands
 
 ### `/prime`
@@ -251,13 +263,15 @@ Examples:
 ### `/self-heal-ci`
 
 Use when:
-- local `just ci-fast` or `just ci` is red and you want iterative auto-repair
-- you want one command to converge failing gates before commit/push
+- local `just ci-fast` or `just ci` is red and you want controlled iterative healing
+- you want diagnosis-first output with optional low-risk autofix
 
 What it does:
-- runs selected CI target (`target=fast|full`) on selected scope (`using=back|front|all`, default `all`)
+- runs selected CI target (`target=fast|full`) on selected scope (`using=back|front|all`)
+- defaults to conservative mode: `target=fast`, `using=back`, `max=2`, `autofix=off`
 - isolates first failing gate
-- applies minimal fix
+- applies only non-semantic lint/format autofix by default
+- blocks protected-path and high-impact changes unless explicitly approved (`confirm=high-risk`)
 - reruns iteratively up to a max cycle count
 - exits as `PASS`, `PARTIAL PASS`, `BLOCKED`, or `FAIL` with concrete next action
 
@@ -265,8 +279,8 @@ Examples:
 
 ```text
 /self-heal-ci
-/self-heal-ci target=fast
-/self-heal-ci target=full using=back max=5 autofix=on
+/self-heal-ci target=fast using=back autofix=on
+/self-heal-ci confirm=high-risk target=full using=all max=5 autofix=on
 ```
 
 ### `/validate`

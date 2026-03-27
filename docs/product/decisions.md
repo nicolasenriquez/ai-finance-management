@@ -231,6 +231,7 @@ Implications:
 - refresh outcomes must expose typed recovery diagnostics (`history_fallback_symbols`, `history_fallback_periods_by_symbol`, `currency_assumed_symbols`) alongside retry/failure evidence
 - approved day-level temporal-key variants for operational refresh are explicit and bounded (`date`/`datetime`, `to_pydatetime()` to `date`/`datetime`, scalar `item()` conversions); unsupported temporal keys must fail fast
 - operator smoke closeout must capture structured success evidence or structured blocker evidence (`status`, `stage`, `status_code`, `error`) rather than implicit/partial success
+- latest closeout evidence (2026-03-26) is recorded in `docs/evidence/market-data/staged-live-smoke-2026-03-26.md`, with active-cycle smoke scope narrowed to `core -> 100` and explicit `200` deferral
 - public market-data routes remain deferred; command-level operations are the active execution boundary in this slice
 - legal usage notes and provider limitations must be documented explicitly
 - fundamentals/financial-document payloads from yfinance are analysis-enrichment inputs, not accounting truth

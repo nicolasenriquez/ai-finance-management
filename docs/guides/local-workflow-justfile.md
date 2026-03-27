@@ -77,10 +77,16 @@ Backend-focused gates:
 just lint
 just type
 just security
+just secret-scan-pr
 just test
 just test-integration
 just backend-ci
 ```
+
+Notes:
+
+- `just secret-scan-pr` runs `gitleaks` against the PR-equivalent history range (`merge-base(origin/main, HEAD)..HEAD`) using `.gitleaks.toml`.
+- if `origin/main` is stale or missing locally, run `git fetch origin main` first.
 
 Database-target behavior:
 
@@ -143,7 +149,6 @@ just market-refresh-yfinance 2026-03-25T00:00:00Z
 just data-sync-local app/golden_sets/dataset_1/202602_stocks.pdf 2026-03-25T00:00:00Z
 just market-refresh-yfinance 2026-03-25T00:00:00Z core
 just market-refresh-yfinance 2026-03-25T00:00:00Z 100
-just market-refresh-yfinance 2026-03-25T00:00:00Z 200
 just data-sync-local app/golden_sets/dataset_1/202602_stocks.pdf 2026-03-25T00:00:00Z core
 just market-symbol-universe-build app/golden_sets/dataset_1/202602_stocks.json app/market_data/symbol_universe.v1.json
 ```
@@ -153,6 +158,7 @@ Smoke evidence contract for `market-refresh-yfinance` and `data-sync-local`:
 - successful runs should capture typed evidence (`refresh_scope_mode`, `source_provider`, `requested_symbols`, `requested_symbols_count`, `snapshot_key`, `snapshot_captured_at`, `snapshot_id`, `inserted_prices`, `updated_prices`)
 - blocked runs should capture structured fail-fast payload (`status`, `stage`, `status_code`, `error`)
 - blocked outcomes are first-class operational evidence and must not be reported as partial success
+- if a staged scope is intentionally deferred from the active smoke cycle, record the deferral explicitly in evidence/readiness notes
 
 ## Git Hooks
 

@@ -19,15 +19,14 @@ repos:
       - id: ruff
         args: [--fix]
 
-  - repo: https://github.com/gitleaks/gitleaks
-    rev: v8.24.2
-    hooks:
-      - id: gitleaks
-        args: ["--redact"]
-        stages: [pre-push]
-
   - repo: local
     hooks:
+      - id: secret-scan-pr-range
+        name: secret scan PR range
+        entry: bash -lc 'bash scripts/security/run-gitleaks-pr-range.sh origin/main'
+        language: system
+        pass_filenames: false
+        stages: [pre-push]
       - id: backend-black-format
         name: backend black format
         entry: uv run black

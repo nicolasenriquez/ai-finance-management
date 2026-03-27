@@ -88,12 +88,17 @@ Use a prefix such as:
 
 Rules:
 
-- subject line must be concise and specific
+- subject line must be concise, specific, and at most 72 characters
 - add a body when it materially improves clarity
 - describe the behavioral or repository outcome, not just filenames
 - use `@ARGUMENTS` only to improve specificity
 - prefer a professional Markdown body because this text is often reused in GitHub PR and squash flows
 - do not append PR-number suffixes in the subject (for example `(#123)`); keep subject timeless and branch-agnostic
+- if generated subject exceeds 72 characters, shorten in this order until compliant:
+  - remove filler words first (for example: `the`, `and`, `that`, `with` when non-essential)
+  - collapse phrase length while preserving scope + outcome
+  - keep conventional prefix and scope intact (`feat(...)`, `fix(...)`, etc.)
+  - prefer concise domain nouns over long file/path wording
 
 Body format standard (when body is present):
 
