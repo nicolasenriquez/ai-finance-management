@@ -24,6 +24,13 @@ Use this structure for new entries:
 
 ## 2026-03-27
 
+### chore(dependabot): reduce dependency PR noise with grouped weekly policy
+- Summary: Reworked `.github/dependabot.yml` to use explicit weekly windows in `America/Santiago`, capped open PR volume per ecosystem (`uv=4`, `npm=3`, `github-actions=2`), grouped non-major updates (`minor`/`patch`) into single PR streams per ecosystem, and added dedicated grouped security-update tracks.
+- Why: The repository had too many concurrent one-package Dependabot PRs, which increased review overhead and made dependency maintenance less predictable.
+- Files: `.github/dependabot.yml`, `CHANGELOG.md`.
+- Validation: configuration diff reviewed for ecosystem coverage (`uv`, `npm`, `github-actions`), grouped update semantics, and PR limit controls; `git diff --check` (pass).
+- Notes: Major-version updates remain separate PRs by design for manual review.
+
 ### docs(commands): harden self-heal-ci defaults and approval guardrails
 - Summary: Tightened `/self-heal-ci` to conservative defaults (`target=fast`, `using=back`, `max=2`, `autofix=off`), limited default autofix to non-semantic lint/format repairs, added protected-path stop conditions, and required explicit `confirm=high-risk` opt-in before broad/high-impact fixes.
 - Why: CI healing command behavior was too broad for a controlled verification workflow and could unintentionally alter security/infrastructure/database-adjacent areas without explicit human approval.
