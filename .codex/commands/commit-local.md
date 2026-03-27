@@ -91,9 +91,12 @@ Rules:
 - subject line must be concise, specific, and at most 72 characters
 - add a body when it materially improves clarity
 - describe the behavioral or repository outcome, not just filenames
+- use plain reviewer-facing language; avoid vague phrasing like `rebalanced posture`, `aligned artifacts`, or similar abstraction-heavy wording without concrete action/effect
 - use `@ARGUMENTS` only to improve specificity
 - prefer a professional Markdown body because this text is often reused in GitHub PR and squash flows
 - do not append PR-number suffixes in the subject (for example `(#123)`); keep subject timeless and branch-agnostic
+- each body bullet should describe one concrete change and one impact only
+- keep body bullets short (target <= 22 words) and split overloaded bullets instead of chaining many clauses
 - if generated subject exceeds 72 characters, shorten in this order until compliant:
   - remove filler words first (for example: `the`, `and`, `that`, `with` when non-essential)
   - collapse phrase length while preserving scope + outcome
@@ -123,7 +126,7 @@ Formatting constraints:
 
 PR vs squash guidance:
 
-- keep the same section structure in commit bodies and PR descriptions (`Summary`, `Validation`, `Notes`) for consistency
+- if `.github/pull_request_template.md` exists, mirror that template's intent in the commit body content so the text maps cleanly into PR sections (`what changed`, `why needed`, `scope`, `risks/follow-ups`)
 - do not copy-paste full PR text into commit bodies
 - commit body should be concise because GitHub squash merge often uses it as the default merge description
 - PR body can add extra reviewer context (for example `What Changed`) beyond the commit body
