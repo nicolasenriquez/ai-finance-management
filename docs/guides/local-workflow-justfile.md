@@ -77,10 +77,16 @@ Backend-focused gates:
 just lint
 just type
 just security
+just secret-scan-pr
 just test
 just test-integration
 just backend-ci
 ```
+
+Notes:
+
+- `just secret-scan-pr` runs `gitleaks` against the PR-equivalent history range (`merge-base(origin/main, HEAD)..HEAD`) using `.gitleaks.toml`.
+- if `origin/main` is stale or missing locally, run `git fetch origin main` first.
 
 Database-target behavior:
 

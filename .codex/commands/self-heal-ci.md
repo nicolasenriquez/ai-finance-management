@@ -9,23 +9,25 @@ Supported call shapes:
 - `/self-heal-ci scope=back|front|all` (alias)
 - `/self-heal-ci max=<int>`
 - `/self-heal-ci autofix=on|off`
-- `/self-heal-ci target=full using=all max=5 autofix=on`
+- `/self-heal-ci env_block=stop|continue`
+- `/self-heal-ci confirm=high-risk target=full using=all max=5 autofix=on`
 
 Defaults:
-- `target=full`
-- `using=all` (`scope=all` alias)
-- `max=5`
-- `autofix=on`
+- `target=fast`
+- `using=back` (`scope=back` alias)
+- `max=2`
+- `autofix=off`
+- `env_block=stop`
 
 ## Goal
 
 Converge local CI gates to green using minimal, iterative fixes:
 - run the right CI target (`fast` or `full`) on selected scope (`using=back|front|all`)
 - detect the first failing gate
-- apply the smallest safe fix
+- apply only low-risk fixes unless explicitly approved for high-risk mode
 - rerun and repeat until pass or blocked
 
-This command may modify code and docs when needed to fix failing gates.
+By default this command is diagnose-first and conservative. It can apply non-semantic lint/format fixes when safe. It must not make infrastructure, database, or CI policy changes unless explicitly approved via `confirm=high-risk`.
 
 ## Target + Scope Semantics (`using`/`scope`)
 
@@ -39,9 +41,10 @@ This command may modify code and docs when needed to fix failing gates.
 - `using=front` (`scope=front`) -> `just frontend-ci`
 - `using=all` (`scope=all`) -> `just ci`
 
-Why `target=full using=all` as default:
-- matches your final pre-push confidence gate
-- includes the complete local CI posture
+Why conservative defaults:
+- reduce accidental broad edits from a repair command
+- keep CI healing deterministic and auditable
+- preserve human control for high-impact paths
 
 ## Guardrails
 
@@ -51,6 +54,21 @@ Why `target=full using=all` as default:
 - Keep fixes minimal and localized to failing gates.
 - Stop if failure is clearly environmental (DB down, missing tool, network policy, missing secrets).
 - If the same failure signature repeats twice with no meaningful progress, stop and report `BLOCKED`.
+- `autofix=on` may only apply non-semantic lint/format fixes.
+- For `type`, `security`, `test`, or `pre-push` failures: diagnose and propose exact fix commands; do not auto-edit behavior by default.
+- Protected paths must not be modified unless the user explicitly sets `confirm=high-risk`:
+  - `.github/workflows/**`
+  - `alembic/**`
+  - `docker-compose.yml`, `Dockerfile`
+  - `pyproject.toml`, `justfile`, `.pre-commit-config.yaml`
+  - `app/core/config.py`, `app/core/database.py`
+- If a required fix touches protected paths and `confirm=high-risk` is not present, stop and return `BLOCKED` with a human approval request.
+- Classify known environment-only blocker signatures explicitly:
+  - `PermissionError: [Errno 1] Operation not permitted` from Python multiprocessing `SyncManager` (sandbox/runtime socket bind limitation)
+  - DNS/network resolution failures for `pip-audit` (`pypi.org` or registry host resolution)
+  - DB connectivity/permission failures while running migration or integration gates
+- `env_block=stop` (default): stop at first confirmed environment blocker.
+- `env_block=continue`: record blocker and continue remaining gates; finish with `PARTIAL PASS` if no code failures remain.
 
 ## Process
 
@@ -74,18 +92,7 @@ command -v npm || true
 
 If `just` is missing, use explicit fallback commands (see step 3 fallback map).
 
-### 2) Optional auto-fix warmup (`autofix=on`)
-
-Run:
-
-```bash
-just format
-just precommit-run
-```
-
-If `precommit-run` fails on non-fixable checks, continue to iterative loop (do not stop here).
-
-### 3) Iterative healing loop (up to `max`)
+### 2) Iterative healing loop (up to `max`)
 
 For each iteration:
 
@@ -119,23 +126,30 @@ just precommit-run-prepush
 ```
 
 4. Apply smallest safe fix for the first failing gate:
-- lint/format failures -> run `just format`, then targeted adjustments
-- type failures -> minimal type-safe code edits, then rerun `just type`
-- security failures -> minimal secure fix, rerun `just security`
-- test failures -> minimal behavior fix + tests, rerun failing test target
-- hook-only failures -> fix hook findings only, rerun hook target
+- lint/format failures:
+  - if `autofix=on`, run `just format`, then rerun the same gate
+  - if `autofix=off`, stop with exact fix commands
+- type/security/test/pre-push failures:
+  - default mode: stop with diagnosis, affected files, and exact fix commands
+  - if `confirm=high-risk`, proceed with minimal fix while respecting protected-path guardrails
 
 5. Rerun only the previously failing gate first, then rerun pipeline phase.
 
 Fallback map when `just` is unavailable:
 - backend lint: `uv run ruff check .` + `uv run black . --check --diff`
+- backend lint fallback if black multiprocessing fails: `uv run black . --check --diff --workers 1`
 - backend format: `uv run ruff check . --fix` + `uv run black .`
 - backend type: `uv run mypy app/ && uv run pyright app/ && uv run ty check app`
 - backend security: `uv run bandit -c pyproject.toml -r app --severity-level high --confidence-level high` + `uv run pip-audit --progress-spinner=off --ignore-vuln CVE-2026-4539`
-- backend tests: `uv run pytest -v -m "not integration"` and integration with `uv run pytest -v -m integration`
+- backend tests: `uv run pytest -v -m "not integration"` and integration with `uv run pytest -v -m "integration and not market_scope_heavy and not market_scope_very_heavy"`
 - frontend lint/type/test/build: `cd frontend && npm run <script>`
 
-### 4) Stop conditions
+When `pip-audit` fails with DNS/network-only errors:
+- classify as environment blocker (`failure_type=network`)
+- if `env_block=stop`, end with `BLOCKED`
+- if `env_block=continue`, continue remaining gates and report `PARTIAL PASS`
+
+### 3) Stop conditions
 
 Return `PASS` when target is fully green.
 
@@ -145,6 +159,7 @@ Return `PARTIAL PASS` when:
 Return `BLOCKED` when:
 - environment blockers prevent progress (DB/tool/network/credentials)
 - repeated same failure signature with no progress.
+- first safe fix requires protected-path edits without `confirm=high-risk`.
 
 Return `FAIL` when:
 - iteration limit reached without convergence.
@@ -166,6 +181,9 @@ Iteration log:
 Final gate status:
 - selected pipeline: pass/fail/blocked
 - overall: PASS | PARTIAL PASS | BLOCKED | FAIL
+- blocking_gate: <gate-name or none>
+- failure_type: code | env | tooling | network | db
+- retryable: yes|no
 
 Files touched:
 - <list>

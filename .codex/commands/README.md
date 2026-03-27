@@ -263,13 +263,15 @@ Examples:
 ### `/self-heal-ci`
 
 Use when:
-- local `just ci-fast` or `just ci` is red and you want iterative auto-repair
-- you want one command to converge failing gates before commit/push
+- local `just ci-fast` or `just ci` is red and you want controlled iterative healing
+- you want diagnosis-first output with optional low-risk autofix
 
 What it does:
-- runs selected CI target (`target=fast|full`) on selected scope (`using=back|front|all`, default `all`)
+- runs selected CI target (`target=fast|full`) on selected scope (`using=back|front|all`)
+- defaults to conservative mode: `target=fast`, `using=back`, `max=2`, `autofix=off`
 - isolates first failing gate
-- applies minimal fix
+- applies only non-semantic lint/format autofix by default
+- blocks protected-path and high-impact changes unless explicitly approved (`confirm=high-risk`)
 - reruns iteratively up to a max cycle count
 - exits as `PASS`, `PARTIAL PASS`, `BLOCKED`, or `FAIL` with concrete next action
 
@@ -277,8 +279,8 @@ Examples:
 
 ```text
 /self-heal-ci
-/self-heal-ci target=fast
-/self-heal-ci target=full using=back max=5 autofix=on
+/self-heal-ci target=fast using=back autofix=on
+/self-heal-ci confirm=high-risk target=full using=all max=5 autofix=on
 ```
 
 ### `/validate`

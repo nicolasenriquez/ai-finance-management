@@ -333,6 +333,13 @@ security:
     uv run bandit -c pyproject.toml -r app --severity-level high --confidence-level high
     uv run pip-audit --progress-spinner=off --ignore-vuln CVE-2026-4539
 
+# Run gitleaks over PR-equivalent history range (merge-base(origin/main, HEAD)..HEAD).
+# Optional override: `just secret-scan-pr <base_ref>`.
+secret-scan-pr base_ref="origin/main":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    bash scripts/security/run-gitleaks-pr-range.sh "{{base_ref}}"
+
 # Frontend static lint gate (TypeScript compile).
 frontend-lint:
     cd frontend && npm run lint

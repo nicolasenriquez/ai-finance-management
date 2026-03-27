@@ -1,0 +1,9 @@
+title = "ai-finance-management gitleaks configuration"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Allow one historical false-positive storage_key token in market-data smoke evidence"
+paths = ['''^docs/evidence/market-data/staged-live-smoke-2026-03-26\.md$''']
+regexes = ['''637ba5d159594080a11d3658d04d070b\.pdf''']

@@ -22,6 +22,22 @@ Use this structure for new entries:
 
 `type` guidance: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`.
 
+## 2026-03-27
+
+### docs(commands): harden self-heal-ci defaults and approval guardrails
+- Summary: Tightened `/self-heal-ci` to conservative defaults (`target=fast`, `using=back`, `max=2`, `autofix=off`), limited default autofix to non-semantic lint/format repairs, added protected-path stop conditions, and required explicit `confirm=high-risk` opt-in before broad/high-impact fixes.
+- Why: CI healing command behavior was too broad for a controlled verification workflow and could unintentionally alter security/infrastructure/database-adjacent areas without explicit human approval.
+- Files: `.codex/commands/self-heal-ci.md`, `.codex/commands/README.md`, `CHANGELOG.md`.
+- Validation: documentation policy review against current `just` gate semantics; fallback integration marker scope aligned to `not market_scope_heavy and not market_scope_very_heavy`; `git diff --check` (pass).
+- Notes: this change intentionally shifts `/self-heal-ci` from auto-repair-first to diagnose-first unless high-risk mode is explicitly approved.
+
+### fix(ci-secrets): align local pre-push and CI gitleaks configuration for PR-range scans
+- Summary: Added shared gitleaks config (`.gitleaks.toml`), introduced a reusable PR-range scan script (`scripts/security/run-gitleaks-pr-range.sh`), added `just secret-scan-pr`, rewired pre-push secret scanning to call the same PR-range workflow, pinned CI gitleaks action configuration/version to reduce local-vs-GH drift, and added a narrow allowlist for one historical false-positive token that cannot be removed without force-push history rewrite.
+- Why: Local staged secret checks were passing while GitHub PR secret scans still failed on commit-history findings; the repository needed a simpler non-Docker workflow that scans PR-equivalent history locally before push.
+- Files: `.gitleaks.toml`, `scripts/security/run-gitleaks-pr-range.sh`, `.pre-commit-config.yaml`, `justfile`, `.github/workflows/ci.yml`, `docs/guides/local-workflow-justfile.md`, `CHANGELOG.md`.
+- Validation: `bash scripts/security/run-gitleaks-pr-range.sh origin/main` (pass after allowlist), `uvx --from pre-commit python -m pre_commit run --all-files --hook-stage pre-push` (pass), `git diff --check` (pass).
+- Notes: Requires local `gitleaks` binary availability (`brew install gitleaks`). The allowlist is intentionally narrow (`docs/evidence/market-data/staged-live-smoke-2026-03-26.md` + exact historical token regex) to avoid broad suppression.
+
 ## 2026-03-26
 
 ### docs(market-data-operations): capture core/100 live smoke evidence and defer 200 from current closeout scope
