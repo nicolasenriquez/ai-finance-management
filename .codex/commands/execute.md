@@ -79,6 +79,8 @@ Allowed content:
 Rules:
 - keep notes concise
 - prefer 1-3 notes per subtask when needed
+- place notes immediately below the task checkbox they explain
+- use section-level `Notes:` only when the context truly applies to every task in that section
 - extend existing note when same idea
 - add new note only for distinct new point
 - do not paste raw command logs into notes

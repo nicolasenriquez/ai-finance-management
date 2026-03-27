@@ -59,6 +59,18 @@ You can also use official OpenSpec skills directly when better fit:
 - `$openspec-archive-change`
 - `$openspec-explore`
 
+## OpenSpec Artifact Standard
+
+When repo-local commands create, review, or refine OpenSpec artifacts, they should enforce these conventions:
+
+- `proposal.md`: capability lists are explicit and use `None.` when a list is empty
+- `design.md`: always includes an `Open Questions` section; use `None.` when nothing is open
+- `tasks.md`: task notes are task-local by default and sit immediately below the relevant checkbox
+- `tasks.md`: section-level `Notes:` are only for constraints that truly apply to the whole section
+- `tasks.md`: prefer concrete executable tasks over broad section-wide commentary
+
+These rules are part of artifact quality, not cosmetic preferences. Commands that prepare a change for `/execute` should treat drift from this standard as an artifact-quality issue.
+
 ## Commands
 
 ### `/prime`

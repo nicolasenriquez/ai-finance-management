@@ -87,6 +87,11 @@ Rules:
 - create proposal artifacts only after the branch exists
 - if a change with that name already exists, stop for human resolution
 - after proposal creation, confirm the change path and readiness status
+- before moving to `/plan`, verify proposal artifacts follow the repo's OpenSpec artifact standard:
+  - `proposal.md` capabilities are explicit and use `None.` when a new/modified capability list is empty
+  - `tasks.md` notes are task-local by default and appear immediately after the relevant checkbox
+  - section-level `Notes:` are allowed only when they truly apply to the whole section
+  - `design.md` includes an explicit `Open Questions` section and says `None.` when there are no open questions
 
 ### 5. Planning Gate
 

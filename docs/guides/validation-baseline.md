@@ -19,6 +19,7 @@ Current implementation status:
 - local data-sync operations are implemented for `dataset_1` bootstrap and `yfinance` refresh (`data-bootstrap-dataset1`, `market-refresh-yfinance`, `data-sync-local`)
 - market-data operational smoke contract is stabilized: approved live temporal-key variants are bounded and blocked runs are captured as structured evidence instead of partial success
 - live-provider stabilization contract is implemented: bounded empty-history fallback ladder, bounded default-currency assumption for missing metadata, and typed refresh recovery diagnostics (`history_fallback_*`, `currency_assumed_*`)
+- latest staged smoke evidence is recorded in `docs/evidence/market-data/staged-live-smoke-2026-03-26.md` (`core` blocker `502`, `100` blocker `408`, combined `data-sync-local` with `core` scope completed)
 
 ## Repository Baseline
 
@@ -36,7 +37,6 @@ just test-integration
 just data-bootstrap-dataset1
 just market-refresh-yfinance
 just market-refresh-yfinance "" 100
-just market-refresh-yfinance "" 200
 just data-sync-local
 openspec validate --specs --all
 ```
@@ -130,11 +130,12 @@ For each golden set dataset:
 - inspect stored rows
 - inspect portfolio analytics response shape
 - run one supported-universe `yfinance` refresh smoke invocation and record explicit success/blocker evidence
-- run staged onboarding refresh smoke sequence (`core -> 100 -> 200`) and record explicit success/blocker evidence for each stage
+- run staged onboarding refresh smoke sequence (`core -> 100`) and record explicit success/blocker evidence for each stage
 - run one combined local sync smoke invocation and record:
   - success evidence fields from typed refresh/sync output (`refresh_scope_mode`, `source_provider`, `requested_symbols`, `requested_symbols_count`, `snapshot_key`, `snapshot_captured_at`, `snapshot_id`, insert/update counters)
   - recovery evidence fields from typed refresh output (`retry_attempted_symbols`, `failed_symbols`, `history_fallback_symbols`, `history_fallback_periods_by_symbol`, `currency_assumed_symbols`)
   - blocker evidence fields from fail-fast payload (`status`, `stage`, `status_code`, `error`)
+- record deferred staged scopes explicitly when they are intentionally excluded from the current smoke cycle (`200` currently deferred in this proposal scope)
 
 ## Reporting Rule
 
