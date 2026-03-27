@@ -78,8 +78,8 @@
 - Stabilized approved day-level temporal-key normalization for current live operations (`date`/`datetime`, `to_pydatetime()` returning `date`/`datetime`, scalar `item()` conversions) while preserving explicit fail-fast rejection for unsupported keys.
 - Stabilized live-provider blocker patterns (2026-03-26): refresh now applies a bounded empty-history fallback ladder (`5y -> 3y -> 1y -> 6mo`) and explicit default-currency fallback (`USD`) for missing metadata, while keeping strict fail-fast behavior for unsupported payloads/invalid currency and required-symbol exhaustion.
 - Current evidence snapshot (2026-03-26): refreshed smoke evidence captured for `core -> 100` plus one combined `data-sync-local --refresh-scope core` run (`docs/evidence/market-data/staged-live-smoke-2026-03-26.md`); `core` blocked (`502`, TSLA currency metadata access), `100` blocked (`408`, bounded timeout), combined sync completed.
-- `200` smoke is deferred follow-up scope in the current closeout proposal and is not treated as ready from the `core/100` evidence set.
-- Next in this phase: resolve operational blockers and refresh tuning posture from captured evidence, then evaluate market-enriched KPI expansion while preserving non-goals (no ledger mutation, no public market-data router, no scheduler/queue infrastructure in this slice).
+- Current verification posture: `core` is the required live gate, representative non-core PR smoke is the default broader-than-core safeguard, full-scope `100` is optional manual soak coverage, and routine `200` validation is excluded from the local-first readiness workflow.
+- Next in this phase: resolve operational blockers and refresh tuning posture from required `core` plus representative non-core evidence, then evaluate market-enriched KPI expansion while preserving non-goals (no ledger mutation, no public market-data router, no scheduler/queue infrastructure in this slice).
 
 ## Phase 7: Database Hardening and Deployment Readiness
 

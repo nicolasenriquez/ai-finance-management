@@ -45,7 +45,9 @@ Automated coverage is deterministic:
 Operational posture in this slice:
 
 - refresh orchestration is implemented at the service boundary and exposed through local command entrypoints
-- refresh orchestration supports staged onboarding scopes (`core`, `100`, `200`) with explicit selector validation; current smoke closeout scope is `core -> 100` and records `200` as deferred follow-up in this cycle
+- refresh orchestration supports staged onboarding scopes (`core`, `100`, `200`) with explicit selector validation
+- current local-first verification posture keeps `core` as the required live gate, uses representative non-core PR smoke as the default broader-than-core safeguard, and treats full-scope `100` as optional manual soak coverage
+- routine `200` verification is excluded from the current readiness contract
 - combined local sync is deterministic and fail-fast (`bootstrap -> refresh`; refresh is skipped if bootstrap fails)
 - scheduler/queue infrastructure is intentionally deferred
 - public market-data route surface remains deferred in this change
@@ -62,7 +64,7 @@ Current live smoke evidence snapshot (2026-03-26):
 - standalone `core`: blocked (`502`, TSLA currency metadata access failure)
 - standalone `100`: blocked (`408`, bounded operator timeout at 360s)
 - combined `data-sync-local --refresh-scope core`: completed with typed evidence payload
-- `200`: deferred from this smoke closeout scope and tracked as follow-up
+- `200`: historical follow-up scope in that evidence cycle; not part of current routine verification
 
 ## Scope and Non-Goals
 
@@ -211,14 +213,17 @@ Recommended:
 
 Optional manual verification:
 
-- run staged refresh smoke sequence with explicit scope:
+- run required standalone refresh smoke for `core`:
   - `uv run python -m scripts.data_sync_operations market-refresh-yfinance --refresh-scope core`
+- run default broader-than-core verification through the representative smoke lane:
+  - `just test-integration` (includes `market_scope_pr_smoke` and excludes optional heavy scope lanes)
+- run full-scope `100` refresh only when manual soak/tuning evidence is intentionally needed:
   - `uv run python -m scripts.data_sync_operations market-refresh-yfinance --refresh-scope 100`
-  - equivalent just commands: `just market-refresh-yfinance "" core`, `just market-refresh-yfinance "" 100`
+  - equivalent just command: `just market-refresh-yfinance "" 100`
 - run one explicit combined local sync smoke run with scope when needed (`uv run python -m scripts.data_sync_operations data-sync-local --refresh-scope core` or `just data-sync-local "" "" core`)
 - for successful smoke runs, capture typed evidence (`refresh_scope_mode`, `source_provider`, `requested_symbols`, `requested_symbols_count`, `snapshot_key`, `snapshot_captured_at`, `snapshot_id`, `inserted_prices`, `updated_prices`, `retry_attempted_symbols`, `failed_symbols`, `history_fallback_symbols`, `history_fallback_periods_by_symbol`, `currency_assumed_symbols`)
 - for blocked smoke runs, capture structured fail-fast payload (`status`, `stage`, `status_code`, `error`) plus selected scope and treat it as blocker evidence instead of partial success
-- for deferred scopes, record explicit deferral reason and follow-up target instead of implying readiness
+- avoid routine `200` smoke in the current local-first flow; track any future `200` run as explicit follow-up evidence
 - manual checks must not replace deterministic automated tests
 
 ## Security and Configuration

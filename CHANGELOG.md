@@ -24,6 +24,43 @@ Use this structure for new entries:
 
 ## 2026-03-27
 
+### fix(deps): upgrade cryptography to address pip-audit blocker CVE
+- Summary: Updated locked dependency `cryptography` from `46.0.5` to `46.0.6`.
+- Why: `just ci` security gate (`pip-audit`) was blocked by `CVE-2026-34073` affecting `cryptography 46.0.5`.
+- Files: `uv.lock`, `CHANGELOG.md`.
+- Validation: `UV_CACHE_DIR=/tmp/uv-cache uv lock --upgrade-package cryptography` (pass, `46.0.5 -> 46.0.6`), full `just ci` equivalent rerun (pass: backend checks, DB-backed tests, frontend checks, pre-push hooks).
+
+### fix(test-db-bootstrap): make local integration setup deterministic for non-admin app roles
+- Summary: Hardened `test-db-upgrade` to bootstrap missing test DBs with explicit owner/schema privilege repair, added optional `TEST_DATABASE_ADMIN_URL` support for admin-only bootstrap flows, and documented the sequence in local workflow guides.
+- Why: Local DB integration runs were repeatedly failing with sequence-sensitive setup issues (`database does not exist`, `permission denied for schema public`) that pushed operators into brute-force reruns instead of deterministic preflight.
+- Files: `justfile`, `.env.example`, `docs/guides/{local-workflow-justfile.md,validation-baseline.md}`, `CHANGELOG.md`.
+- Validation: Full local CI-equivalent gate executed successfully after bootstrap fix (`ruff`, `black --check`, `mypy`, `pyright`, `ty`, `bandit`, `pip-audit --ignore-vuln CVE-2026-4539`, `alembic upgrade` on `TEST_DATABASE_URL`, `pytest -m "not integration"` => 181 passed, `pytest -m "integration and not market_scope_heavy"` => 39 passed, frontend lint/type/test/build, pre-push hooks).
+
+### test(market-data-verification): reduce full scope-100 soak cost while preserving rerun signal with smaller sample
+- Summary: Converted the optional `market_scope_heavy` scope-100 integration lane from two full runs to one full run, and added a separate reduced-sample scope-100 rerun integration test to preserve insert/update idempotency coverage with lower runtime cost.
+- Why: The previous full-100 double-run consumed more local CPU/time than needed for routine confidence, while the rerun behavior can be validated on a smaller deterministic subset.
+- Files: `app/market_data/tests/test_service_integration.py`, `CHANGELOG.md`.
+- Validation: `UV_CACHE_DIR=/tmp/uv-cache uv run ruff check app/market_data/tests/test_service_integration.py` (pass), `PYTHONPATH=. UV_CACHE_DIR=/tmp/uv-cache uv run pytest -q app/market_data/tests/test_service_integration.py::test_supported_universe_refresh_scope_100_executes_once_and_non_mutating app/market_data/tests/test_service_integration.py::test_supported_universe_refresh_scope_100_sample_rerun_is_idempotent_and_non_mutating -m integration --durations=5` (2 passed; call durations ~0.98s and ~0.44s), `UV_CACHE_DIR=/tmp/uv-cache uv run pytest --collect-only -q app/market_data/tests/test_service_integration.py -m "integration and not market_scope_heavy"` (10/11 collected, 1 deselected).
+
+### fix(ci-market-refresh): remove stale scope-200 heavy selector from workflow dispatch
+- Summary: Updated CI workflow-dispatch heavy market-scope options to remove `200`, aligned default integration marker selection to `integration and not market_scope_heavy`, and simplified manual heavy execution so `all` resolves to the existing `market_scope_heavy` lane.
+- Why: The repository no longer defines `market_scope_very_heavy` tests, so keeping a `200` CI path produced deterministic false failures (`no tests ran`, exit code 5) during manual dispatch.
+- Files: `.github/workflows/ci.yml`, `CHANGELOG.md`.
+- Validation: `rg -n "market_scope_very_heavy|heavy_market_scope|200" .github/workflows/ci.yml` (only `heavy_market_scope` and `100` remain), `git diff --check` (pass).
+
+### fix(test-db): harden local integration migration order and prevent shared-test schema drift
+- Summary: Added drift self-heal logic to `test-db-upgrade` so test DB setup repairs the known `alembic_version=head` + missing-table state before integration runs, and narrowed shared-test fixture teardown to `test_*` tables only to prevent dropping application schema tables from the active local database.
+- Why: Repeated local integration failures were caused by sequence-sensitive schema drift, where full integration could pass once and then fail on subsequent runs because required tables were dropped while migration revision metadata remained at head.
+- Files: `justfile`, `app/shared/tests/conftest.py`, `CHANGELOG.md`.
+- Validation: `UV_CACHE_DIR=/tmp/uv-cache uv run ruff check app/shared/tests/conftest.py` (pass), `PYTHONPATH=. UV_CACHE_DIR=/tmp/uv-cache uv run pytest -q app/shared/tests/test_models.py -m integration` (3 passed), `PYTHONPATH=. UV_CACHE_DIR=/tmp/uv-cache uv run pytest -q -m "integration and not market_scope_heavy"` (38 passed, 182 deselected), post-run schema check confirmed `alembic_version=7d5f2f8f9c3b` with `missing_tables=[]`.
+
+### test(market-data-operations): rebalance local refresh verification to core-required plus representative non-core smoke
+- Summary: Removed the routine scope-200 integration lane, clarified full scope-100 coverage as optional manual soak, and tightened the default integration contract around `core` plus representative non-core PR smoke; aligned `pytest` markers, `just` integration selectors, and market-data integration test labeling with that posture.
+- Why: Full-scope 100/200 verification was creating disproportionate runtime/CPU pressure for local workflows, slowing routine validation without improving near-term readiness for the current portfolio-backed scope.
+- Files: `app/market_data/tests/test_service_integration.py`, `pyproject.toml`, `justfile`, `docs/guides/{validation-baseline.md,yfinance-integration-guide.md}`, `docs/product/{roadmap.md,backlog-sprints.md,decisions.md}`, `.codex/commands/self-heal-ci.md`, `openspec/changes/rebalance-market-refresh-verification-scope/**`, `CHANGELOG.md`.
+- Validation: `UV_CACHE_DIR=/tmp/uv-cache uv run ruff check app/market_data/tests/test_service_integration.py app/data_sync/tests/test_data_sync_operations_cli.py` (pass), `PYTHONPATH=. UV_CACHE_DIR=/tmp/uv-cache uv run pytest -v app/data_sync/tests/test_data_sync_operations_cli.py` (7 passed), `UV_CACHE_DIR=/tmp/uv-cache uv run pytest --collect-only -q app/market_data/tests/test_service_integration.py -m "integration and not market_scope_heavy"` (9/10 collected, 1 deselected), `UV_CACHE_DIR=/tmp/uv-cache uv run pytest --collect-only -q app/market_data/tests/test_service_integration.py -m "integration and market_scope_heavy"` (1/10 collected, 9 deselected), `PYTHONPATH=. UV_CACHE_DIR=/tmp/uv-cache uv run alembic stamp base && PYTHONPATH=. UV_CACHE_DIR=/tmp/uv-cache uv run alembic upgrade head` (pass), `PYTHONPATH=. UV_CACHE_DIR=/tmp/uv-cache uv run pytest -v -m "integration and not market_scope_heavy"` (38 passed, 182 deselected), `OPENSPEC_TELEMETRY=0 openspec validate rebalance-market-refresh-verification-scope --type change --strict --json` (pass), `OPENSPEC_TELEMETRY=0 openspec validate --specs --all --json` (16/16 passed), `git diff --check` (pass).
+- Notes: Runtime refresh selector support (`core|100|200`) remains unchanged by design; this change rebalances verification posture only.
+
 ### chore(dependabot): reduce dependency PR noise with grouped weekly policy
 - Summary: Reworked `.github/dependabot.yml` to use explicit weekly windows in `America/Santiago`, capped open PR volume per ecosystem (`uv=4`, `npm=3`, `github-actions=2`), grouped non-major updates (`minor`/`patch`) into single PR streams per ecosystem, and added dedicated grouped security-update tracks.
 - Why: The repository had too many concurrent one-package Dependabot PRs, which increased review overhead and made dependency maintenance less predictable.

@@ -144,8 +144,7 @@ testpaths = ["app", "tests"]
 markers = [
     "integration: marks tests requiring real database (deselect with '-m \"not integration\"')",
     "market_scope_pr_smoke: PR smoke for market refresh coverage (core + representative non-core sample).",
-    "market_scope_heavy: heavy integration tests for refresh scope 100 (manual execution only).",
-    "market_scope_very_heavy: very-heavy integration tests for refresh scope 200 (manual execution only).",
+    "market_scope_heavy: optional manual soak integration tests for full refresh scope 100.",
 ]
 
 [tool.pyright]

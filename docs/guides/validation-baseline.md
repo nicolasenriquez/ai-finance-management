@@ -20,6 +20,7 @@ Current implementation status:
 - market-data operational smoke contract is stabilized: approved live temporal-key variants are bounded and blocked runs are captured as structured evidence instead of partial success
 - live-provider stabilization contract is implemented: bounded empty-history fallback ladder, bounded default-currency assumption for missing metadata, and typed refresh recovery diagnostics (`history_fallback_*`, `currency_assumed_*`)
 - latest staged smoke evidence is recorded in `docs/evidence/market-data/staged-live-smoke-2026-03-26.md` (`core` blocker `502`, `100` blocker `408`, combined `data-sync-local` with `core` scope completed)
+- market-refresh verification posture is rebalanced for local-first execution: `core` remains the required live gate, representative non-core PR smoke is the default broader-than-core safeguard, full `100` refresh coverage is optional manual soak, and `200` is excluded from routine verification
 
 ## Repository Baseline
 
@@ -36,7 +37,6 @@ just ci
 just test-integration
 just data-bootstrap-dataset1
 just market-refresh-yfinance
-just market-refresh-yfinance "" 100
 just data-sync-local
 openspec validate --specs --all
 ```
@@ -52,6 +52,7 @@ Database URL isolation prerequisites:
 - `DATABASE_URL` and `TEST_DATABASE_URL` must both be configured
 - `DATABASE_URL` and `TEST_DATABASE_URL` must not resolve to the same value
 - runtime workflows must not target `_test` database names
+- if `TEST_DATABASE_URL` uses non-admin app credentials, set `TEST_DATABASE_ADMIN_URL` so `test-db-upgrade` can bootstrap DB creation/schema privileges deterministically
 
 Expected service checks:
 
@@ -129,13 +130,14 @@ For each golden set dataset:
 - inspect extraction report for dataset 1
 - inspect stored rows
 - inspect portfolio analytics response shape
-- run one supported-universe `yfinance` refresh smoke invocation and record explicit success/blocker evidence
-- run staged onboarding refresh smoke sequence (`core -> 100`) and record explicit success/blocker evidence for each stage
+- run one required supported-universe `yfinance` refresh smoke invocation for `core` and record explicit success/blocker evidence
+- run one representative broader-than-core smoke lane (`core` plus deterministic non-core sample) and record explicit success/blocker evidence
+- run full-scope `100` refresh only when deliberate manual soak/tuning evidence is needed
 - run one combined local sync smoke invocation and record:
   - success evidence fields from typed refresh/sync output (`refresh_scope_mode`, `source_provider`, `requested_symbols`, `requested_symbols_count`, `snapshot_key`, `snapshot_captured_at`, `snapshot_id`, insert/update counters)
   - recovery evidence fields from typed refresh output (`retry_attempted_symbols`, `failed_symbols`, `history_fallback_symbols`, `history_fallback_periods_by_symbol`, `currency_assumed_symbols`)
   - blocker evidence fields from fail-fast payload (`status`, `stage`, `status_code`, `error`)
-- record deferred staged scopes explicitly when they are intentionally excluded from the current smoke cycle (`200` currently deferred in this proposal scope)
+- avoid routine `200` smoke in the current local-first workflow and track any future `200` validation as explicit follow-up scope
 
 ## Reporting Rule
 

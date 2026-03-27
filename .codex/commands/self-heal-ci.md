@@ -141,7 +141,7 @@ Fallback map when `just` is unavailable:
 - backend format: `uv run ruff check . --fix` + `uv run black .`
 - backend type: `uv run mypy app/ && uv run pyright app/ && uv run ty check app`
 - backend security: `uv run bandit -c pyproject.toml -r app --severity-level high --confidence-level high` + `uv run pip-audit --progress-spinner=off --ignore-vuln CVE-2026-4539`
-- backend tests: `uv run pytest -v -m "not integration"` and integration with `uv run pytest -v -m "integration and not market_scope_heavy and not market_scope_very_heavy"`
+- backend tests: `uv run pytest -v -m "not integration"` and integration with `uv run pytest -v -m "integration and not market_scope_heavy"`
 - frontend lint/type/test/build: `cd frontend && npm run <script>`
 
 When `pip-audit` fails with DNS/network-only errors:

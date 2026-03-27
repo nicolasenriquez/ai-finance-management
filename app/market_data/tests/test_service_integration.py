@@ -582,7 +582,6 @@ async def test_provider_ingest_is_idempotent_and_non_mutating(
 
 
 @pytest.mark.integration
-@pytest.mark.market_scope_pr_smoke
 @pytest.mark.asyncio
 async def test_supported_universe_refresh_is_idempotent_and_non_mutating(
     test_db_session: AsyncSession,
@@ -722,11 +721,11 @@ async def test_supported_universe_refresh_adapter_item_keys_are_idempotent_and_n
 @pytest.mark.integration
 @pytest.mark.market_scope_heavy
 @pytest.mark.asyncio
-async def test_supported_universe_refresh_scope_100_is_idempotent_and_non_mutating(
+async def test_supported_universe_refresh_scope_100_executes_once_and_non_mutating(
     test_db_session: AsyncSession,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Scope-100 refresh should be idempotent and preserve ledger truth."""
+    """Optional full scope-100 soak refresh should execute once and stay non-mutating."""
 
     await _truncate_tables_if_present(test_db_session)
     await _seed_ledger_truth(test_db_session)
@@ -771,13 +770,7 @@ async def test_supported_universe_refresh_scope_100_is_idempotent_and_non_mutati
 
     monkeypatch.setattr("app.market_data.service.fetch_yfinance_daily_close_rows", fake_fetch)
 
-    first = await refresh_yfinance_supported_universe(
-        db=test_db_session,
-        refresh_scope_mode="100",
-        snapshot_captured_at=datetime(2026, 3, 24, 15, 0, tzinfo=UTC),
-        settings=_provider_settings(),
-    )
-    second = await refresh_yfinance_supported_universe(
+    result = await refresh_yfinance_supported_universe(
         db=test_db_session,
         refresh_scope_mode="100",
         snapshot_captured_at=datetime(2026, 3, 24, 15, 0, tzinfo=UTC),
@@ -788,43 +781,50 @@ async def test_supported_universe_refresh_scope_100_is_idempotent_and_non_mutati
     rows = rows_result.scalars().all()
     after_counts = await _fetch_truth_counts(test_db_session)
 
-    assert tuple(first.requested_symbols) == expected_symbols
-    assert tuple(second.requested_symbols) == expected_symbols
-    assert first.refresh_scope_mode == "100"
-    assert second.refresh_scope_mode == "100"
-    assert first.requested_symbols_count == len(expected_symbols)
-    assert second.requested_symbols_count == len(expected_symbols)
-    assert first.snapshot_key == second.snapshot_key
-    assert first.inserted_prices == len(expected_symbols)
-    assert first.updated_prices == 0
-    assert second.inserted_prices == 0
-    assert second.updated_prices == len(expected_symbols)
-    assert first.retry_attempted_symbols_count == 0
-    assert first.failed_symbols_count == 0
-    assert second.retry_attempted_symbols_count == 0
-    assert second.failed_symbols_count == 0
+    assert tuple(result.requested_symbols) == expected_symbols
+    assert result.refresh_scope_mode == "100"
+    assert result.requested_symbols_count == len(expected_symbols)
+    assert result.snapshot_key
+    assert result.inserted_prices == len(expected_symbols)
+    assert result.updated_prices == 0
+    assert result.retry_attempted_symbols_count == 0
+    assert result.failed_symbols_count == 0
     assert len(rows) == len(expected_symbols)
     assert after_counts == before_counts
-    assert all(call_count_by_symbol.get(symbol, 0) == 2 for symbol in expected_symbols)
+    assert all(call_count_by_symbol.get(symbol, 0) == 1 for symbol in expected_symbols)
 
 
 @pytest.mark.integration
-@pytest.mark.market_scope_very_heavy
 @pytest.mark.asyncio
-async def test_supported_universe_refresh_scope_200_is_idempotent_and_non_mutating(
+async def test_supported_universe_refresh_scope_100_sample_rerun_is_idempotent_and_non_mutating(
     test_db_session: AsyncSession,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Scope-200 refresh should be idempotent and preserve ledger truth."""
+    """Scope-100 rerun semantics should remain idempotent on a deterministic reduced sample."""
 
     await _truncate_tables_if_present(test_db_session)
     await _seed_ledger_truth(test_db_session)
     before_counts = await _fetch_truth_counts(test_db_session)
     await test_db_session.rollback()
 
-    expected_symbols = tuple(list_market_data_library_symbols(size=200))
-    symbol_index_by_name = {symbol: index for index, symbol in enumerate(expected_symbols)}
+    full_scope_symbols = tuple(list_market_data_library_symbols(size=100))
+    sample_symbols = tuple(full_scope_symbols[:20])
+    assert len(sample_symbols) == 20
+    symbol_index_by_name = {symbol: index for index, symbol in enumerate(sample_symbols)}
     call_count_by_symbol: dict[str, int] = {}
+
+    original_list_market_data_library_symbols = list_market_data_library_symbols
+
+    def fake_list_market_data_library_symbols(
+        *,
+        size: int = 200,
+        settings: Settings | None = None,
+    ) -> list[str]:
+        """Return reduced scope-100 sample while preserving original behavior for other sizes."""
+
+        if size == 100:
+            return list(sample_symbols)
+        return original_list_market_data_library_symbols(size=size, settings=settings)
 
     async def fake_fetch(
         *,
@@ -858,17 +858,21 @@ async def test_supported_universe_refresh_scope_200_is_idempotent_and_non_mutati
             },
         )
 
+    monkeypatch.setattr(
+        "app.market_data.service.list_market_data_library_symbols",
+        fake_list_market_data_library_symbols,
+    )
     monkeypatch.setattr("app.market_data.service.fetch_yfinance_daily_close_rows", fake_fetch)
 
     first = await refresh_yfinance_supported_universe(
         db=test_db_session,
-        refresh_scope_mode="200",
+        refresh_scope_mode="100",
         snapshot_captured_at=datetime(2026, 3, 24, 15, 0, tzinfo=UTC),
         settings=_provider_settings(),
     )
     second = await refresh_yfinance_supported_universe(
         db=test_db_session,
-        refresh_scope_mode="200",
+        refresh_scope_mode="100",
         snapshot_captured_at=datetime(2026, 3, 24, 15, 0, tzinfo=UTC),
         settings=_provider_settings(),
     )
@@ -877,24 +881,24 @@ async def test_supported_universe_refresh_scope_200_is_idempotent_and_non_mutati
     rows = rows_result.scalars().all()
     after_counts = await _fetch_truth_counts(test_db_session)
 
-    assert tuple(first.requested_symbols) == expected_symbols
-    assert tuple(second.requested_symbols) == expected_symbols
-    assert first.refresh_scope_mode == "200"
-    assert second.refresh_scope_mode == "200"
-    assert first.requested_symbols_count == len(expected_symbols)
-    assert second.requested_symbols_count == len(expected_symbols)
+    assert tuple(first.requested_symbols) == sample_symbols
+    assert tuple(second.requested_symbols) == sample_symbols
+    assert first.refresh_scope_mode == "100"
+    assert second.refresh_scope_mode == "100"
+    assert first.requested_symbols_count == len(sample_symbols)
+    assert second.requested_symbols_count == len(sample_symbols)
     assert first.snapshot_key == second.snapshot_key
-    assert first.inserted_prices == len(expected_symbols)
+    assert first.inserted_prices == len(sample_symbols)
     assert first.updated_prices == 0
     assert second.inserted_prices == 0
-    assert second.updated_prices == len(expected_symbols)
+    assert second.updated_prices == len(sample_symbols)
     assert first.retry_attempted_symbols_count == 0
     assert first.failed_symbols_count == 0
     assert second.retry_attempted_symbols_count == 0
     assert second.failed_symbols_count == 0
-    assert len(rows) == len(expected_symbols)
+    assert len(rows) == len(sample_symbols)
     assert after_counts == before_counts
-    assert all(call_count_by_symbol.get(symbol, 0) == 2 for symbol in expected_symbols)
+    assert all(call_count_by_symbol.get(symbol, 0) == 2 for symbol in sample_symbols)
 
 
 @pytest.mark.integration

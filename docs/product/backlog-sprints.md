@@ -278,7 +278,7 @@ Definition of Done:
 
 ### Item 5.2: Add broker/provider API integration
 
-Status: In progress (first-slice yfinance adapter + bounded live-provider recovery stabilization implemented 2026-03-26; refreshed `core/100` smoke evidence captured on 2026-03-26 with blockers; `200` smoke deferred follow-up scope)
+Status: In progress (first-slice yfinance adapter + bounded live-provider recovery stabilization implemented 2026-03-26; current verification posture now keeps `core` as required live gate, uses representative non-core smoke by default, treats full `100` as optional manual soak, and excludes routine `200` verification)
 
 Delivered in first slice:
 
@@ -308,8 +308,10 @@ Delivered in first slice:
 
 Remaining for full item:
 
-- capture and maintain updated staged live-provider smoke evidence for current closeout scope (`core -> 100`) plus one combined `data-sync-local` run under the stabilized recovery contract
-- keep `200` smoke validation as explicit deferred follow-up scope until runtime strategy/readiness target is re-approved
+- capture and maintain updated required live evidence for standalone `core` plus one combined `data-sync-local` run under the stabilized recovery contract
+- keep representative non-core smoke coverage as the default broader-than-core safeguard in routine validation
+- run full-scope `100` only for explicit manual soak/tuning evidence when needed
+- keep routine `200` validation out of the current local-first readiness contract unless a future change explicitly reintroduces it
 - confirm observed live outcomes and operator tuning posture after bounded recovery (retry, fallback ladder, request pacing) before treating wider scopes as operationally ready
 - evaluate broker-authenticated and multi-provider expansion only after the current operational workflow is stable
 - keep transaction-import/API-source reconciliation explicitly out of this market-data-only slice unless a dedicated change expands scope
