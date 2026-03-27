@@ -36,12 +36,15 @@ Define isolated runtime and test database URLs in `.env`:
 ```bash
 DATABASE_URL=postgresql+asyncpg://<user>:<pass>@localhost:5432/ai_finance_management
 TEST_DATABASE_URL=postgresql+asyncpg://<user>:<pass>@localhost:5432/ai_finance_management_test
+# Optional: admin/bootstrap URL for test DB creation/privilege repair.
+TEST_DATABASE_ADMIN_URL=postgresql+asyncpg://<admin-user>:<admin-pass>@localhost:5432/postgres
 ```
 
 Guardrail notes:
 
 - `just dev` now runs `db-runtime-guard` and fails fast if runtime DB resolves to a test database target.
 - `just test` and `just test-integration` now require `TEST_DATABASE_URL` and reject equal runtime/test URLs.
+- `just test-db-upgrade` creates the test database when missing and verifies `CREATE` privilege on `public`; set `TEST_DATABASE_ADMIN_URL` when app credentials are intentionally non-admin.
 
 If PostgreSQL is not already running from Postgres.app, start Docker DB:
 
@@ -92,6 +95,7 @@ Database-target behavior:
 
 - `just test` runs pytest with `DATABASE_URL` bound to `TEST_DATABASE_URL` for that command context.
 - `just test-integration` runs `alembic upgrade head` against `TEST_DATABASE_URL` first, then runs integration tests with test DB context.
+- `just test-db-upgrade` applies owner/schema bootstrap on the target test DB before migration and fails fast with an explicit message when schema-create privileges are missing.
 
 Frontend-focused gates:
 

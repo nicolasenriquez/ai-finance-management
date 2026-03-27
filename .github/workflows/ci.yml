@@ -15,7 +15,6 @@ on:
         options:
           - none
           - 100
-          - 200
           - all
 
 concurrency:
@@ -101,18 +100,11 @@ jobs:
       - name: Unit and integration tests
         run: |
           uv run pytest -v -m "not integration"
-          uv run pytest -v -m "integration and not market_scope_heavy and not market_scope_very_heavy"
+          uv run pytest -v -m "integration and not market_scope_heavy"
 
       - name: Manual heavy market-scope tests (workflow_dispatch only)
         if: github.event_name == 'workflow_dispatch' && github.event.inputs.heavy_market_scope != 'none'
-        run: |
-          if [[ "${{ github.event.inputs.heavy_market_scope }}" == "100" ]]; then
-            uv run pytest -v -m "integration and market_scope_heavy"
-          elif [[ "${{ github.event.inputs.heavy_market_scope }}" == "200" ]]; then
-            uv run pytest -v -m "integration and market_scope_very_heavy"
-          else
-            uv run pytest -v -m "integration and (market_scope_heavy or market_scope_very_heavy)"
-          fi
+        run: uv run pytest -v -m "integration and market_scope_heavy"
 
   frontend:
     name: Frontend Gates

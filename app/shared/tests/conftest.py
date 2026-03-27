@@ -3,6 +3,7 @@
 from collections.abc import AsyncGenerator
 
 import pytest
+from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -12,6 +13,24 @@ from sqlalchemy.ext.asyncio import (
 
 from app.core.config import get_settings
 from app.core.database import Base
+
+_TEST_TABLE_PREFIX = "test_"
+
+
+def _create_test_only_tables(sync_conn: Connection) -> None:
+    """Create only local shared-test tables to avoid mutating app schema."""
+
+    for table in Base.metadata.sorted_tables:
+        if table.name.startswith(_TEST_TABLE_PREFIX):
+            table.create(bind=sync_conn, checkfirst=True)
+
+
+def _drop_test_only_tables(sync_conn: Connection) -> None:
+    """Drop only local shared-test tables to avoid schema drift in integration DB."""
+
+    for table in reversed(Base.metadata.sorted_tables):
+        if table.name.startswith(_TEST_TABLE_PREFIX):
+            table.drop(bind=sync_conn, checkfirst=True)
 
 
 @pytest.fixture(scope="function")
@@ -31,12 +50,11 @@ async def test_db_engine() -> AsyncGenerator[AsyncEngine, None]:
 
 @pytest.fixture(scope="function")
 async def db_session(test_db_engine: AsyncEngine) -> AsyncGenerator[AsyncSession, None]:
-    """Create database session and tables for tests."""
-    # Create tables
-    async with test_db_engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    """Create database session and only test-local tables for shared tests."""
 
-    # Create session
+    async with test_db_engine.begin() as conn:
+        await conn.run_sync(_create_test_only_tables)
+
     async_session = async_sessionmaker(
         test_db_engine,
         class_=AsyncSession,
@@ -48,6 +66,5 @@ async def db_session(test_db_engine: AsyncEngine) -> AsyncGenerator[AsyncSession
     async with async_session() as session:
         yield session
 
-    # Drop tables after test
     async with test_db_engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
+        await conn.run_sync(_drop_test_only_tables)
