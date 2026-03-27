@@ -84,7 +84,7 @@ Blocked outcomes are valid evidence.
     },
     "source_document_id": 1,
     "status": "completed",
-    "storage_key": "637ba5d159594080a11d3658d04d070b.pdf"
+    "storage_key": "<redacted-storage-key>.pdf"
   },
   "market_refresh": {
     "currency_assumed_symbols": [],
