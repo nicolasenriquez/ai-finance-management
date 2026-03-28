@@ -1,0 +1,153 @@
+{
+  "measuredAt": "2026-03-27T22:19:13.240Z",
+  "baseUrl": "http://127.0.0.1:55993",
+  "audits": [
+    {
+      "route": "/portfolio",
+      "passed": true,
+      "findings": [],
+      "domChecks": {
+        "h1Count": 1,
+        "mainCount": 1,
+        "unnamedButtons": [],
+        "unnamedLinks": [],
+        "ariaHiddenFocusable": [],
+        "interactiveRows": [
+          {
+            "label": "Open lot detail for VOO",
+            "role": "link",
+            "tabIndex": "0",
+            "keyShortcuts": "Enter Space"
+          },
+          {
+            "label": "Open lot detail for AAPL",
+            "role": "link",
+            "tabIndex": "0",
+            "keyShortcuts": "Enter Space"
+          }
+        ],
+        "statusBanners": [],
+        "roleCounts": {
+          "main": 1,
+          "link": 3,
+          "button": 1,
+          "heading": 2,
+          "table": 1,
+          "row": 1,
+          "columnheader": 13,
+          "cell": 26
+        }
+      },
+      "roleCounts": {
+        "main": 1,
+        "link": 3,
+        "button": 1,
+        "heading": 2,
+        "table": 1,
+        "row": 1,
+        "columnheader": 13,
+        "cell": 26
+      }
+    },
+    {
+      "route": "/portfolio/VOO",
+      "passed": true,
+      "findings": [],
+      "domChecks": {
+        "h1Count": 1,
+        "mainCount": 1,
+        "unnamedButtons": [],
+        "unnamedLinks": [],
+        "ariaHiddenFocusable": [],
+        "interactiveRows": [],
+        "statusBanners": [],
+        "roleCounts": {
+          "main": 1,
+          "link": 3,
+          "button": 1,
+          "heading": 3,
+          "table": 1,
+          "row": 2,
+          "columnheader": 5,
+          "cell": 5
+        }
+      },
+      "roleCounts": {
+        "main": 1,
+        "link": 3,
+        "button": 1,
+        "heading": 3,
+        "table": 1,
+        "row": 2,
+        "columnheader": 5,
+        "cell": 5
+      }
+    },
+    {
+      "route": "/portfolio/UNKNOWN",
+      "passed": true,
+      "findings": [],
+      "domChecks": {
+        "h1Count": 1,
+        "mainCount": 1,
+        "unnamedButtons": [],
+        "unnamedLinks": [],
+        "ariaHiddenFocusable": [],
+        "interactiveRows": [],
+        "statusBanners": [
+          {
+            "role": "status",
+            "title": "Instrument not found"
+          }
+        ],
+        "roleCounts": {
+          "main": 1,
+          "link": 3,
+          "button": 2,
+          "heading": 2,
+          "status": 1
+        }
+      },
+      "roleCounts": {
+        "main": 1,
+        "link": 3,
+        "button": 2,
+        "heading": 2,
+        "status": 1
+      }
+    },
+    {
+      "route": "/portfolio/ERR500",
+      "passed": true,
+      "findings": [],
+      "domChecks": {
+        "h1Count": 1,
+        "mainCount": 1,
+        "unnamedButtons": [],
+        "unnamedLinks": [],
+        "ariaHiddenFocusable": [],
+        "interactiveRows": [],
+        "statusBanners": [
+          {
+            "role": "alert",
+            "title": "Lot detail unavailable"
+          }
+        ],
+        "roleCounts": {
+          "main": 1,
+          "link": 3,
+          "button": 2,
+          "heading": 2,
+          "alert": 1
+        }
+      },
+      "roleCounts": {
+        "main": 1,
+        "link": 3,
+        "button": 2,
+        "heading": 2,
+        "alert": 1
+      }
+    }
+  ]
+}

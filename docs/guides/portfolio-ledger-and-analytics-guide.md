@@ -33,7 +33,8 @@ As of 2026-03-24, the implemented contract is:
 - Fee, FX, and unsupported corporate-action handling remain explicit unsupported concerns in v1
 - Portfolio analytics summary endpoint: `GET /api/portfolio/summary`
 - Portfolio analytics lot-detail endpoint: `GET /api/portfolio/lots/{instrument_symbol}`
-- Analytics responses expose explicit `as_of_ledger_at` and ledger-only KPI v1 fields
+- Summary analytics expose explicit `as_of_ledger_at`, pricing provenance (`pricing_snapshot_key`, `pricing_snapshot_captured_at`), ledger KPI fields, and bounded market-enriched fields
+- Lot-detail analytics remain ledger-only and explainable from persisted ledger truth
 - Lot-detail symbol matching is deterministic (`trim + uppercase`) with explicit unknown-symbol failure
 - Market-data persistence boundary: `market_data_snapshot` -> `price_history` via `app/market_data`
 - Market-data write boundary enforces explicit source provenance, timezone-safe snapshot timestamps, canonical symbol forms, and deterministic symbol/time-key idempotency
@@ -44,8 +45,9 @@ Current boundary:
 
 - Market data (`market_data_snapshot`, `price_history`, future `fx_rate`) is separate and not part of ledger truth.
 - Market-data refresh does not mutate canonical records, ledger events, lots, lot dispositions, dividends, or corporate-action truth.
-- Portfolio analytics responses remain ledger-only and do not read market data yet.
-- Market-data-dependent valuation and unrealized pricing metrics remain deferred.
+- Grouped summary analytics now read persisted market data through one consistent snapshot per response.
+- Summary valuation fails explicitly when open-position pricing coverage is incomplete in the selected snapshot.
+- Lot-detail valuation and FX-sensitive analytics remain deferred.
 
 ## Why This Guide Exists
 

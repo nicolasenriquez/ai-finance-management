@@ -1,4 +1,4 @@
-# Market Data Provider Standard
+# Yfance Standard
 
 ## Purpose
 

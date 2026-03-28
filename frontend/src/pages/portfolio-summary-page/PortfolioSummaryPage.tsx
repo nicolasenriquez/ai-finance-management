@@ -23,7 +23,7 @@ export function PortfolioSummaryPage() {
     <AppShell
       eyebrow="Portfolio analytics"
       title="Portfolio ledger at a glance."
-      description="Grouped positions, realized activity, and dividend outcomes from persisted ledger state. Market-value and FX-sensitive analytics remain intentionally unavailable in v1."
+      description="Market-enriched valuation with explicit pricing snapshot provenance."
     >
       {summaryQuery.isLoading ? <LoadingTableSkeleton rows={6} /> : null}
 
@@ -47,6 +47,8 @@ export function PortfolioSummaryPage() {
         <>
           <PortfolioSummaryHeader
             asOfLedgerAt={summaryQuery.data.as_of_ledger_at}
+            pricingSnapshotKey={summaryQuery.data.pricing_snapshot_key}
+            pricingSnapshotCapturedAt={summaryQuery.data.pricing_snapshot_captured_at}
             overview={buildPortfolioSummaryOverview(summaryQuery.data.rows)}
           />
           {summaryQuery.data.rows.length === 0 ? (

@@ -21,12 +21,18 @@ class PortfolioSummaryRow(BaseModel):
     dividend_gross_usd: Decimal
     dividend_taxes_usd: Decimal
     dividend_net_usd: Decimal
+    latest_close_price_usd: Decimal | None = None
+    market_value_usd: Decimal | None = None
+    unrealized_gain_usd: Decimal | None = None
+    unrealized_gain_pct: Decimal | None = None
 
 
 class PortfolioSummaryResponse(BaseModel):
     """Portfolio grouped-summary API response."""
 
     as_of_ledger_at: datetime
+    pricing_snapshot_key: str | None = None
+    pricing_snapshot_captured_at: datetime | None = None
     rows: list[PortfolioSummaryRow]
 
 

@@ -3,6 +3,7 @@
   "generated_at_utc": "2026-03-25T19:34:35.244636Z",
   "source_provider": "yfinance",
   "required_portfolio_symbols": [
+    "AAPL",
     "AMD",
     "APLD",
     "BBAI",
@@ -24,6 +25,7 @@
     "VOO"
   ],
   "core_refresh_symbols": [
+    "AAPL",
     "AMD",
     "APLD",
     "BBAI",
@@ -45,6 +47,7 @@
     "VOO"
   ],
   "starter_100_symbols": [
+    "AAPL",
     "AMD",
     "APLD",
     "BBAI",
@@ -143,10 +146,10 @@
     "MGNI",
     "FUN",
     "ENR",
-    "SMRT",
-    "CAPR"
+    "SMRT"
   ],
   "starter_200_symbols": [
+    "AAPL",
     "AMD",
     "APLD",
     "BBAI",
@@ -345,8 +348,7 @@
     "PFF",
     "NVDL",
     "PLTU",
-    "AMLP",
-    "EWW"
+    "AMLP"
   ],
   "selection_metadata": {
     "equity_queries": [

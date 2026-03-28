@@ -111,8 +111,11 @@ Body format standard (when body is present):
 - <primary behavior/contract impact>
 
 ## Validation
-- <what was run>
-- <result>
+- <check name>: pass | fail | blocked
+```bash
+<exact command run>
+```
+- <optional evidence: key output/counts only>
 
 ## Notes
 - <scope caveat, follow-up, or migration note if any>
@@ -123,6 +126,7 @@ Formatting constraints:
 - use single-level bullets only
 - keep bullets short and factual
 - avoid free-form paragraph-only bodies unless the change is trivial
+- Validation may include fenced `bash` blocks for exact commands; command lines are exempt from bullet length guidance
 
 PR vs squash guidance:
 

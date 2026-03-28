@@ -13,7 +13,7 @@ Current implementation status:
 - dataset 1 verification reporting is implemented
 - PostgreSQL persistence and duplicate-safe reprocessing are implemented
 - portfolio-ledger foundation and dataset 1 v1 accounting policy are implemented
-- portfolio analytics API (`/api/portfolio/summary`, `/api/portfolio/lots/{instrument_symbol}`) is implemented with ledger-only KPI v1 scope
+- portfolio analytics API is implemented with market-enriched grouped summary (`/api/portfolio/summary`) plus ledger-only lot detail (`/api/portfolio/lots/{instrument_symbol}`)
 - market-data ingestion boundary is implemented with idempotent snapshot writes and explicit non-mutation guarantees for canonical/ledger truth
 - first external market-data provider adapter (`yfinance`) is implemented with deterministic day-level close normalization and provider-backed ingest routed through the existing market-data boundary
 - local data-sync operations are implemented for `dataset_1` bootstrap and `yfinance` refresh (`data-bootstrap-dataset1`, `market-refresh-yfinance`, `data-sync-local`)
@@ -40,6 +40,11 @@ just market-refresh-yfinance
 just data-sync-local
 openspec validate --specs --all
 ```
+
+CI scripting rule:
+
+- Do not `source .env` in CI/security/test scripts because shell parsing can mis-handle unescaped values and produce non-deterministic failures.
+- Prefer explicit env extraction for required keys or tool-native env-file loading behavior.
 
 Command intent:
 
@@ -118,6 +123,7 @@ For each golden set dataset:
 - duplicate-ingestion flow for the same PDF and same transaction set
 - portfolio-ledger rebuild duplicate-safety for rerun and concurrent execution
 - portfolio analytics summary/lot-detail routes against persisted ledger rows
+- summary pricing provenance and fail-fast missing-coverage route behavior against persisted market-data snapshots
 - analytics read-only guardrails (no implicit rebuild/PDF pipeline side effects during analytics requests)
 - market-data snapshot ingest duplicate-safety and explicit in-request duplicate rejection
 - market-data refresh non-mutation guarantees for canonical, ledger, lot, dividend, and corporate-action truth

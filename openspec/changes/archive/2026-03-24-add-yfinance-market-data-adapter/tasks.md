@@ -2,7 +2,7 @@
 
 - [x] 1.1 Confirm Sprint 5.2 scope against roadmap, PRD, decisions, market-data provider standard, and yfinance integration guide
 Notes: Validate that this change stays provider-adapter-focused, preserves ledger-first truth, and does not expand frontend valuation or transaction-import scope.
-Notes: Scope confirmed against `docs/product/roadmap.md` (Phase 6 next step), `docs/product/prd.md` cross-source separation and provenance rules, `docs/product/decisions.md` ADR-017, `docs/standards/market-data-provider-standard.md`, and `docs/guides/yfinance-integration-guide.md`; all align on market-data-only provider integration with explicit provenance and no ledger mutation.
+Notes: Scope confirmed against `docs/product/roadmap.md` (Phase 6 next step), `docs/product/prd.md` cross-source separation and provenance rules, `docs/product/decisions.md` ADR-017, `docs/standards/yfance-standard.md`, and `docs/guides/yfinance-integration-guide.md`; all align on market-data-only provider integration with explicit provenance and no ledger mutation.
 - [x] 1.2 Diagnose the current `app/market_data` service boundary and define the minimal adapter seam for `fetch -> normalize -> ingest`
 Notes: Keep provider-specific code localized and reuse the existing ingestion contract rather than adding a second persistence path.
 Notes: The current seam is: provider fetch produces typed rows -> adapter normalizes to `MarketDataSnapshotWriteRequest` / `MarketDataPriceWrite` -> existing `ingest_market_data_snapshot()` persists atomically. Reusing this path preserves current duplicate rejection, UTC timestamp normalization, and insert-or-update behavior in `app/market_data/service.py`.

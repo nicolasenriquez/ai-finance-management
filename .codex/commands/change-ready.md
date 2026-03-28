@@ -127,29 +127,41 @@ Finish only when one of these states is true:
 ### Selected Change
 
 - change name
-- branch name or planned branch command
+- branch name
 - why this was selected
+
+### Workflow Commands
+
+```text
+/new-branch feat <recommended-branch-slug>
+$openspec-propose "<recommended-change-name>"
+/plan <change-name>
+```
 
 ### Gates Completed
 
-- proposal discovery
-- human selection
-- branch creation
-- proposal creation
-- planning
+- proposal discovery: completed | blocked | not-run
+- human selection: completed | blocked | not-run
+- branch creation: completed | blocked | not-run
+- proposal creation: completed | blocked | not-run
+- planning: completed | blocked | not-run
 
 ### Implementation Handoff
 
 - change name
 - readiness: `execute-ready` | `blocked`
 - first recommended selector
-- exact `/execute` command
 - blockers or open questions
 - first-slice validation expectations
+```text
+/execute <change-name> [selector]
+```
 
 ### Next Action
 
-- one exact next command
+```text
+<one exact next command>
+```
 
 ## Guardrails
 

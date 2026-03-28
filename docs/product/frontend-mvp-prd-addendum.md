@@ -14,12 +14,14 @@ This document is additive to:
 
 ## Current Backend Contract Baseline
 
-As of 2026-03-23, the frontend contract depends on:
+As of 2026-03-27, the frontend contract depends on:
 
 - `GET /api/portfolio/summary`
 - `GET /api/portfolio/lots/{instrument_symbol}`
 - Explicit ledger consistency metadata: `as_of_ledger_at`
-- Ledger-only KPI v1 fields (`open_*`, `realized_*`, `dividend_*`)
+- Explicit pricing provenance on summary responses: `pricing_snapshot_key`, `pricing_snapshot_captured_at`
+- Ledger KPI fields (`open_*`, `realized_*`, `dividend_*`)
+- Bounded market-enriched summary fields (`latest_close_price_usd`, `market_value_usd`, `unrealized_gain_usd`, `unrealized_gain_pct`)
 - Deterministic symbol handling (trim + uppercase), with explicit unknown-symbol rejection
 
 ## Product Constraints
@@ -28,7 +30,8 @@ As of 2026-03-23, the frontend contract depends on:
 - Frontend views are derived, not authoritative.
 - Analytics API calls are read-only and must not trigger rebuild side effects.
 - Missing upstream data must fail clearly, never silently.
-- Market-data-dependent valuation remains deferred.
+- Summary-level market enrichment is bounded to persisted snapshot USD-compatible pricing.
+- Lot-detail valuation and FX-sensitive analytics remain deferred.
 
 ## Scope Reconciliation With PRD
 
@@ -64,13 +67,14 @@ Interpretation for implementation:
 
 - Authentication and multi-user workflows.
 - AI/agentic UX features.
-- Market value, unrealized price-based metrics, and FX-sensitive valuation.
+- Lot-detail market valuation and FX-sensitive valuation.
 - Portfolio charting that implies unsupported market-data precision.
 - Advanced personalization and theming systems.
 
 ## Primary User Jobs
 
 - Understand open position and realized/dividend history by instrument.
+- Understand summary valuation freshness from explicit pricing snapshot provenance.
 - Drill into lots to verify how positions were built and consumed.
 - Trust response freshness through visible ledger timestamp context.
 - Detect unsupported cases quickly from explicit error messaging.
@@ -83,11 +87,13 @@ Interpretation for implementation:
 - Decimal precision must preserve backend meaning:
   - quantity-like fields display up to 9 decimal places
   - money-like fields display 2 decimal places
+- Unrealized percentage fields display 2 decimal places with explicit percent sign.
 - Every analytics surface must show the `as_of_ledger_at` timestamp context.
+- Summary surface must show pricing provenance when valuation fields are present.
 
 ## UX Requirements
 
-- The default landing state communicates "ledger-backed portfolio summary".
+- The default landing state communicates "market-enriched summary with explicit pricing provenance".
 - The first viewport foregrounds trust signals and the drill-down workflow rather than marketing-style hero messaging.
 - Row-to-detail interaction is obvious and keyboard accessible.
 - Unknown symbol paths must produce explicit not-found messaging.
@@ -103,7 +109,7 @@ Interpretation for implementation:
 ## MVP Success Criteria
 
 - User can load summary and inspect lot detail without ambiguity.
-- UI reflects only supported ledger-derived KPIs.
+- UI reflects only supported ledger-derived KPIs plus bounded market-enriched summary KPIs.
 - Error and edge-state behavior is explicit and consistent.
 - Accessibility and performance gates pass for the frontend scope.
 - Documentation and acceptance checklist are complete before UI implementation broadens.

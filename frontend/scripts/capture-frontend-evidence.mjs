@@ -19,6 +19,8 @@ const THEME_STORAGE_KEY = "ai-finance-management-theme";
 
 const summaryPayload = {
   as_of_ledger_at: "2026-03-24T01:00:00Z",
+  pricing_snapshot_key: "yf|d1|1d|3mo|aa1rp1|2026-03-24|s2|a1b2c3d4e5f6",
+  pricing_snapshot_captured_at: "2026-03-24T00:55:00Z",
   rows: [
     {
       instrument_symbol: "VOO",
@@ -31,6 +33,10 @@ const summaryPayload = {
       dividend_gross_usd: "10.00",
       dividend_taxes_usd: "2.00",
       dividend_net_usd: "8.00",
+      latest_close_price_usd: "240.00",
+      market_value_usd: "960.00",
+      unrealized_gain_usd: "60.00",
+      unrealized_gain_pct: "6.67",
     },
     {
       instrument_symbol: "AAPL",
@@ -43,6 +49,10 @@ const summaryPayload = {
       dividend_gross_usd: "18.00",
       dividend_taxes_usd: "3.00",
       dividend_net_usd: "15.00",
+      latest_close_price_usd: "530.00",
+      market_value_usd: "1060.00",
+      unrealized_gain_usd: "60.00",
+      unrealized_gain_pct: "6.00",
     },
   ],
 };
@@ -726,6 +736,7 @@ async function main() {
         routePath: "/portfolio",
         viewport: { width: 1440, height: 900 },
         waitForSelector: "text=Ledger as of",
+        theme: "dark",
         fullPage: true,
       },
       {
@@ -733,6 +744,7 @@ async function main() {
         routePath: "/portfolio",
         viewport: { width: 1440, height: 900 },
         waitForSelector: "text=Ledger as of",
+        theme: "dark",
         fullPage: false,
       },
       {
@@ -748,6 +760,7 @@ async function main() {
         routePath: "/portfolio",
         viewport: { width: 390, height: 844 },
         waitForSelector: "text=Ledger as of",
+        theme: "dark",
         fullPage: true,
       },
       {
@@ -755,6 +768,7 @@ async function main() {
         routePath: "/portfolio/VOO",
         viewport: { width: 1440, height: 900 },
         waitForSelector: "text=Disposition history",
+        theme: "dark",
         fullPage: true,
       },
       {
@@ -762,6 +776,7 @@ async function main() {
         routePath: "/portfolio/UNKNOWN",
         viewport: { width: 1440, height: 900 },
         waitForSelector: "text=Instrument not found",
+        theme: "dark",
         fullPage: true,
       },
       {
@@ -769,6 +784,7 @@ async function main() {
         routePath: "/portfolio/ERR500",
         viewport: { width: 1440, height: 900 },
         waitForSelector: "text=Lot detail unavailable",
+        theme: "dark",
         fullPage: true,
       },
     ];

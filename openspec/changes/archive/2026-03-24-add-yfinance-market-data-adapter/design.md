@@ -6,7 +6,7 @@ This change is not just a library import. It introduces a new external dependenc
 
 The repo also already contains planning docs for this slice in the working tree:
 
-- `docs/standards/market-data-provider-standard.md`
+- `docs/standards/yfance-standard.md`
 - `docs/guides/yfinance-integration-guide.md`
 - `docs/guides/yfinance-financial-documents-and-fundamentals-guide.md`
 

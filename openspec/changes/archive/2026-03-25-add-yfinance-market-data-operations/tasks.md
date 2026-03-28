@@ -2,7 +2,7 @@
 
 - [x] 1.1 Confirm the current Phase 6 scope against roadmap, backlog, decisions, provider standard, and yfinance guide
 Notes: Keep this change focused on `yfinance` operationalization, not broker-authenticated expansion or valuation/API scope growth.
-Notes: Confirmed against `docs/product/roadmap.md` (Phase 6), `docs/product/backlog-sprints.md` (Sprint 5.2), `docs/product/decisions.md` (ADR-010/ADR-017), `docs/standards/market-data-provider-standard.md`, and `docs/guides/yfinance-integration-guide.md`.
+Notes: Confirmed against `docs/product/roadmap.md` (Phase 6), `docs/product/backlog-sprints.md` (Sprint 5.2), `docs/product/decisions.md` (ADR-010/ADR-017), `docs/standards/yfance-standard.md`, and `docs/guides/yfinance-integration-guide.md`.
 Notes: Scope for this change is intentionally narrower than broker-auth expansion: operationalize the existing `yfinance` path first while preserving non-goals (no ledger mutation, no valuation/public API expansion).
 - [x] 1.2 Freeze the full-refresh contract: supported-symbol source, operator invocation shape, and refresh outcome evidence
 Notes: Decide the single supported-symbol source and the minimal operator-facing success/failure payload before implementation begins.
@@ -48,7 +48,7 @@ Notes: Environment note: integration DB required migration-state recovery before
 
 - [x] 4.1 Update roadmap, backlog, decisions, validation baseline, and yfinance/provider docs to reflect `yfinance` as the current operational provider path
 Notes: Replace any language that implies broker-authenticated expansion is the immediate next step for this phase.
-Notes: Updated `docs/product/{roadmap.md,backlog-sprints.md,decisions.md}`, `docs/guides/{validation-baseline.md,yfinance-integration-guide.md}`, and `docs/standards/market-data-provider-standard.md` to align phase-6 wording with the implemented service-level supported-universe refresh seam and manual schedule-ready posture.
+Notes: Updated `docs/product/{roadmap.md,backlog-sprints.md,decisions.md}`, `docs/guides/{validation-baseline.md,yfinance-integration-guide.md}`, and `docs/standards/yfance-standard.md` to align phase-6 wording with the implemented service-level supported-universe refresh seam and manual schedule-ready posture.
 - [x] 4.2 Update `CHANGELOG.md` with delivered behavior, validation evidence, and explicit non-goals
 Notes: Keep later multi-provider, valuation, and frontend work clearly deferred.
 Notes: Added `docs(market-data-operations): align phase-6 posture around yfinance operational refresh workflow` in `CHANGELOG.md` with updated docs footprint, closeout validation references, and explicit non-goals.

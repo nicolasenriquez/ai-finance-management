@@ -38,6 +38,19 @@ def _load_callable(name: str, *, task_hint: str) -> SummaryCallable:
     return cast(SummaryCallable, candidate)
 
 
+def _load_client_error_type() -> type[Exception]:
+    """Load portfolio analytics client error type for fail-first assertions."""
+
+    module = _load_portfolio_analytics_module()
+    candidate = getattr(module, "PortfolioAnalyticsClientError", None)
+    if candidate is None:
+        pytest.fail(
+            "Fail-first baseline: missing PortfolioAnalyticsClientError. "
+            "Implement task 2.2 before this test can pass.",
+        )
+    return cast(type[Exception], candidate)
+
+
 def _index_rows_by_symbol(
     summary_rows: Sequence[Mapping[str, object]],
 ) -> dict[str, Mapping[str, object]]:
@@ -250,3 +263,89 @@ def test_grouped_summary_deduplicates_sell_proceeds_per_sell_transaction() -> No
     _assert_decimal_field(voo_row, "realized_proceeds_usd", "250.00")
     _assert_decimal_field(voo_row, "realized_cost_basis_usd", "190.00")
     _assert_decimal_field(voo_row, "realized_gain_usd", "60.00")
+
+
+def test_grouped_summary_open_rows_require_market_enriched_valuation_fields() -> None:
+    """Open-position rows should include bounded market-enriched valuation fields."""
+
+    build_summary = _load_callable(
+        "build_grouped_portfolio_summary_from_ledger",
+        task_hint="2.2",
+    )
+
+    summary_rows = build_summary(
+        lots=[
+            {
+                "id": 501,
+                "instrument_symbol": "VOO",
+                "remaining_qty": "2.000000000",
+                "total_cost_basis_usd": "200.00",
+            },
+        ],
+        lot_dispositions=[],
+        portfolio_transactions=[],
+        dividend_events=[],
+    )
+
+    rows_by_symbol = _index_rows_by_symbol(summary_rows)
+    assert set(rows_by_symbol) == {"VOO"}
+    voo_row = rows_by_symbol["VOO"]
+
+    # Fail-first contract for task 2.2:
+    # open-position rows must expose bounded market-enriched valuation fields.
+    assert "latest_close_price_usd" in voo_row
+    assert "market_value_usd" in voo_row
+    assert "unrealized_gain_usd" in voo_row
+    assert "unrealized_gain_pct" in voo_row
+
+
+def test_grouped_summary_uses_unrounded_close_for_market_value_math() -> None:
+    """Market-enriched valuation should multiply using unrounded close precision."""
+
+    build_summary = _load_callable(
+        "build_grouped_portfolio_summary_from_ledger",
+        task_hint="2.2",
+    )
+
+    summary_rows = build_summary(
+        lots=[
+            {
+                "id": 601,
+                "instrument_symbol": "VOO",
+                "remaining_qty": "3.000000000",
+                "total_cost_basis_usd": "30.00",
+            },
+        ],
+        lot_dispositions=[],
+        portfolio_transactions=[],
+        dividend_events=[],
+        latest_close_price_usd_by_symbol={"VOO": Decimal("10.005")},
+    )
+
+    rows_by_symbol = _index_rows_by_symbol(summary_rows)
+    assert set(rows_by_symbol) == {"VOO"}
+    voo_row = rows_by_symbol["VOO"]
+    _assert_decimal_field(voo_row, "latest_close_price_usd", "10.00")
+    _assert_decimal_field(voo_row, "market_value_usd", "30.02")
+    _assert_decimal_field(voo_row, "unrealized_gain_usd", "0.02")
+    _assert_decimal_field(voo_row, "unrealized_gain_pct", "0.05")
+
+
+def test_missing_open_position_price_coverage_is_rejected_explicitly() -> None:
+    """Open-position coverage validation should fail fast when prices are missing."""
+
+    module = _load_portfolio_analytics_module()
+    coverage_validator = getattr(module, "validate_open_position_price_coverage", None)
+    if coverage_validator is None:
+        pytest.fail(
+            "Fail-first baseline: missing validate_open_position_price_coverage(). "
+            "Implement tasks 2.1-2.2 before this test can pass.",
+        )
+
+    client_error_type = _load_client_error_type()
+    with pytest.raises(client_error_type):
+        coverage_validator(
+            open_position_symbols={"VOO", "AAPL"},
+            priced_symbols={"VOO"},
+            snapshot_key="yf|d1|2026-03-27",
+        )

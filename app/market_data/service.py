@@ -13,7 +13,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Final, Literal, cast
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert as postgresql_insert
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -108,6 +108,16 @@ class _MarketDataSymbolUniverse:
         """Return current supported ingestion scope as normalized symbol set."""
 
         return frozenset(self.starter_200_symbols)
+
+
+@dataclass(frozen=True)
+class MarketDataConsistentSnapshotCoverage:
+    """One consistent persisted snapshot coverage for required symbols in USD."""
+
+    snapshot_id: int
+    snapshot_key: str
+    snapshot_captured_at: datetime
+    latest_close_price_usd_by_symbol: dict[str, Decimal]
 
 
 class MarketDataClientError(ValueError):
@@ -774,6 +784,130 @@ async def list_price_history_for_symbol(
         row_count=len(response_rows),
     )
     return response_rows
+
+
+async def resolve_latest_consistent_snapshot_coverage_for_symbols(
+    *,
+    db: AsyncSession,
+    required_symbols: set[str],
+) -> MarketDataConsistentSnapshotCoverage | None:
+    """Resolve latest persisted snapshot with USD coverage for all required symbols."""
+
+    if not required_symbols:
+        return None
+
+    normalized_required_symbols = sorted(
+        {
+            _normalize_required_text(symbol, field="required_symbols[]").upper()
+            for symbol in required_symbols
+        }
+    )
+    if not normalized_required_symbols:
+        return None
+
+    logger.info(
+        "market_data.snapshot_coverage_started",
+        required_symbols=normalized_required_symbols,
+        required_symbols_count=len(normalized_required_symbols),
+    )
+
+    try:
+        coverage_snapshot_query = (
+            select(
+                MarketDataSnapshot.id,
+                MarketDataSnapshot.snapshot_key,
+                MarketDataSnapshot.snapshot_captured_at,
+            )
+            .join(
+                PriceHistory,
+                PriceHistory.snapshot_id == MarketDataSnapshot.id,
+            )
+            .where(
+                PriceHistory.instrument_symbol.in_(normalized_required_symbols),
+                PriceHistory.currency_code == "USD",
+            )
+            .group_by(
+                MarketDataSnapshot.id,
+                MarketDataSnapshot.snapshot_key,
+                MarketDataSnapshot.snapshot_captured_at,
+            )
+            .having(
+                func.count(func.distinct(PriceHistory.instrument_symbol))
+                == len(normalized_required_symbols),
+            )
+            .order_by(
+                MarketDataSnapshot.snapshot_captured_at.desc(),
+                MarketDataSnapshot.id.desc(),
+            )
+            .limit(1)
+        )
+        coverage_snapshot_result = await db.execute(coverage_snapshot_query)
+        coverage_snapshot_row = coverage_snapshot_result.one_or_none()
+        if coverage_snapshot_row is None:
+            logger.info(
+                "market_data.snapshot_coverage_completed",
+                required_symbols_count=len(normalized_required_symbols),
+                snapshot_found=False,
+            )
+            return None
+
+        snapshot_id = int(coverage_snapshot_row[0])
+        snapshot_key = str(coverage_snapshot_row[1])
+        snapshot_captured_at = cast(datetime, coverage_snapshot_row[2])
+
+        prices_query = (
+            select(PriceHistory)
+            .where(
+                PriceHistory.snapshot_id == snapshot_id,
+                PriceHistory.instrument_symbol.in_(normalized_required_symbols),
+                PriceHistory.currency_code == "USD",
+            )
+            .order_by(
+                PriceHistory.instrument_symbol.asc(),
+                PriceHistory.market_timestamp.desc().nullslast(),
+                PriceHistory.trading_date.desc().nullslast(),
+                PriceHistory.id.desc(),
+            )
+        )
+        prices_result = await db.execute(prices_query)
+        price_rows = cast(list[PriceHistory], prices_result.scalars().all())
+    except SQLAlchemyError as exc:
+        logger.error(
+            "market_data.snapshot_coverage_failed",
+            required_symbols=normalized_required_symbols,
+            required_symbols_count=len(normalized_required_symbols),
+            error=str(exc),
+            error_type=type(exc).__name__,
+            exc_info=True,
+        )
+        raise MarketDataClientError(
+            "Failed to resolve market-data snapshot coverage due to a database error.",
+            status_code=500,
+        ) from exc
+
+    latest_close_price_usd_by_symbol: dict[str, Decimal] = {}
+    for price_row in price_rows:
+        symbol = price_row.instrument_symbol
+        if symbol in latest_close_price_usd_by_symbol:
+            continue
+        latest_close_price_usd_by_symbol[symbol] = price_row.price_value
+
+    coverage = MarketDataConsistentSnapshotCoverage(
+        snapshot_id=snapshot_id,
+        snapshot_key=snapshot_key,
+        snapshot_captured_at=snapshot_captured_at,
+        latest_close_price_usd_by_symbol=latest_close_price_usd_by_symbol,
+    )
+    logger.info(
+        "market_data.snapshot_coverage_completed",
+        required_symbols=normalized_required_symbols,
+        required_symbols_count=len(normalized_required_symbols),
+        snapshot_found=True,
+        snapshot_id=coverage.snapshot_id,
+        snapshot_key=coverage.snapshot_key,
+        priced_symbols_count=len(coverage.latest_close_price_usd_by_symbol),
+    )
+    return coverage
 
 
 def _to_price_write(*, row: YFinanceNormalizedRow) -> MarketDataPriceWrite:

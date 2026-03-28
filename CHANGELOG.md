@@ -22,7 +22,79 @@ Use this structure for new entries:
 
 `type` guidance: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`.
 
+## 2026-03-28
+
+### docs/workflow: harden ci-equivalent env handling and network-aware security gate behavior
+- Summary: Updated local environment templates to quote `APP_NAME` values, switched `just` lint gate to `black --check --diff --workers 1` for constrained-runtime compatibility, added `scripts/security/run-pip-audit.sh` wrapper to classify DNS/network outages as blocked evidence when explicitly enabled, and documented the CI scripting rule to avoid `source .env`.
+- Why: Recent CI-equivalent runs showed avoidable shell/env parsing drift and sandbox/network constraints; these changes preserve strict defaults while adding explicit, controlled behavior for restricted environments.
+- Files: `.env`, `.env.example`, `justfile`, `scripts/security/run-pip-audit.sh`, `docs/guides/validation-baseline.md`, `CHANGELOG.md`.
+- Validation: `git diff --check` (pass), `PIP_AUDIT_ALLOW_NETWORK_BLOCKED=1 bash scripts/security/run-pip-audit.sh` (classified network-blocked as intended in restricted environment).
+- Notes: Security gate remains strict by default; blocked-network classification requires explicit opt-in via `PIP_AUDIT_ALLOW_NETWORK_BLOCKED=1`.
+
+### docs(openspec): resolve implementation blockers in frontend analytics workspace change
+- Summary: Resolved previously open planning blockers in `expand-frontend-ux-and-analytics-workspace` by freezing v1 chart library decision (`Recharts`), freezing Transactions route scope to ledger events only, and freezing chart-period enum contracts (`30D`, `90D`, `252D`, `MAX`) with explicit rejection semantics; propagated these decisions into proposal/design/spec/tasks artifacts.
+- Why: Planning review identified unresolved design decisions as blocking safe `/execute`; closing them removes contract ambiguity and reduces rework risk during implementation.
+- Files: `openspec/changes/expand-frontend-ux-and-analytics-workspace/{proposal.md,design.md,tasks.md,specs/portfolio-analytics/spec.md,specs/portfolio-risk-estimators/spec.md,specs/frontend-analytics-workspace/spec.md}`, `CHANGELOG.md`.
+- Validation: `OPENSPEC_TELEMETRY=0 openspec validate expand-frontend-ux-and-analytics-workspace --type change --strict --json` (pass), `OPENSPEC_TELEMETRY=0 openspec validate --specs --all --json` (pass), `git diff --check` (pass).
+- Notes: `design.md` Open Questions is now explicitly `None.` for this change.
+
+### docs(openspec): harden frontend analytics workspace change with NumPy/pandas/SciPy operations contract
+- Summary: Updated `expand-frontend-ux-and-analytics-workspace` artifacts (`proposal`, `design`, `tasks`, and related specs) to incorporate implementation-ready quant guidance from new NumPy/pandas/SciPy standards, including operations-first preprocessing invariants, frozen default risk windows (`30/90/252`), required estimator methodology metadata, approved baseline method families, and explicit SciPy non-convergence failure behavior.
+- Why: The previous change had stack-selection coverage but still lacked concrete computational contract detail needed to execute risk-estimator implementation deterministically and consistently.
+- Files: `openspec/changes/expand-frontend-ux-and-analytics-workspace/{proposal.md,design.md,tasks.md,specs/portfolio-risk-estimators/spec.md,specs/portfolio-analytics/spec.md,specs/frontend-analytics-workspace/spec.md,specs/frontend-release-readiness/spec.md}`, `CHANGELOG.md`.
+- Validation: `OPENSPEC_TELEMETRY=0 openspec validate expand-frontend-ux-and-analytics-workspace --type change --strict --json` (pass), `OPENSPEC_TELEMETRY=0 openspec validate --specs --all --json` (16/16 passed).
+- Notes: Review was performed against current repository diffs and the newly added standards docs for NumPy/pandas/SciPy.
+
+### docs(standards): deepen pandas standard with operations-first finance patterns
+- Summary: Expanded `docs/standards/pandas-standard.md` with an operations-first workflow for finance time-series, approved calculation method matrix, canonical metric recipes (returns, cumulative performance, volatility, drawdown, beta, OHLC), finance-specific pitfalls/guards, and stronger test guidance for deterministic metric regression.
+- Why: The prior version was too general; portfolio analytics work needs explicit pandas method guidance for financial calculations and safer operational semantics.
+- Files: `docs/standards/pandas-standard.md`, `CHANGELOG.md`.
+- Validation: `git diff --check` (pass).
+- Notes: Guidance and links were based on official pandas documentation only.
+
+### docs(standards): add official NumPy, pandas, and SciPy standards
+- Summary: Added three new standards documents (`numpy-standard`, `pandas-standard`, `scipy-standard`) aligned to existing repository standards format, including scope, installation policy, fail-fast rules, typing/performance guidance, and validation commands; updated docs navigation and references index accordingly.
+- Why: The project needs explicit, reusable standards for the approved quant stack so implementation remains consistent, auditable, and aligned with repository engineering gates.
+- Files: `docs/standards/{numpy-standard.md,pandas-standard.md,scipy-standard.md}`, `docs/README.md`, `docs/references/references.md`, `CHANGELOG.md`.
+- Validation: Documentation update reviewed against official docs for NumPy, pandas, and SciPy; `git diff --check` (pass), `OPENSPEC_TELEMETRY=0 openspec validate --specs --all --json` (pass).
+- Notes: Sources were restricted to official documentation endpoints for all three libraries.
+
+### docs(openspec): archive `add-market-enriched-portfolio-kpis` and sync portfolio-analytics spec
+- Summary: Archived the completed OpenSpec change `add-market-enriched-portfolio-kpis` into `openspec/changes/archive/2026-03-28-add-market-enriched-portfolio-kpis` and applied its delta updates to the main `portfolio-analytics` spec.
+- Why: Finalize the delivered market-enriched KPI slice and keep canonical specs aligned with implemented behavior before continuing new changes.
+- Files: `openspec/specs/portfolio-analytics/spec.md`, `openspec/changes/archive/2026-03-28-add-market-enriched-portfolio-kpis/**`, `CHANGELOG.md`.
+- Validation: `OPENSPEC_TELEMETRY=0 openspec archive add-market-enriched-portfolio-kpis -y` (pass; reported `portfolio-analytics: update`, totals `+3, ~1`), `OPENSPEC_TELEMETRY=0 openspec list --json` (change no longer listed as active).
+- Notes: Archive was executed with spec sync enabled (no `--skip-specs`), preserving the change history under `openspec/changes/archive/`.
+
+### docs(openspec): formalize quant stack decision with accepted/rejected package policy
+- Summary: Extended change `expand-frontend-ux-and-analytics-workspace` with an explicit quant dependency decision, adding approved package scope (`numpy`, `pandas`, `scipy`), optional overlay boundary (`pandas-ta`), rejected package list for v1, and new implementation tasks/spec requirements for pinning and dependency-guard coverage.
+- Why: The prior proposal described analytics capabilities but did not formally lock the quantitative library stack, leaving reproducibility and implementation governance under-specified.
+- Files: `openspec/changes/expand-frontend-ux-and-analytics-workspace/{proposal.md,design.md,tasks.md,specs/portfolio-risk-estimators/spec.md}`, `docs/product/frontend-ux-analytics-expansion-roadmap.md`, `CHANGELOG.md`.
+- Validation: `OPENSPEC_TELEMETRY=0 openspec validate expand-frontend-ux-and-analytics-workspace --type change --strict --json` (pass), `OPENSPEC_TELEMETRY=0 openspec validate --specs --all --json` (17/17 passed).
+- Notes: This is a decision-and-governance update; dependency installation/pinning in `pyproject.toml` + `uv.lock` remains tracked as execution tasks in the change.
+
+### docs(openspec): create apply-ready change for frontend analytics workspace expansion
+- Summary: Created OpenSpec change `expand-frontend-ux-and-analytics-workspace` with complete artifacts (`proposal.md`, `design.md`, `specs/*`, `tasks.md`) to operationalize the frontend UX/analytics expansion and risk-estimator rollout.
+- Why: Move from high-level planning into an implementation-ready contract with explicit requirements, technical decisions, and trackable tasks aligned to repository standards.
+- Files: `openspec/changes/expand-frontend-ux-and-analytics-workspace/{proposal.md,design.md,tasks.md,specs/frontend-analytics-workspace/spec.md,specs/portfolio-risk-estimators/spec.md,specs/portfolio-analytics/spec.md,specs/frontend-release-readiness/spec.md}`, `CHANGELOG.md`.
+- Validation: `OPENSPEC_TELEMETRY=0 openspec status --change "expand-frontend-ux-and-analytics-workspace" --json` (`isComplete=true`), `OPENSPEC_TELEMETRY=0 openspec validate expand-frontend-ux-and-analytics-workspace --type change --strict --json` (pass), `OPENSPEC_TELEMETRY=0 openspec validate --specs --all --json` (17/17 passed).
+- Notes: The change keeps `React + Vite` as immediate implementation baseline and defers any full Next.js migration to a later gated spike.
+
+### docs(frontend): add ultimate-react-course SOT analysis and frontend UX/analytics expansion roadmap
+- Summary: Added a formal frontend reference-SOT analysis for `jonasschmedtmann/ultimate-react-course` (architecture patterns, adoption matrix, governance boundaries, risks) and a new phased roadmap to prioritize UX/UI and analytics expansion before any optional Next.js migration decision.
+- Why: Product direction now requires stronger frontend usability and analytics depth, plus persistent repository context for team-aligned standards, patterns, and migration criteria.
+- Files: `docs/references/ultimate-react-course-frontend-sot-analysis.md`, `docs/product/frontend-ux-analytics-expansion-roadmap.md`, `docs/README.md`, `CHANGELOG.md`.
+- Validation: In-depth repository inspection completed from local clone at commit `5c38ad0e9f5067d4a486e8ee5d7bed36268fbbb8` including architecture/dependency walkthrough of `16-fast-react-pizza`, `17-the-wild-oasis`, `21-the-wild-oasis-website`, and `22-nextjs-pages-router`; documentation-only update (no runtime code changes).
+- Notes: Governance is explicit: this repository remains implementation authority; the course repository is adopted as frontend pattern reference SOT, not copy-paste implementation baseline.
+
 ## 2026-03-27
+
+### feat(portfolio-analytics): deliver market-enriched summary KPIs with snapshot provenance across API, frontend, and docs
+- Summary: Implemented one-snapshot market-enriched portfolio summary behavior end-to-end by adding internal snapshot-coverage resolution, bounded valuation fields/provenance in backend + frontend contracts, explicit summary `409` coverage rejection, updated summary UI rendering/copy for pricing provenance, and aligned product/guides docs with the new phase-6 analytics boundary.
+- Why: Phase 6 KPI completion required moving summary analytics from ledger-only output to trusted persisted market-data enrichment without expanding into lot-detail valuation, FX-sensitive inference, public market-data routes, or ledger mutation.
+- Files: `app/market_data/service.py`, `app/portfolio_analytics/{schemas.py,service.py,tests/test_routes.py}`, `frontend/src/{core/api/schemas.ts,features/portfolio-summary/*,pages/portfolio-summary-page/*,app/styles.css}`, `docs/product/{roadmap.md,decisions.md,frontend-mvp-prd-addendum.md}`, `docs/guides/{portfolio-ledger-and-analytics-guide.md,frontend-api-and-ux-guide.md,validation-baseline.md}`, `openspec/changes/add-market-enriched-portfolio-kpis/tasks.md`, `CHANGELOG.md`.
+- Validation: `UV_CACHE_DIR=/tmp/uv-cache uv run pytest -q app/portfolio_analytics/tests/test_market_enriched_contract.py app/portfolio_analytics/tests/test_grouped_summary_formulas.py app/portfolio_analytics/tests/test_snapshot_consistency.py` (8 passed), `UV_CACHE_DIR=/tmp/uv-cache uv run pytest -q app/portfolio_analytics/tests/test_routes.py -k "summary_endpoint_returns_grouped_rows_with_as_of_ledger_at or summary_endpoint_rejects_missing_open_position_price_coverage" -m integration` (2 passed, 2 deselected), `cd frontend && npm run lint` (pass), `cd frontend && npm run test` (26 passed), `cd frontend && npm run test -- src/core/api/schemas.market-enriched.test.ts src/pages/portfolio-summary-page/PortfolioSummaryPage.test.tsx` (7 passed), `UV_CACHE_DIR=/tmp/uv-cache uv run ruff check app/market_data/service.py app/portfolio_analytics/schemas.py app/portfolio_analytics/service.py app/portfolio_analytics/tests/test_routes.py` (pass), `UV_CACHE_DIR=/tmp/uv-cache uv run black app/market_data/service.py app/portfolio_analytics/schemas.py app/portfolio_analytics/service.py app/portfolio_analytics/tests/test_routes.py --check --diff` (pass), `UV_CACHE_DIR=/tmp/uv-cache uv run mypy app/` (pass), `UV_CACHE_DIR=/tmp/uv-cache uv run pyright app/` (0 errors), `UV_CACHE_DIR=/tmp/uv-cache uv run ty check app` (pass), `OPENSPEC_TELEMETRY=0 openspec validate --specs --all --json` (16/16 passed).
+- Notes: Summary valuation fields stay bounded to persisted USD-compatible snapshot coverage; closed-position rows keep valuation fields nullable by contract; lot-detail remains ledger-only.
 
 ### fix(deps): upgrade cryptography to address pip-audit blocker CVE
 - Summary: Updated locked dependency `cryptography` from `46.0.5` to `46.0.6`.
@@ -148,7 +220,7 @@ Use this structure for new entries:
 ### fix(market-data-operations): stabilize yfinance temporal-key handling and formalize operator blocker evidence
 - Summary: Hardened `yfinance` trading-date coercion for approved live day-level temporal variants (`date`/`datetime`, `to_pydatetime()` to `date`/`datetime`, scalar `item()` conversions), improved unexpected provider-error detail in fail-fast 502 paths, added deterministic unit/integration coverage for the stabilized adapter path, and updated product/operator/provider docs to freeze runbook evidence rules and schedule-ready invocation posture.
 - Why: Phase 6 required the operational refresh workflow to be implementation-ready without weakening fail-fast behavior; live smoke outcomes needed to remain auditable as explicit blocker evidence when provider/runtime conditions prevent safe completion.
-- Files: `app/market_data/providers/yfinance_adapter.py`, `app/market_data/tests/{test_yfinance_adapter_unit.py,test_service_integration.py}`, `scripts/data_sync_operations.py`, `docs/product/{roadmap.md,backlog-sprints.md,decisions.md}`, `docs/guides/{validation-baseline.md,yfinance-integration-guide.md,local-workflow-justfile.md}`, `docs/standards/market-data-provider-standard.md`, `openspec/changes/stabilize-market-data-operations-runbook-and-scheduling-posture/tasks.md`, `CHANGELOG.md`.
+- Files: `app/market_data/providers/yfinance_adapter.py`, `app/market_data/tests/{test_yfinance_adapter_unit.py,test_service_integration.py}`, `scripts/data_sync_operations.py`, `docs/product/{roadmap.md,backlog-sprints.md,decisions.md}`, `docs/guides/{validation-baseline.md,yfinance-integration-guide.md,local-workflow-justfile.md}`, `docs/standards/yfance-standard.md`, `openspec/changes/stabilize-market-data-operations-runbook-and-scheduling-posture/tasks.md`, `CHANGELOG.md`.
 - Validation: `uv run pytest -v app/market_data/tests/test_yfinance_adapter_unit.py app/market_data/tests/test_service_unit.py app/data_sync/tests/test_data_sync_operations_cli.py` (28 passed), `uv run pytest -v -m integration app/market_data/tests/test_service_integration.py::test_supported_universe_refresh_adapter_item_keys_are_idempotent_and_non_mutating app/market_data/tests/test_service_integration.py::test_supported_universe_refresh_is_idempotent_and_non_mutating` (2 passed), `uv run ruff check app/market_data/providers/yfinance_adapter.py app/market_data/tests/test_yfinance_adapter_unit.py app/market_data/tests/test_service_integration.py scripts/data_sync_operations.py` (pass), `uv run black ... --check --diff` (pass), `uv run mypy app/market_data/providers/yfinance_adapter.py scripts/data_sync_operations.py` (pass), `uv run pyright app/market_data/providers/yfinance_adapter.py scripts/data_sync_operations.py` (0 errors), `uv run ty check app/market_data/providers/yfinance_adapter.py` (pass), `uv run python -m scripts.data_sync_operations data-sync-local --snapshot-captured-at 2026-03-25T00:00:00Z` (initial run blocked at `market_refresh` with 502 `KeyError: 'currency'`; post-fix rerun completed with `status=completed`, `requested_symbols_count=19`, `inserted_prices=23505`), `openspec validate stabilize-market-data-operations-runbook-and-scheduling-posture --type change --strict --json` (pass), `openspec validate --specs --all --json` (15/15 passed).
 - Notes: OpenSpec commands emitted PostHog DNS flush warnings (`edge.openspec.dev`) after command completion; validation outcomes remained successful.
 
@@ -169,14 +241,14 @@ Use this structure for new entries:
 ### feat(data-sync-operations): add local dataset bootstrap and yfinance refresh command workflows
 - Summary: Added a new `app/data_sync` orchestration slice and `scripts.data_sync_operations` module CLI with three fail-fast operator commands: `data-bootstrap-dataset1`, `market-refresh-yfinance`, and `data-sync-local`; wired equivalent `just` recipes and fixed invocation to module mode (`uv run python -m scripts.data_sync_operations ...`) so imports resolve deterministically.
 - Why: Phase-6 operational execution needed a reproducible local workflow to bootstrap `dataset_1` and refresh market data without introducing a public market-data router, while preserving strict fail-fast stage behavior and auditable run evidence.
-- Files: `app/data_sync/{__init__.py,schemas.py,service.py,tests/test_data_sync_operations_cli.py}`, `scripts/data_sync_operations.py`, `justfile`, `app/market_data/providers/yfinance_adapter.py`, `docs/product/{roadmap.md,backlog-sprints.md,decisions.md}`, `docs/guides/{local-workflow-justfile.md,validation-baseline.md,yfinance-integration-guide.md,portfolio-ledger-and-analytics-guide.md}`, `docs/standards/market-data-provider-standard.md`, `CHANGELOG.md`.
+- Files: `app/data_sync/{__init__.py,schemas.py,service.py,tests/test_data_sync_operations_cli.py}`, `scripts/data_sync_operations.py`, `justfile`, `app/market_data/providers/yfinance_adapter.py`, `docs/product/{roadmap.md,backlog-sprints.md,decisions.md}`, `docs/guides/{local-workflow-justfile.md,validation-baseline.md,yfinance-integration-guide.md,portfolio-ledger-and-analytics-guide.md}`, `docs/standards/yfance-standard.md`, `CHANGELOG.md`.
 - Validation: `uv run ruff check app/data_sync scripts/data_sync_operations.py app/data_sync/tests/test_data_sync_operations_cli.py` (pass), `uv run black app/data_sync scripts/data_sync_operations.py app/data_sync/tests/test_data_sync_operations_cli.py --check --diff` (pass), `uv run mypy app/data_sync app/market_data/providers/yfinance_adapter.py app/market_data/service.py` (pass), `uv run pyright app/data_sync app/market_data/providers/yfinance_adapter.py app/market_data/service.py` (0 errors), `uv run ty check app` (pass), `uv run pytest -v app/data_sync/tests/test_data_sync_operations_cli.py app/market_data/tests/test_yfinance_adapter_unit.py app/market_data/tests/test_service_unit.py` (24 passed), `uv run python -m scripts.data_sync_operations data-sync-local --snapshot-captured-at 2026-03-25T00:00:00Z` (bootstrap stage completed; refresh failed fast with structured `market_refresh` 502 provider error).
 - Notes: Public market-data API route and scheduler/queue automation remain deferred; command-level workflows are the active operational boundary in this slice.
 
 ### docs(market-data-operations): align phase-6 posture around yfinance operational refresh workflow
 - Summary: Updated roadmap, backlog, decisions, validation baseline, provider standard, and yfinance integration guidance to reflect the implemented supported-universe refresh seam (`refresh_yfinance_supported_universe`) as the current operational path, with manual invocation now explicit and schedule infrastructure intentionally deferred.
 - Why: Keep planning and implementation artifacts aligned with delivered `app/market_data` behavior and avoid implying broker-authenticated expansion as the immediate next phase-6 step.
-- Files: `docs/product/{roadmap.md,backlog-sprints.md,decisions.md}`, `docs/guides/{validation-baseline.md,yfinance-integration-guide.md}`, `docs/standards/market-data-provider-standard.md`, `CHANGELOG.md`.
+- Files: `docs/product/{roadmap.md,backlog-sprints.md,decisions.md}`, `docs/guides/{validation-baseline.md,yfinance-integration-guide.md}`, `docs/standards/yfance-standard.md`, `CHANGELOG.md`.
 - Validation: `openspec validate add-yfinance-market-data-operations --type change --strict --json` (run during closeout), `openspec validate --specs --all --json` (run during closeout).
 - Notes: Non-goals remain explicit: no broker-authenticated provider integration, no multi-provider expansion, no public market-data API expansion, no ledger/canonical mutation, and no valuation KPI/frontend market-value expansion in this slice.
 
@@ -194,7 +266,7 @@ Use this structure for new entries:
 ### docs(yfinance-planning): add provider standard and integration planning guides
 - Summary: Added a market-data provider standard plus dedicated yfinance integration and financial-documents guidance to prepare Sprint 5.2 planning with explicit provenance, idempotency, legal, and boundary rules.
 - Why: The market-data boundary is implemented, and the next natural step is broker/provider integration; this documentation package reduces scope drift and creates implementation-ready guardrails before coding.
-- Files: `docs/standards/market-data-provider-standard.md`, `docs/guides/yfinance-integration-guide.md`, `docs/guides/yfinance-financial-documents-and-fundamentals-guide.md`, `docs/references/references.md`, `docs/README.md`, `docs/product/decisions.md`, `CHANGELOG.md`.
+- Files: `docs/standards/yfance-standard.md`, `docs/guides/yfinance-integration-guide.md`, `docs/guides/yfinance-financial-documents-and-fundamentals-guide.md`, `docs/references/references.md`, `docs/README.md`, `docs/product/decisions.md`, `CHANGELOG.md`.
 - Validation: Documentation-only update; guidance aligned with current PRD, roadmap, decisions, and market-data boundary contracts.
 
 ### docs(external-template-evaluation): assess vstorm ai-agent template and define adoption guardrails

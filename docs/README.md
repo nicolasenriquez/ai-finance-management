@@ -20,6 +20,7 @@ This repository organizes documentation by function so standards, product artifa
 
 - Product: `docs/product/prd.md`
 - Frontend product addendum: `docs/product/frontend-mvp-prd-addendum.md`
+- Frontend UX/analytics expansion roadmap: `docs/product/frontend-ux-analytics-expansion-roadmap.md`
 - Backlog: `docs/product/backlog-sprints.md`
 - Validation baseline: `docs/guides/validation-baseline.md`
 - Frontend architecture guide: `docs/guides/frontend-architecture-guide.md`
@@ -29,7 +30,10 @@ This repository organizes documentation by function so standards, product artifa
 - Local workflow (`just`): `docs/guides/local-workflow-justfile.md`
 - Logging standard: `docs/standards/logging-standard.md`
 - Frontend standard: `docs/standards/frontend-standard.md`
-- Market-data provider standard: `docs/standards/market-data-provider-standard.md`
+- NumPy standard: `docs/standards/numpy-standard.md`
+- pandas standard: `docs/standards/pandas-standard.md`
+- SciPy standard: `docs/standards/scipy-standard.md`
+- Yfance standard: `docs/standards/yfance-standard.md`
 - PostgreSQL standard: `docs/standards/postgres-standard.md`
 - PostgreSQL local setup guide: `docs/guides/postgres-local-setup.md`
 - PostgreSQL performance guide: `docs/guides/postgres-performance-guide.md`
@@ -40,6 +44,7 @@ This repository organizes documentation by function so standards, product artifa
 - TimescaleDB guide: `docs/guides/timescaledb-guide.md`
 - External references: `docs/references/references.md`
 - Frontend references: `docs/references/frontend-references.md`
+- Ultimate React Course SOT analysis: `docs/references/ultimate-react-course-frontend-sot-analysis.md`
 - ETF exploration note: `docs/references/etf-yfinance-research-notes.md`
 - External template evaluation: `docs/references/full-stack-ai-agent-template-evaluation.md`
 

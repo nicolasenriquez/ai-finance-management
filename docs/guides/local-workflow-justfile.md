@@ -42,22 +42,26 @@ TEST_DATABASE_ADMIN_URL=postgresql+asyncpg://<admin-user>:<admin-pass>@localhost
 
 Guardrail notes:
 
-- `just dev` now runs `db-runtime-guard` and fails fast if runtime DB resolves to a test database target.
+- `just dev-local` now runs `db-runtime-guard` and fails fast if runtime DB resolves to a test database target.
+- `just dev-local` runs runtime DB guard, readiness check, migrations, and then boots backend/frontend.
+- `just dev-local-sync` runs runtime DB guard, readiness check, migrations, local data-sync population, and then boots backend/frontend.
 - `just test` and `just test-integration` now require `TEST_DATABASE_URL` and reject equal runtime/test URLs.
 - `just test-db-upgrade` creates the test database when missing and verifies `CREATE` privilege on `public`; set `TEST_DATABASE_ADMIN_URL` when app credentials are intentionally non-admin.
 
-If PostgreSQL is not already running from Postgres.app, start Docker DB:
-
-```bash
-docker-compose up -d db
-```
+Ensure PostgreSQL is already running locally (for example, via Postgres.app) before starting the app.
 
 ## Run App Locally
 
 Run backend + frontend together:
 
 ```bash
-just dev
+just dev-local
+```
+
+Run full sync + backend + frontend (slower, for refresh/bootstrap moments):
+
+```bash
+just dev-local-sync
 ```
 
 Endpoints:

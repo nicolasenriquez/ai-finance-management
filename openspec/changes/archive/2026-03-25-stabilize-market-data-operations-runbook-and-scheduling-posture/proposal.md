@@ -24,5 +24,5 @@ The repository now has manual `yfinance` refresh and combined data-sync operator
 - Affected code: `app/market_data/`, `app/data_sync/`, `scripts/data_sync_operations.py`, and touched tests around operational refresh behavior.
 - Affected runtime behavior: live operator refresh/sync runs gain a more explicit operational contract and may accept additional approved runtime payload variations needed for stable smoke execution.
 - Affected systems: local operator workflows, market-data refresh validation, and future scheduler integration posture.
-- Affected docs: `docs/product/{roadmap.md,backlog-sprints.md,decisions.md}`, `docs/guides/{validation-baseline.md,yfinance-integration-guide.md,local-workflow-justfile.md}`, `docs/standards/market-data-provider-standard.md`, and `CHANGELOG.md`.
+- Affected docs: `docs/product/{roadmap.md,backlog-sprints.md,decisions.md}`, `docs/guides/{validation-baseline.md,yfinance-integration-guide.md,local-workflow-justfile.md}`, `docs/standards/yfance-standard.md`, and `CHANGELOG.md`.
 - Follow-on leverage: this change is the last Phase 6 hardening slice before market-enriched analytics proposals can rely on the market-data refresh workflow as a trustworthy input.
