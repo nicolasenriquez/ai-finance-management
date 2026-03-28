@@ -330,6 +330,7 @@ What it does:
 - inspects staged, unstaged, and untracked changes together
 - stages the intended full local change with `git add -A`
 - proposes a descriptive conventional commit message
+- generates a copy-paste-ready PR extended description aligned to `.github/pull_request_template.md` when present
 - creates the local commit and stops before push
 
 Examples:

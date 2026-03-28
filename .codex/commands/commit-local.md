@@ -73,9 +73,16 @@ git diff --cached
 
 Do not silently exclude files.
 
-### 5. Generate the commit message
+### 5. Generate commit and PR texts
 
-Create a descriptive conventional commit message grounded in the actual staged diff.
+Generate two separate artifacts grounded in the actual staged diff:
+
+- `Commit message` (used for `git commit`)
+- `PR extended description` (copy-paste ready for GitHub PR body)
+
+Do not merge these artifacts into one block.
+
+### 5A. Commit message
 
 Use a prefix such as:
 
@@ -102,6 +109,7 @@ Rules:
   - collapse phrase length while preserving scope + outcome
   - keep conventional prefix and scope intact (`feat(...)`, `fix(...)`, etc.)
   - prefer concise domain nouns over long file/path wording
+- never leave unresolved placeholder text (for example `for  and archive .`, `<...>`, `TBD`, or empty scoped phrases)
 
 Body format standard (when body is present):
 
@@ -121,12 +129,55 @@ Body format standard (when body is present):
 - <scope caveat, follow-up, or migration note if any>
 ```
 
+### 5B. PR extended description
+
+When `.github/pull_request_template.md` exists, produce a fully populated body that matches its sections exactly:
+
+```text
+## Summary
+- ...
+- ...
+
+## Scope
+- Backend: ...
+- Frontend: ...
+- Docs/Runbooks: ...
+- OpenSpec: ...
+
+## Validation
+- [x] `ruff` / formatting checks
+- [x] type checks
+- [x] unit tests
+- [ ] integration tests (or explain why skipped)
+- [x] frontend lint/type/test/build
+- [x] OpenSpec validation (if applicable)
+
+Commands run:
+```bash
+...
+```
+
+## Risks / Notes
+- ...
+```
+
+PR extended description rules (required):
+
+- never leave template placeholders (for example `What changed?`, `Why was this needed?`, `Any migration...`)
+- never leave scope keys empty (`Backend:`, `Frontend:`, `Docs/Runbooks:`, `OpenSpec:` must all have content)
+- if a validation checkbox remains unchecked, include explicit reason on the same line
+- include at least one real command in `Commands run`
+- do not duplicate section headers (for example two `## Summary` blocks)
+- do not paste raw stack traces; summarize failures as `pass | fail | blocked` with short reason
+
 Formatting constraints:
 
 - use single-level bullets only
 - keep bullets short and factual
 - avoid free-form paragraph-only bodies unless the change is trivial
 - Validation may include fenced `bash` blocks for exact commands; command lines are exempt from bullet length guidance
+- do not paste raw terminal output into commit/PR body sections; summarize results in one line per check
+- if a command failed at any point, do not mark that check as `pass` unless a later rerun succeeded
 
 PR vs squash guidance:
 
@@ -141,6 +192,7 @@ Before running `git commit`, show:
 
 - the files that will be included
 - the final commit message
+- the final PR extended description
 - a short summary of the change
 
 Then create the commit.
@@ -159,6 +211,18 @@ Commit safety rule (required):
 - Do not pass Markdown bodies with backticks, `$`, command substitutions, or fenced blocks via `-m`.
 - Use `-m` only for simple single-line subject-only commits.
 - If the branch already has a published remote tip, do not rewrite published history to fix message text; create a small follow-up docs commit instead.
+- Before commit, run a final content sanity scan over the prepared message:
+  - reject if it includes `Traceback`, `ERROR collecting`, `sqlalchemy.exc`, or similar raw failure logs
+  - reject if it includes unresolved placeholders or empty scoped phrases
+  - reject PR text if it contains:
+    - `- What changed?`
+    - `- Why was this needed?`
+    - `- Backend:`
+    - `- Frontend:`
+    - `- Docs/Runbooks:`
+    - `- OpenSpec:`
+    - `Any migration, environment, or operational caveats`
+  - reject PR text if `## Summary` appears more than once
 
 ### 7. Stop before push
 
@@ -200,6 +264,9 @@ Commit summary:
 Commit message:
 - <final subject>
 - <final body if any>
+
+PR extended description:
+- <final copy-paste PR body>
 
 Local commit result:
 - branch: <branch>

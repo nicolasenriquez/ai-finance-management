@@ -37,6 +37,15 @@ The system SHALL include methodology metadata in estimator responses, including 
 - **THEN** the response includes methodology metadata fields required by the active estimator contract
 - **THEN** frontend clients can display scope and methodology context without inferring hidden defaults
 
+### Requirement: Portfolio risk estimator methodology defaults SHALL be frozen for v1
+The system SHALL freeze v1 methodology defaults before endpoint implementation: default windows `30`, `90`, `252`; default return basis `simple` for baseline estimators unless explicitly declared otherwise; and default annualization basis `252` trading days for annualized metrics unless endpoint-level contract explicitly overrides it.
+
+#### Scenario: V1 estimator response includes frozen methodology contract fields
+- **WHEN** a v1 risk estimator response is successful
+- **THEN** methodology metadata includes `estimator_id`, `window_days`, `return_basis`, `annualization_basis.kind`, `annualization_basis.value`, and `as_of_timestamp`
+- **THEN** `window_days` is one of `30`, `90`, or `252` unless a later approved capability expands the set
+- **THEN** `return_basis` is explicit (`simple` or `log`) and is never implied by frontend behavior
+
 ### Requirement: Portfolio risk estimators SHALL follow approved baseline method patterns for v1
 The system SHALL implement baseline v1 estimators with approved pandas/NumPy/SciPy patterns and maintain deterministic behavior for default windows `30`, `90`, and `252`.
 

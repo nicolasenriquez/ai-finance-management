@@ -3,7 +3,6 @@
   "generated_at_utc": "2026-03-25T19:34:35.244636Z",
   "source_provider": "yfinance",
   "required_portfolio_symbols": [
-    "AAPL",
     "AMD",
     "APLD",
     "BBAI",
@@ -25,7 +24,6 @@
     "VOO"
   ],
   "core_refresh_symbols": [
-    "AAPL",
     "AMD",
     "APLD",
     "BBAI",

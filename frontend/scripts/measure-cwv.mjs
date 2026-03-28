@@ -76,6 +76,227 @@ const lotDetailPayload = {
   ],
 };
 
+const transactionsPayload = {
+  as_of_ledger_at: "2026-03-24T01:00:00Z",
+  events: [
+    {
+      id: "trade:101",
+      posted_at: "2026-03-24T00:00:00Z",
+      instrument_symbol: "AAPL",
+      event_type: "buy",
+      quantity: "1.000000000",
+      cash_amount_usd: "250.00",
+    },
+    {
+      id: "dividend:51",
+      posted_at: "2026-03-22T00:00:00Z",
+      instrument_symbol: "VOO",
+      event_type: "dividend",
+      quantity: "0.000000000",
+      cash_amount_usd: "6.00",
+    },
+    {
+      id: "trade:99",
+      posted_at: "2026-03-20T00:00:00Z",
+      instrument_symbol: "VOO",
+      event_type: "sell",
+      quantity: "0.500000000",
+      cash_amount_usd: "180.00",
+    },
+  ],
+};
+
+const supportedChartPeriods = ["30D", "90D", "252D", "MAX"];
+const supportedRiskWindows = [30, 90, 252];
+
+const timeSeriesPayloadByPeriod = {
+  "30D": {
+    as_of_ledger_at: "2026-03-24T01:00:00Z",
+    period: "30D",
+    frequency: "1D",
+    timezone: "UTC",
+    points: [
+      { captured_at: "2026-03-19T00:00:00Z", portfolio_value_usd: "1830.00", pnl_usd: "0.00" },
+      { captured_at: "2026-03-20T00:00:00Z", portfolio_value_usd: "1850.00", pnl_usd: "20.00" },
+      { captured_at: "2026-03-21T00:00:00Z", portfolio_value_usd: "1872.00", pnl_usd: "42.00" },
+      { captured_at: "2026-03-22T00:00:00Z", portfolio_value_usd: "1905.00", pnl_usd: "75.00" },
+      { captured_at: "2026-03-23T00:00:00Z", portfolio_value_usd: "1975.00", pnl_usd: "145.00" },
+      { captured_at: "2026-03-24T00:00:00Z", portfolio_value_usd: "2020.00", pnl_usd: "190.00" },
+    ],
+  },
+  "90D": {
+    as_of_ledger_at: "2026-03-24T01:00:00Z",
+    period: "90D",
+    frequency: "1D",
+    timezone: "UTC",
+    points: [
+      { captured_at: "2026-02-24T00:00:00Z", portfolio_value_usd: "1685.00", pnl_usd: "-45.00" },
+      { captured_at: "2026-03-03T00:00:00Z", portfolio_value_usd: "1730.00", pnl_usd: "0.00" },
+      { captured_at: "2026-03-10T00:00:00Z", portfolio_value_usd: "1782.00", pnl_usd: "52.00" },
+      { captured_at: "2026-03-17T00:00:00Z", portfolio_value_usd: "1895.00", pnl_usd: "165.00" },
+      { captured_at: "2026-03-24T00:00:00Z", portfolio_value_usd: "2020.00", pnl_usd: "290.00" },
+    ],
+  },
+  "252D": {
+    as_of_ledger_at: "2026-03-24T01:00:00Z",
+    period: "252D",
+    frequency: "1D",
+    timezone: "UTC",
+    points: [
+      { captured_at: "2025-09-24T00:00:00Z", portfolio_value_usd: "1320.00", pnl_usd: "-120.00" },
+      { captured_at: "2025-12-24T00:00:00Z", portfolio_value_usd: "1505.00", pnl_usd: "65.00" },
+      { captured_at: "2026-01-24T00:00:00Z", portfolio_value_usd: "1620.00", pnl_usd: "180.00" },
+      { captured_at: "2026-02-24T00:00:00Z", portfolio_value_usd: "1760.00", pnl_usd: "320.00" },
+      { captured_at: "2026-03-24T00:00:00Z", portfolio_value_usd: "2020.00", pnl_usd: "580.00" },
+    ],
+  },
+  MAX: {
+    as_of_ledger_at: "2026-03-24T01:00:00Z",
+    period: "MAX",
+    frequency: "1D",
+    timezone: "UTC",
+    points: [
+      { captured_at: "2024-03-24T00:00:00Z", portfolio_value_usd: "940.00", pnl_usd: "-90.00" },
+      { captured_at: "2024-09-24T00:00:00Z", portfolio_value_usd: "1110.00", pnl_usd: "80.00" },
+      { captured_at: "2025-03-24T00:00:00Z", portfolio_value_usd: "1385.00", pnl_usd: "355.00" },
+      { captured_at: "2025-09-24T00:00:00Z", portfolio_value_usd: "1575.00", pnl_usd: "545.00" },
+      { captured_at: "2026-03-24T00:00:00Z", portfolio_value_usd: "2020.00", pnl_usd: "990.00" },
+    ],
+  },
+};
+
+const contributionPayloadByPeriod = {
+  "30D": {
+    as_of_ledger_at: "2026-03-24T01:00:00Z",
+    period: "30D",
+    rows: [
+      { instrument_symbol: "AAPL", contribution_pnl_usd: "110.00", contribution_pct: "5.44" },
+      { instrument_symbol: "VOO", contribution_pnl_usd: "60.00", contribution_pct: "2.97" },
+      { instrument_symbol: "MSFT", contribution_pnl_usd: "20.00", contribution_pct: "0.99" },
+    ],
+  },
+  "90D": {
+    as_of_ledger_at: "2026-03-24T01:00:00Z",
+    period: "90D",
+    rows: [
+      { instrument_symbol: "AAPL", contribution_pnl_usd: "150.00", contribution_pct: "7.43" },
+      { instrument_symbol: "VOO", contribution_pnl_usd: "105.00", contribution_pct: "5.20" },
+      { instrument_symbol: "MSFT", contribution_pnl_usd: "35.00", contribution_pct: "1.73" },
+    ],
+  },
+  "252D": {
+    as_of_ledger_at: "2026-03-24T01:00:00Z",
+    period: "252D",
+    rows: [
+      { instrument_symbol: "AAPL", contribution_pnl_usd: "320.00", contribution_pct: "15.84" },
+      { instrument_symbol: "VOO", contribution_pnl_usd: "190.00", contribution_pct: "9.41" },
+      { instrument_symbol: "MSFT", contribution_pnl_usd: "70.00", contribution_pct: "3.47" },
+    ],
+  },
+  MAX: {
+    as_of_ledger_at: "2026-03-24T01:00:00Z",
+    period: "MAX",
+    rows: [
+      { instrument_symbol: "AAPL", contribution_pnl_usd: "540.00", contribution_pct: "26.73" },
+      { instrument_symbol: "VOO", contribution_pnl_usd: "330.00", contribution_pct: "16.34" },
+      { instrument_symbol: "MSFT", contribution_pnl_usd: "120.00", contribution_pct: "5.94" },
+    ],
+  },
+};
+
+const riskPayloadByWindowDays = {
+  30: {
+    as_of_ledger_at: "2026-03-24T01:00:00Z",
+    window_days: 30,
+    metrics: [
+      {
+        estimator_id: "annualized_volatility",
+        value: "0.1625",
+        window_days: 30,
+        return_basis: "simple",
+        annualization_basis: { kind: "trading_days", value: 252 },
+        as_of_timestamp: "2026-03-24T00:00:00Z",
+      },
+      {
+        estimator_id: "max_drawdown",
+        value: "-0.0810",
+        window_days: 30,
+        return_basis: "simple",
+        annualization_basis: { kind: "trading_days", value: 252 },
+        as_of_timestamp: "2026-03-24T00:00:00Z",
+      },
+      {
+        estimator_id: "beta",
+        value: "1.0420",
+        window_days: 30,
+        return_basis: "simple",
+        annualization_basis: { kind: "trading_days", value: 252 },
+        as_of_timestamp: "2026-03-24T00:00:00Z",
+      },
+    ],
+  },
+  90: {
+    as_of_ledger_at: "2026-03-24T01:00:00Z",
+    window_days: 90,
+    metrics: [
+      {
+        estimator_id: "annualized_volatility",
+        value: "0.1740",
+        window_days: 90,
+        return_basis: "simple",
+        annualization_basis: { kind: "trading_days", value: 252 },
+        as_of_timestamp: "2026-03-24T00:00:00Z",
+      },
+      {
+        estimator_id: "max_drawdown",
+        value: "-0.1245",
+        window_days: 90,
+        return_basis: "simple",
+        annualization_basis: { kind: "trading_days", value: 252 },
+        as_of_timestamp: "2026-03-24T00:00:00Z",
+      },
+      {
+        estimator_id: "beta",
+        value: "1.0180",
+        window_days: 90,
+        return_basis: "simple",
+        annualization_basis: { kind: "trading_days", value: 252 },
+        as_of_timestamp: "2026-03-24T00:00:00Z",
+      },
+    ],
+  },
+  252: {
+    as_of_ledger_at: "2026-03-24T01:00:00Z",
+    window_days: 252,
+    metrics: [
+      {
+        estimator_id: "annualized_volatility",
+        value: "0.1890",
+        window_days: 252,
+        return_basis: "simple",
+        annualization_basis: { kind: "trading_days", value: 252 },
+        as_of_timestamp: "2026-03-24T00:00:00Z",
+      },
+      {
+        estimator_id: "max_drawdown",
+        value: "-0.2015",
+        window_days: 252,
+        return_basis: "simple",
+        annualization_basis: { kind: "trading_days", value: 252 },
+        as_of_timestamp: "2026-03-24T00:00:00Z",
+      },
+      {
+        estimator_id: "beta",
+        value: "0.9950",
+        window_days: 252,
+        return_basis: "simple",
+        annualization_basis: { kind: "trading_days", value: 252 },
+        as_of_timestamp: "2026-03-24T00:00:00Z",
+      },
+    ],
+  },
+};
+
 const mimeByExtension = {
   ".css": "text/css; charset=utf-8",
   ".html": "text/html; charset=utf-8",
@@ -178,6 +399,68 @@ async function serveRequest(request, response) {
     return;
   }
 
+  if (pathname === "/api/portfolio/time-series") {
+    const requestedPeriod = (requestUrl.searchParams.get("period") || "30D").toUpperCase();
+    if (!supportedChartPeriods.includes(requestedPeriod)) {
+      response.writeHead(422, {
+        "Content-Type": mimeByExtension[".json"],
+        "Cache-Control": "no-store",
+      });
+      response.end(JSON.stringify({ detail: `Unsupported chart period '${requestedPeriod}'.` }));
+      return;
+    }
+
+    response.writeHead(200, {
+      "Content-Type": mimeByExtension[".json"],
+      "Cache-Control": "no-store",
+    });
+    response.end(JSON.stringify(timeSeriesPayloadByPeriod[requestedPeriod]));
+    return;
+  }
+
+  if (pathname === "/api/portfolio/contribution") {
+    const requestedPeriod = (requestUrl.searchParams.get("period") || "30D").toUpperCase();
+    if (!supportedChartPeriods.includes(requestedPeriod)) {
+      response.writeHead(422, {
+        "Content-Type": mimeByExtension[".json"],
+        "Cache-Control": "no-store",
+      });
+      response.end(JSON.stringify({ detail: `Unsupported chart period '${requestedPeriod}'.` }));
+      return;
+    }
+
+    response.writeHead(200, {
+      "Content-Type": mimeByExtension[".json"],
+      "Cache-Control": "no-store",
+    });
+    response.end(JSON.stringify(contributionPayloadByPeriod[requestedPeriod]));
+    return;
+  }
+
+  if (pathname === "/api/portfolio/risk-estimators") {
+    const requestedWindow = Number.parseInt(
+      requestUrl.searchParams.get("window_days") || "252",
+      10,
+    );
+    if (!supportedRiskWindows.includes(requestedWindow)) {
+      response.writeHead(422, {
+        "Content-Type": mimeByExtension[".json"],
+        "Cache-Control": "no-store",
+      });
+      response.end(
+        JSON.stringify({ detail: `Unsupported risk estimator window '${requestedWindow}'.` }),
+      );
+      return;
+    }
+
+    response.writeHead(200, {
+      "Content-Type": mimeByExtension[".json"],
+      "Cache-Control": "no-store",
+    });
+    response.end(JSON.stringify(riskPayloadByWindowDays[requestedWindow]));
+    return;
+  }
+
   if (pathname.startsWith("/api/portfolio/lots/")) {
     const symbol = decodeURIComponent(pathname.slice("/api/portfolio/lots/".length))
       .trim()
@@ -200,6 +483,15 @@ async function serveRequest(request, response) {
         detail: `Instrument ${symbol} was not found in the portfolio ledger.`,
       }),
     );
+    return;
+  }
+
+  if (pathname === "/api/portfolio/transactions") {
+    response.writeHead(200, {
+      "Content-Type": mimeByExtension[".json"],
+      "Cache-Control": "no-store",
+    });
+    response.end(JSON.stringify(transactionsPayload));
     return;
   }
 
@@ -370,14 +662,22 @@ async function main() {
   let browser;
 
   let measuredAt;
-  let summaryRouteRuns;
-  let lotDetailRouteRuns;
+  const measuredRoutes = [
+    "/portfolio",
+    "/portfolio/VOO",
+    "/portfolio/home?period=30D",
+    "/portfolio/analytics?period=90D",
+    "/portfolio/risk?period=252D",
+    "/portfolio/transactions",
+  ];
+  const routeRunsByPath = {};
   try {
     browser = await chromium.launch({ headless: true });
 
     measuredAt = new Date().toISOString();
-    summaryRouteRuns = await collectRouteRuns(browser, baseUrl, "/portfolio");
-    lotDetailRouteRuns = await collectRouteRuns(browser, baseUrl, "/portfolio/VOO");
+    for (const routePath of measuredRoutes) {
+      routeRunsByPath[routePath] = await collectRouteRuns(browser, baseUrl, routePath);
+    }
   } finally {
     if (browser) {
       await browser.close();
@@ -385,28 +685,25 @@ async function main() {
     await closeServer(server);
   }
 
-  const summaryRoute = summarizeRuns(summaryRouteRuns);
-  const lotDetailRoute = summarizeRuns(lotDetailRouteRuns);
-  const overallPass =
-    summaryRoute.verdict.clsPass &&
-    summaryRoute.verdict.inpPass &&
-    summaryRoute.verdict.lcpPass &&
-    lotDetailRoute.verdict.clsPass &&
-    lotDetailRoute.verdict.inpPass &&
-    lotDetailRoute.verdict.lcpPass;
+  const routeResults = {};
+  for (const routePath of measuredRoutes) {
+    const runs = routeRunsByPath[routePath];
+    routeResults[routePath] = {
+      ...summarizeRuns(runs),
+      runs,
+    };
+  }
+
+  const overallPass = Object.values(routeResults).every(
+    (routeResult) =>
+      routeResult.verdict.clsPass &&
+      routeResult.verdict.inpPass &&
+      routeResult.verdict.lcpPass,
+  );
 
   const report = {
     measuredAt,
-    routeResults: {
-      "/portfolio": {
-        ...summaryRoute,
-        runs: summaryRouteRuns,
-      },
-      "/portfolio/VOO": {
-        ...lotDetailRoute,
-        runs: lotDetailRouteRuns,
-      },
-    },
+    routeResults,
     runsPerRoute: RUNS_PER_ROUTE,
     thresholds,
     tool: "playwright-performance-observer",
@@ -430,10 +727,9 @@ async function main() {
           "frontend",
           `cwv-report-${formatIsoDateForFile(measuredAt)}.json`,
         ),
-        routeP75: {
-          "/portfolio": summaryRoute.p75,
-          "/portfolio/VOO": lotDetailRoute.p75,
-        },
+        routeP75: Object.fromEntries(
+          measuredRoutes.map((routePath) => [routePath, routeResults[routePath].p75]),
+        ),
         thresholds,
         baseUrl,
         overallPass,

@@ -81,6 +81,227 @@ const lotDetailPayload = {
   ],
 };
 
+const transactionsPayload = {
+  as_of_ledger_at: "2026-03-24T01:00:00Z",
+  events: [
+    {
+      id: "trade:101",
+      posted_at: "2026-03-24T00:00:00Z",
+      instrument_symbol: "AAPL",
+      event_type: "buy",
+      quantity: "1.000000000",
+      cash_amount_usd: "250.00",
+    },
+    {
+      id: "dividend:51",
+      posted_at: "2026-03-22T00:00:00Z",
+      instrument_symbol: "VOO",
+      event_type: "dividend",
+      quantity: "0.000000000",
+      cash_amount_usd: "6.00",
+    },
+    {
+      id: "trade:99",
+      posted_at: "2026-03-20T00:00:00Z",
+      instrument_symbol: "VOO",
+      event_type: "sell",
+      quantity: "0.500000000",
+      cash_amount_usd: "180.00",
+    },
+  ],
+};
+
+const supportedChartPeriods = ["30D", "90D", "252D", "MAX"];
+const supportedRiskWindows = [30, 90, 252];
+
+const timeSeriesPayloadByPeriod = {
+  "30D": {
+    as_of_ledger_at: "2026-03-24T01:00:00Z",
+    period: "30D",
+    frequency: "1D",
+    timezone: "UTC",
+    points: [
+      { captured_at: "2026-03-19T00:00:00Z", portfolio_value_usd: "1830.00", pnl_usd: "0.00" },
+      { captured_at: "2026-03-20T00:00:00Z", portfolio_value_usd: "1850.00", pnl_usd: "20.00" },
+      { captured_at: "2026-03-21T00:00:00Z", portfolio_value_usd: "1872.00", pnl_usd: "42.00" },
+      { captured_at: "2026-03-22T00:00:00Z", portfolio_value_usd: "1905.00", pnl_usd: "75.00" },
+      { captured_at: "2026-03-23T00:00:00Z", portfolio_value_usd: "1975.00", pnl_usd: "145.00" },
+      { captured_at: "2026-03-24T00:00:00Z", portfolio_value_usd: "2020.00", pnl_usd: "190.00" },
+    ],
+  },
+  "90D": {
+    as_of_ledger_at: "2026-03-24T01:00:00Z",
+    period: "90D",
+    frequency: "1D",
+    timezone: "UTC",
+    points: [
+      { captured_at: "2026-02-24T00:00:00Z", portfolio_value_usd: "1685.00", pnl_usd: "-45.00" },
+      { captured_at: "2026-03-03T00:00:00Z", portfolio_value_usd: "1730.00", pnl_usd: "0.00" },
+      { captured_at: "2026-03-10T00:00:00Z", portfolio_value_usd: "1782.00", pnl_usd: "52.00" },
+      { captured_at: "2026-03-17T00:00:00Z", portfolio_value_usd: "1895.00", pnl_usd: "165.00" },
+      { captured_at: "2026-03-24T00:00:00Z", portfolio_value_usd: "2020.00", pnl_usd: "290.00" },
+    ],
+  },
+  "252D": {
+    as_of_ledger_at: "2026-03-24T01:00:00Z",
+    period: "252D",
+    frequency: "1D",
+    timezone: "UTC",
+    points: [
+      { captured_at: "2025-09-24T00:00:00Z", portfolio_value_usd: "1320.00", pnl_usd: "-120.00" },
+      { captured_at: "2025-12-24T00:00:00Z", portfolio_value_usd: "1505.00", pnl_usd: "65.00" },
+      { captured_at: "2026-01-24T00:00:00Z", portfolio_value_usd: "1620.00", pnl_usd: "180.00" },
+      { captured_at: "2026-02-24T00:00:00Z", portfolio_value_usd: "1760.00", pnl_usd: "320.00" },
+      { captured_at: "2026-03-24T00:00:00Z", portfolio_value_usd: "2020.00", pnl_usd: "580.00" },
+    ],
+  },
+  MAX: {
+    as_of_ledger_at: "2026-03-24T01:00:00Z",
+    period: "MAX",
+    frequency: "1D",
+    timezone: "UTC",
+    points: [
+      { captured_at: "2024-03-24T00:00:00Z", portfolio_value_usd: "940.00", pnl_usd: "-90.00" },
+      { captured_at: "2024-09-24T00:00:00Z", portfolio_value_usd: "1110.00", pnl_usd: "80.00" },
+      { captured_at: "2025-03-24T00:00:00Z", portfolio_value_usd: "1385.00", pnl_usd: "355.00" },
+      { captured_at: "2025-09-24T00:00:00Z", portfolio_value_usd: "1575.00", pnl_usd: "545.00" },
+      { captured_at: "2026-03-24T00:00:00Z", portfolio_value_usd: "2020.00", pnl_usd: "990.00" },
+    ],
+  },
+};
+
+const contributionPayloadByPeriod = {
+  "30D": {
+    as_of_ledger_at: "2026-03-24T01:00:00Z",
+    period: "30D",
+    rows: [
+      { instrument_symbol: "AAPL", contribution_pnl_usd: "110.00", contribution_pct: "5.44" },
+      { instrument_symbol: "VOO", contribution_pnl_usd: "60.00", contribution_pct: "2.97" },
+      { instrument_symbol: "MSFT", contribution_pnl_usd: "20.00", contribution_pct: "0.99" },
+    ],
+  },
+  "90D": {
+    as_of_ledger_at: "2026-03-24T01:00:00Z",
+    period: "90D",
+    rows: [
+      { instrument_symbol: "AAPL", contribution_pnl_usd: "150.00", contribution_pct: "7.43" },
+      { instrument_symbol: "VOO", contribution_pnl_usd: "105.00", contribution_pct: "5.20" },
+      { instrument_symbol: "MSFT", contribution_pnl_usd: "35.00", contribution_pct: "1.73" },
+    ],
+  },
+  "252D": {
+    as_of_ledger_at: "2026-03-24T01:00:00Z",
+    period: "252D",
+    rows: [
+      { instrument_symbol: "AAPL", contribution_pnl_usd: "320.00", contribution_pct: "15.84" },
+      { instrument_symbol: "VOO", contribution_pnl_usd: "190.00", contribution_pct: "9.41" },
+      { instrument_symbol: "MSFT", contribution_pnl_usd: "70.00", contribution_pct: "3.47" },
+    ],
+  },
+  MAX: {
+    as_of_ledger_at: "2026-03-24T01:00:00Z",
+    period: "MAX",
+    rows: [
+      { instrument_symbol: "AAPL", contribution_pnl_usd: "540.00", contribution_pct: "26.73" },
+      { instrument_symbol: "VOO", contribution_pnl_usd: "330.00", contribution_pct: "16.34" },
+      { instrument_symbol: "MSFT", contribution_pnl_usd: "120.00", contribution_pct: "5.94" },
+    ],
+  },
+};
+
+const riskPayloadByWindowDays = {
+  30: {
+    as_of_ledger_at: "2026-03-24T01:00:00Z",
+    window_days: 30,
+    metrics: [
+      {
+        estimator_id: "annualized_volatility",
+        value: "0.1625",
+        window_days: 30,
+        return_basis: "simple",
+        annualization_basis: { kind: "trading_days", value: 252 },
+        as_of_timestamp: "2026-03-24T00:00:00Z",
+      },
+      {
+        estimator_id: "max_drawdown",
+        value: "-0.0810",
+        window_days: 30,
+        return_basis: "simple",
+        annualization_basis: { kind: "trading_days", value: 252 },
+        as_of_timestamp: "2026-03-24T00:00:00Z",
+      },
+      {
+        estimator_id: "beta",
+        value: "1.0420",
+        window_days: 30,
+        return_basis: "simple",
+        annualization_basis: { kind: "trading_days", value: 252 },
+        as_of_timestamp: "2026-03-24T00:00:00Z",
+      },
+    ],
+  },
+  90: {
+    as_of_ledger_at: "2026-03-24T01:00:00Z",
+    window_days: 90,
+    metrics: [
+      {
+        estimator_id: "annualized_volatility",
+        value: "0.1740",
+        window_days: 90,
+        return_basis: "simple",
+        annualization_basis: { kind: "trading_days", value: 252 },
+        as_of_timestamp: "2026-03-24T00:00:00Z",
+      },
+      {
+        estimator_id: "max_drawdown",
+        value: "-0.1245",
+        window_days: 90,
+        return_basis: "simple",
+        annualization_basis: { kind: "trading_days", value: 252 },
+        as_of_timestamp: "2026-03-24T00:00:00Z",
+      },
+      {
+        estimator_id: "beta",
+        value: "1.0180",
+        window_days: 90,
+        return_basis: "simple",
+        annualization_basis: { kind: "trading_days", value: 252 },
+        as_of_timestamp: "2026-03-24T00:00:00Z",
+      },
+    ],
+  },
+  252: {
+    as_of_ledger_at: "2026-03-24T01:00:00Z",
+    window_days: 252,
+    metrics: [
+      {
+        estimator_id: "annualized_volatility",
+        value: "0.1890",
+        window_days: 252,
+        return_basis: "simple",
+        annualization_basis: { kind: "trading_days", value: 252 },
+        as_of_timestamp: "2026-03-24T00:00:00Z",
+      },
+      {
+        estimator_id: "max_drawdown",
+        value: "-0.2015",
+        window_days: 252,
+        return_basis: "simple",
+        annualization_basis: { kind: "trading_days", value: 252 },
+        as_of_timestamp: "2026-03-24T00:00:00Z",
+      },
+      {
+        estimator_id: "beta",
+        value: "0.9950",
+        window_days: 252,
+        return_basis: "simple",
+        annualization_basis: { kind: "trading_days", value: 252 },
+        as_of_timestamp: "2026-03-24T00:00:00Z",
+      },
+    ],
+  },
+};
+
 const mimeByExtension = {
   ".css": "text/css; charset=utf-8",
   ".html": "text/html; charset=utf-8",
@@ -173,6 +394,68 @@ async function serveRequest(request, response) {
     return;
   }
 
+  if (pathname === "/api/portfolio/time-series") {
+    const requestedPeriod = (requestUrl.searchParams.get("period") || "30D").toUpperCase();
+    if (!supportedChartPeriods.includes(requestedPeriod)) {
+      response.writeHead(422, {
+        "Content-Type": mimeByExtension[".json"],
+        "Cache-Control": "no-store",
+      });
+      response.end(JSON.stringify({ detail: `Unsupported chart period '${requestedPeriod}'.` }));
+      return;
+    }
+
+    response.writeHead(200, {
+      "Content-Type": mimeByExtension[".json"],
+      "Cache-Control": "no-store",
+    });
+    response.end(JSON.stringify(timeSeriesPayloadByPeriod[requestedPeriod]));
+    return;
+  }
+
+  if (pathname === "/api/portfolio/contribution") {
+    const requestedPeriod = (requestUrl.searchParams.get("period") || "30D").toUpperCase();
+    if (!supportedChartPeriods.includes(requestedPeriod)) {
+      response.writeHead(422, {
+        "Content-Type": mimeByExtension[".json"],
+        "Cache-Control": "no-store",
+      });
+      response.end(JSON.stringify({ detail: `Unsupported chart period '${requestedPeriod}'.` }));
+      return;
+    }
+
+    response.writeHead(200, {
+      "Content-Type": mimeByExtension[".json"],
+      "Cache-Control": "no-store",
+    });
+    response.end(JSON.stringify(contributionPayloadByPeriod[requestedPeriod]));
+    return;
+  }
+
+  if (pathname === "/api/portfolio/risk-estimators") {
+    const requestedWindow = Number.parseInt(
+      requestUrl.searchParams.get("window_days") || "252",
+      10,
+    );
+    if (!supportedRiskWindows.includes(requestedWindow)) {
+      response.writeHead(422, {
+        "Content-Type": mimeByExtension[".json"],
+        "Cache-Control": "no-store",
+      });
+      response.end(
+        JSON.stringify({ detail: `Unsupported risk estimator window '${requestedWindow}'.` }),
+      );
+      return;
+    }
+
+    response.writeHead(200, {
+      "Content-Type": mimeByExtension[".json"],
+      "Cache-Control": "no-store",
+    });
+    response.end(JSON.stringify(riskPayloadByWindowDays[requestedWindow]));
+    return;
+  }
+
   if (pathname.startsWith("/api/portfolio/lots/")) {
     const symbol = decodeURIComponent(pathname.slice("/api/portfolio/lots/".length))
       .trim()
@@ -209,6 +492,15 @@ async function serveRequest(request, response) {
         detail: `Instrument ${symbol} was not found in the portfolio ledger.`,
       }),
     );
+    return;
+  }
+
+  if (pathname === "/api/portfolio/transactions") {
+    response.writeHead(200, {
+      "Content-Type": mimeByExtension[".json"],
+      "Cache-Control": "no-store",
+    });
+    response.end(JSON.stringify(transactionsPayload));
     return;
   }
 
@@ -542,6 +834,12 @@ async function runKeyboardWalkthrough(browser, baseUrl) {
     notFoundBackLinkFound: false,
     serverErrorRetryFound: false,
     serverErrorBackLinkFound: false,
+    workspaceAnalyticsTabFound: false,
+    workspaceAnalyticsTabNavigates: false,
+    workspaceRiskTabFound: false,
+    workspaceRiskTabNavigates: false,
+    workspaceTransactionsTabFound: false,
+    workspaceTransactionsTabNavigates: false,
   };
 
   await page.goto(`${baseUrl}/portfolio`, { waitUntil: "networkidle" });
@@ -606,6 +904,48 @@ async function runKeyboardWalkthrough(browser, baseUrl) {
   );
   report.serverErrorBackLinkFound = serverErrorBackLink.found;
 
+  await page.goto(`${baseUrl}/portfolio/home`, { waitUntil: "networkidle" });
+  await page.waitForSelector("text=Portfolio command home");
+
+  const analyticsTab = await tabUntil(
+    page,
+    (activeElement) => activeElement.label === "Analytics",
+  );
+  report.workspaceAnalyticsTabFound = analyticsTab.found;
+  if (analyticsTab.found) {
+    await Promise.all([
+      page.waitForURL(new RegExp(`${baseUrl}/portfolio/analytics`), { timeout: 4000 }),
+      page.keyboard.press("Enter"),
+    ]);
+    report.workspaceAnalyticsTabNavigates = true;
+  }
+
+  const riskTab = await tabUntil(
+    page,
+    (activeElement) => activeElement.label === "Risk",
+  );
+  report.workspaceRiskTabFound = riskTab.found;
+  if (riskTab.found) {
+    await Promise.all([
+      page.waitForURL(new RegExp(`${baseUrl}/portfolio/risk`), { timeout: 4000 }),
+      page.keyboard.press("Enter"),
+    ]);
+    report.workspaceRiskTabNavigates = true;
+  }
+
+  const transactionsTab = await tabUntil(
+    page,
+    (activeElement) => activeElement.label === "Transactions",
+  );
+  report.workspaceTransactionsTabFound = transactionsTab.found;
+  if (transactionsTab.found) {
+    await Promise.all([
+      page.waitForURL(new RegExp(`${baseUrl}/portfolio/transactions`), { timeout: 4000 }),
+      page.keyboard.press("Enter"),
+    ]);
+    report.workspaceTransactionsTabNavigates = true;
+  }
+
   await context.close();
   return report;
 }
@@ -633,8 +973,8 @@ async function writeAccessibilityMarkdown({
 ## Method
 
 - Tooling: Playwright Chromium + DOM semantic checks + explicit role inventory.
-- Scope: \`/portfolio\`, \`/portfolio/VOO\`, \`/portfolio/UNKNOWN\`, \`/portfolio/ERR500\`.
-- Focus: landmark/heading structure, interactive naming, keyboard-row semantics, and error-banner role mapping.
+- Scope: \`/portfolio\`, \`/portfolio/VOO\`, \`/portfolio/UNKNOWN\`, \`/portfolio/ERR500\`, \`/portfolio/home\`, \`/portfolio/analytics\`, \`/portfolio/risk\`, \`/portfolio/transactions\`.
+- Focus: landmark/heading structure, interactive naming, keyboard-row semantics, workspace navigation tabs, and error-banner role mapping.
 
 ## Route Results
 
@@ -647,7 +987,7 @@ ${routeRows}
 - \`1.3.1 Info and Relationships\`: verified main landmark and heading structure per route.
 - \`2.4.7 Focus Visible\`: paired with keyboard walkthrough evidence in \`docs/evidence/frontend/keyboard-walkthrough-${dateLabel}.md\`.
 - \`3.3.1 Error Identification\`: verified dedicated \`status\` (\`404\`) and \`alert\` (\`500\`) banners.
-- \`4.1.2 Name, Role, Value\`: verified button/link naming and interactive summary row semantics.
+- \`4.1.2 Name, Role, Value\`: verified button/link naming, interactive summary row semantics, and workspace-tab semantics.
 
 ## Raw Evidence
 
@@ -672,6 +1012,7 @@ async function writeKeyboardMarkdown({
 ## Scope
 
 - Routes: \`/portfolio\`, \`/portfolio/VOO\`, \`/portfolio/UNKNOWN\`, \`/portfolio/ERR500\`
+- Workspace routes: \`/portfolio/home\`, \`/portfolio/analytics\`, \`/portfolio/risk\`, \`/portfolio/transactions\`
 - Viewport: desktop \`1440x900\`
 - Source: automated tab-sequence and keyboard activation checks via Playwright
 
@@ -685,6 +1026,12 @@ async function writeKeyboardMarkdown({
 - 404 screen back link is keyboard-reachable: \`${toPassFail(keyboardReport.notFoundBackLinkFound)}\`
 - 500 screen retry button is keyboard-reachable: \`${toPassFail(keyboardReport.serverErrorRetryFound)}\`
 - 500 screen back link is keyboard-reachable: \`${toPassFail(keyboardReport.serverErrorBackLinkFound)}\`
+- Workspace analytics tab is keyboard-reachable: \`${toPassFail(keyboardReport.workspaceAnalyticsTabFound)}\`
+- Enter on analytics tab navigates to analytics route: \`${toPassFail(keyboardReport.workspaceAnalyticsTabNavigates)}\`
+- Workspace risk tab is keyboard-reachable: \`${toPassFail(keyboardReport.workspaceRiskTabFound)}\`
+- Enter on risk tab navigates to risk route: \`${toPassFail(keyboardReport.workspaceRiskTabNavigates)}\`
+- Workspace transactions tab is keyboard-reachable: \`${toPassFail(keyboardReport.workspaceTransactionsTabFound)}\`
+- Enter on transactions tab navigates to transactions route: \`${toPassFail(keyboardReport.workspaceTransactionsTabNavigates)}\`
 
 ## Summary Tab Sequence (first 8 focus stops)
 
@@ -787,6 +1134,38 @@ async function main() {
         theme: "dark",
         fullPage: true,
       },
+      {
+        fileName: "workspace-home.png",
+        routePath: "/portfolio/home?period=30D",
+        viewport: { width: 1440, height: 900 },
+        waitForSelector: "text=Portfolio command home",
+        theme: "dark",
+        fullPage: true,
+      },
+      {
+        fileName: "workspace-analytics.png",
+        routePath: "/portfolio/analytics?period=90D",
+        viewport: { width: 1440, height: 900 },
+        waitForSelector: "text=Performance and contribution analytics",
+        theme: "dark",
+        fullPage: true,
+      },
+      {
+        fileName: "workspace-risk.png",
+        routePath: "/portfolio/risk?period=252D",
+        viewport: { width: 1440, height: 900 },
+        waitForSelector: "text=Bounded estimator workspace",
+        theme: "dark",
+        fullPage: true,
+      },
+      {
+        fileName: "workspace-transactions.png",
+        routePath: "/portfolio/transactions",
+        viewport: { width: 1440, height: 900 },
+        waitForSelector: "text=Ledger event history",
+        theme: "dark",
+        fullPage: true,
+      },
     ];
 
     for (const screenshotSpec of screenshotSpecs) {
@@ -808,24 +1187,30 @@ async function main() {
       "/portfolio/VOO",
       "/portfolio/UNKNOWN",
       "/portfolio/ERR500",
+      "/portfolio/home?period=30D",
+      "/portfolio/analytics?period=90D",
+      "/portfolio/risk?period=252D",
+      "/portfolio/transactions",
     ];
+    const routeSelectorByPath = {
+      "/portfolio": "text=Portfolio summary",
+      "/portfolio/VOO": "text=Disposition history",
+      "/portfolio/UNKNOWN": "text=Instrument not found",
+      "/portfolio/ERR500": "text=Lot detail unavailable",
+      "/portfolio/home?period=30D": "text=Portfolio command home",
+      "/portfolio/analytics?period=90D": "text=Performance and contribution analytics",
+      "/portfolio/risk?period=252D": "text=Bounded estimator workspace",
+      "/portfolio/transactions": "text=Ledger event history",
+    };
     for (const routePath of accessibilityRoutes) {
       const context = await browser.newContext({
         viewport: { width: 1440, height: 900 },
       });
       const page = await context.newPage();
       await page.goto(`${baseUrl}${routePath}`, { waitUntil: "networkidle" });
-      if (routePath === "/portfolio") {
-        await page.waitForSelector("text=Portfolio summary");
-      }
-      if (routePath === "/portfolio/VOO") {
-        await page.waitForSelector("text=Disposition history");
-      }
-      if (routePath === "/portfolio/UNKNOWN") {
-        await page.waitForSelector("text=Instrument not found");
-      }
-      if (routePath === "/portfolio/ERR500") {
-        await page.waitForSelector("text=Lot detail unavailable");
+      const waitSelector = routeSelectorByPath[routePath];
+      if (waitSelector) {
+        await page.waitForSelector(waitSelector);
       }
       accessibilityAudits.push(
         await collectRouteAccessibilityAudit(page, routePath),
@@ -896,6 +1281,10 @@ async function main() {
       "lot-detail-disposition-history.png",
       "lot-detail-not-found-404.png",
       "lot-detail-server-error-500.png",
+      "workspace-home.png",
+      "workspace-analytics.png",
+      "workspace-risk.png",
+      "workspace-transactions.png",
     ].map((fileName) =>
       toPosixRelativeRepoPath(path.join(screenshotRoot, fileName)),
     );

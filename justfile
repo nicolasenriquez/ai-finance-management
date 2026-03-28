@@ -665,7 +665,7 @@ test-integration: test-db-upgrade
       test_url="${test_url#\'}"
     fi
 
-    DATABASE_URL="$test_url" uv run pytest -v -m "integration and not market_scope_heavy"
+    ALLOW_INTEGRATION_DB_MUTATION=1 DATABASE_URL="$test_url" uv run pytest -v -m "integration and not market_scope_heavy"
 
 # Run optional manual soak integration tests only (full scope-100 refresh).
 test-integration-heavy-100: test-db-upgrade
@@ -681,7 +681,7 @@ test-integration-heavy-100: test-db-upgrade
       test_url="${test_url#\'}"
     fi
 
-    DATABASE_URL="$test_url" uv run pytest -v -m "integration and market_scope_heavy"
+    ALLOW_INTEGRATION_DB_MUTATION=1 DATABASE_URL="$test_url" uv run pytest -v -m "integration and market_scope_heavy"
 
 # Frontend unit tests.
 frontend-test:

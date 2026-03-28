@@ -2,177 +2,160 @@
 
 ## Purpose
 
-This guide translates the implemented analytics API into deterministic frontend behavior.
-It defines exactly how payloads become UI states, labels, tables, and drill-down interactions.
+This guide defines the implementation contract between backend portfolio APIs and frontend route behavior.
+It documents the current workspace-first IA, state mapping rules, and methodology metadata surfaced to users.
 
 ## API Endpoints
 
 - Summary: `GET /api/portfolio/summary`
 - Lot detail: `GET /api/portfolio/lots/{instrument_symbol}`
+- Time series: `GET /api/portfolio/time-series?period={30D|90D|252D|MAX}`
+- Contribution: `GET /api/portfolio/contribution?period={30D|90D|252D|MAX}`
+- Risk estimators: `GET /api/portfolio/risk-estimators?window_days={30|90|252}`
+
+## Route Information Architecture
+
+- `/portfolio`
+  - grouped summary table
+  - deterministic drill-down to lot detail
+- `/portfolio/:symbol`
+  - lot-level ledger detail + dispositions
+- `/portfolio/home`
+  - KPI cards + trend chart + deterministic drill-down links
+- `/portfolio/analytics`
+  - trend + contribution modules
+- `/portfolio/risk`
+  - estimator cards/charts + methodology metadata
+- `/portfolio/transactions`
+  - ledger-event-only table and filters (v1 scope)
 
 ## Environment And API Prefix Resolution
 
-- Route prefix is configuration-driven by backend `settings.api_prefix`.
-- Current default is `/api`.
-- Frontend should compose base URLs from environment config and must not hardcode host-specific absolute URLs.
+- Route prefix is backend-configured (`settings.api_prefix`), default `/api`.
+- Frontend composes relative API paths and must not hardcode host-specific URLs.
 
 ## Response Contracts
 
 ### Summary Response
-
-Shape:
 
 - `as_of_ledger_at: datetime`
 - `pricing_snapshot_key: str | null`
 - `pricing_snapshot_captured_at: datetime | null`
 - `rows: PortfolioSummaryRow[]`
 
-Row fields:
+Behavior notes:
 
-- `instrument_symbol`
-- `open_quantity`
-- `open_cost_basis_usd`
-- `open_lot_count`
-- `realized_proceeds_usd`
-- `realized_cost_basis_usd`
-- `realized_gain_usd`
-- `dividend_gross_usd`
-- `dividend_taxes_usd`
-- `dividend_net_usd`
-- `latest_close_price_usd`
-- `market_value_usd`
-- `unrealized_gain_usd`
-- `unrealized_gain_pct`
-
-Behavioral notes:
-
-- Symbols are deterministic and uppercase.
-- Summary rows are symbol-sorted.
-- Ledger KPIs are always present.
-- Market-enriched valuation fields are snapshot-derived and may be null for closed rows.
-- Summary valuation fields must come from one consistent persisted snapshot per response.
+- Symbols are canonical uppercase.
+- Rows are symbol-sorted deterministically.
+- Valuation fields are snapshot-derived and may be null on closed rows.
+- One consistent persisted snapshot must back one response.
 
 ### Lot Detail Response
-
-Shape:
 
 - `as_of_ledger_at: datetime`
 - `instrument_symbol: str`
 - `lots: PortfolioLotDetailRow[]`
 
-Lot fields:
+Behavior notes:
 
-- `lot_id`
-- `opened_on`
-- `original_qty`
-- `remaining_qty`
-- `total_cost_basis_usd`
-- `unit_cost_basis_usd`
-- `dispositions: LotDispositionDetail[]`
+- Input symbol may be mixed case; UI renders canonical uppercase output.
+- Not-found (`404`) remains explicit, never collapsed into empty.
 
-Disposition fields:
+### Time Series Response
 
-- `sell_transaction_id`
-- `disposition_date`
-- `matched_qty`
-- `matched_cost_basis_usd`
-- `sell_gross_amount_usd`
+- `as_of_ledger_at: datetime`
+- `period: 30D | 90D | 252D | MAX`
+- `frequency: str`
+- `timezone: str`
+- `points: [{ captured_at, portfolio_value_usd, pnl_usd }]`
 
-## Normalization And Formatting Rules
+Behavior notes:
 
-- Symbol:
-  - Input to lot detail may contain whitespace or mixed case.
-  - UI should render canonical uppercase symbol from response payload.
-- Quantity fields:
-  - Preserve up to 9 decimals.
-  - Trim only trailing zeros in compact contexts.
-- Money fields:
-  - Display in USD with 2 decimals.
-  - Do not infer FX conversions beyond payload contract.
-- Unrealized percentage:
-  - Display with 2 decimals plus `%`.
-- Datetime:
-  - Render `as_of_ledger_at` in user locale, with UTC option in tooltip.
+- Point order is deterministic (ascending by `captured_at`).
+- Frontend charts must use server payload values directly; no inferred synthetic rows.
+
+### Contribution Response
+
+- `as_of_ledger_at: datetime`
+- `period: 30D | 90D | 252D | MAX`
+- `rows: [{ instrument_symbol, contribution_pnl_usd, contribution_pct }]`
+
+Behavior notes:
+
+- Rows represent persisted-truth contribution outputs; frontend may sort for display but must keep numeric payload unchanged.
+
+### Risk Estimators Response
+
+- `as_of_ledger_at: datetime`
+- `window_days: 30 | 90 | 252`
+- `metrics: PortfolioRiskEstimatorMetric[]`
+
+Required per-metric methodology metadata:
+
+- `estimator_id`
+- `value`
+- `window_days`
+- `return_basis` (`simple` or `log`)
+- `annualization_basis.kind` (`trading_days`)
+- `annualization_basis.value` (default v1 basis `252`)
+- `as_of_timestamp`
+
+## Normalization And Validation Rules
+
+- Supported chart period enum is fixed to `30D`, `90D`, `252D`, `MAX`.
+- Unsupported period query values must be normalized client-side before API call; unsupported backend responses remain explicit errors.
+- Risk window mapping is deterministic:
+  - `30D -> 30`
+  - `90D -> 90`
+  - `252D -> 252`
+  - `MAX -> 252` (v1 bounded window contract)
+- Unsupported risk windows are explicit backend validation failures and must not silently downgrade.
 
 ## Numeric Handling And Precision Safety
 
-- Treat financial fields as decimals, not binary floating point primitives.
-- Do not use JavaScript `Number` for financial aggregation or equality checks.
-- Use one decimal-safe utility boundary for parse, compare, and format logic.
-- Preserve backend-provided values as source of truth for persisted KPIs.
-- If any client-side derived value is required, make rounding mode explicit and match backend policy.
-- Rounding policy by field type:
-  - quantity-like: 9 decimal places
-  - money-like: 2 decimal places
-- Formatting must not mutate underlying stored values used for calculations.
+- Treat financial values as decimal-safe strings at contract boundaries.
+- Do not use binary float math for money equality/aggregation logic.
+- Formatting rules:
+  - quantity-like: keep high precision; trim display-only trailing zeros where intended
+  - money-like: USD with 2 decimals
+  - percent-like: 2 decimals + `%`
 
-## UX State Model
+## UX State Mapping
 
-### Summary View States
+Each route must render explicit `loading`, `empty`, and `error` states:
 
-- `loading`: skeleton rows and timestamp placeholder
-- `ready`: table rendered with summary rows
-- `empty`: explicit "No portfolio ledger activity found"
-- `error`: explicit API error with retry action
-
-### Lot Detail View States
-
-- `loading`: lot row skeleton and symbol chip placeholder
-- `ready`: lots + disposition history
-- `not_found`: explicit unknown-symbol message (from 404)
-- `error`: explicit API error with retry
+- `/portfolio/home`
+  - empty when summary rows or trend points are empty
+- `/portfolio/analytics`
+  - empty when trend points or contribution rows are empty
+- `/portfolio/risk`
+  - empty when metrics are empty
+  - explicit warning variants for unsupported or insufficient scope
+- `/portfolio/transactions`
+  - empty when filtered ledger events are empty
 
 ## Error Handling Contract
 
-- Unknown symbol (`404`) must map to a not-found state, not a generic crash.
-- Validation/client failures (`4xx`) should show actionable and concise text.
-- Server failures (`5xx`) should show stable fallback UI with retry.
-- No silent fallback to stale or inferred values.
+- `404`: explicit not-found messaging (do not coerce to empty state)
+- `409`: explicit insufficient-history/scope messaging when backend rejects unsupported coverage
+- `422`: explicit validation error for unsupported period/window values
+- `5xx`: explicit transient error + retry action
 
-### API Error Matrix
+## Deferred Boundaries (v1)
 
-| Status | Typical Cause | UI State | User Copy Pattern | Action |
-| --- | --- | --- | --- | --- |
-| `404` | Symbol not found in persisted ledger | `not_found` | `Instrument {SYMBOL} was not found in the portfolio ledger.` | Provide "Back to Summary" and symbol search/edit affordance |
-| `422` | Invalid symbol input or unsafe client request shape | `error` | `The request could not be processed. Review the symbol format and try again.` | Keep user input visible and allow immediate retry |
-| `500` | Backend/database failure while serving analytics | `error` | `Portfolio analytics is temporarily unavailable. Please retry.` | Retry button + non-blocking support/debug hint |
+- `Transactions` route remains ledger-event-only.
+- Market-refresh diagnostics are intentionally deferred to an operator-facing follow-up and are out of v1 UX/API scope.
 
-Implementation notes:
+## Accessibility And Performance Evidence Requirements
 
-- Use backend `detail` text as primary error detail where safe for end users.
-- Keep message tone factual and concise.
-- Do not map all failures to a generic empty state.
-
-## Interaction Patterns
-
-- Summary row click and keyboard activation both open lot detail.
-- Lot detail includes "Back to summary" preserving prior table position if possible.
-- `as_of_ledger_at` appears in both summary and detail headers.
-- Table headers must provide sortable affordances only where backend semantics remain deterministic.
-
-## Recommended Information Architecture
-
-- `/portfolio`
-  - grouped summary table
-  - global as-of timestamp
-  - quick definitions for KPI columns
-- `/portfolio/:symbol`
-  - lot summary strip
-  - lots table
-  - nested or expandable dispositions
-
-## Anti-Patterns To Avoid
-
-- Inferring market-value or unrealized return from unsupported data.
-- Inferring pricing provenance not present in payload.
-- Hiding unknown-symbol failures behind empty lists.
-- Mutating raw API values in ways that change financial meaning.
-- Overloading the first view with charts before summary correctness is obvious.
-
-## Implementation Readiness Checklist
-
-- Response typing mirrors backend schemas exactly.
-- Decimal formatting utilities are centralized and tested.
-- Error mapping includes 404-specific behavior.
-- Accessibility labels exist for row actions and table context.
-- Each page surfaces `as_of_ledger_at`.
+- Keyboard navigation must cover summary row activation and workspace tab navigation.
+- Accessibility scan scope must include:
+  - `/portfolio`
+  - `/portfolio/VOO`
+  - `/portfolio/UNKNOWN`
+  - `/portfolio/ERR500`
+  - `/portfolio/home`
+  - `/portfolio/analytics`
+  - `/portfolio/risk`
+  - `/portfolio/transactions`
+- CWV evidence must include workspace routes (`home`, `analytics`, `risk`, `transactions`) plus portfolio baseline routes.

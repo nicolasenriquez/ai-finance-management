@@ -57,16 +57,20 @@ This checklist turns the frontend documentation pack into an execution gate for 
 
 ## Evidence Artifacts (Required)
 
-- [x] Desktop summary screenshot with `as_of_ledger_at` visible (`docs/evidence/frontend/screenshots-2026-03-24/desktop-summary-ledger-timestamp.png`)
-- [x] Desktop first-viewport screenshot showing title, timestamp, scope note, and primary action visible together (`docs/evidence/frontend/screenshots-2026-03-24/desktop-summary-first-viewport.png`)
-- [x] Desktop summary screenshot in dark theme (`docs/evidence/frontend/screenshots-2026-03-24/desktop-summary-dark-theme.png`)
-- [x] Mobile summary screenshot with responsive table behavior (`docs/evidence/frontend/screenshots-2026-03-24/mobile-summary-responsive.png`)
-- [x] Lot-detail screenshot showing disposition history (`docs/evidence/frontend/screenshots-2026-03-24/lot-detail-disposition-history.png`)
-- [x] 404 not-found state screenshot for unknown symbol (`docs/evidence/frontend/screenshots-2026-03-24/lot-detail-not-found-404.png`)
-- [x] 500 error state screenshot with retry affordance (`docs/evidence/frontend/screenshots-2026-03-24/lot-detail-server-error-500.png`)
-- [x] Keyboard walkthrough notes (tab order + focus visibility) (`docs/evidence/frontend/keyboard-walkthrough-2026-03-24.md`)
-- [x] Accessibility scan report (axe/Lighthouse or equivalent) (`docs/evidence/frontend/accessibility-scan-2026-03-24.md`)
-- [x] Performance report with LCP, INP, and CLS values (`docs/evidence/frontend/cwv-report-2026-03-24.md`)
+- [x] Desktop summary screenshot with `as_of_ledger_at` visible (`docs/evidence/frontend/screenshots-2026-03-28/desktop-summary-ledger-timestamp.png`)
+- [x] Desktop first-viewport screenshot showing title, timestamp, scope note, and primary action visible together (`docs/evidence/frontend/screenshots-2026-03-28/desktop-summary-first-viewport.png`)
+- [x] Desktop summary screenshot in dark theme (`docs/evidence/frontend/screenshots-2026-03-28/desktop-summary-dark-theme.png`)
+- [x] Mobile summary screenshot with responsive table behavior (`docs/evidence/frontend/screenshots-2026-03-28/mobile-summary-responsive.png`)
+- [x] Lot-detail screenshot showing disposition history (`docs/evidence/frontend/screenshots-2026-03-28/lot-detail-disposition-history.png`)
+- [x] 404 not-found state screenshot for unknown symbol (`docs/evidence/frontend/screenshots-2026-03-28/lot-detail-not-found-404.png`)
+- [x] 500 error state screenshot with retry affordance (`docs/evidence/frontend/screenshots-2026-03-28/lot-detail-server-error-500.png`)
+- [x] Workspace home screenshot (`docs/evidence/frontend/screenshots-2026-03-28/workspace-home.png`)
+- [x] Workspace analytics screenshot (`docs/evidence/frontend/screenshots-2026-03-28/workspace-analytics.png`)
+- [x] Workspace risk screenshot (`docs/evidence/frontend/screenshots-2026-03-28/workspace-risk.png`)
+- [x] Workspace transactions screenshot (`docs/evidence/frontend/screenshots-2026-03-28/workspace-transactions.png`)
+- [x] Keyboard walkthrough notes (tab order + focus visibility) (`docs/evidence/frontend/keyboard-walkthrough-2026-03-28.md`)
+- [x] Accessibility scan report (axe/Lighthouse or equivalent) (`docs/evidence/frontend/accessibility-scan-2026-03-28.md`)
+- [x] Performance report with LCP, INP, and CLS values (`docs/evidence/frontend/cwv-report-2026-03-28.md`)
 
 ## Review Questions Before Merge
 

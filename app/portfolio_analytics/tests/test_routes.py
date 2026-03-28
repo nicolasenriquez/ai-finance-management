@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Iterator, Mapping
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from importlib import import_module
 from types import ModuleType
@@ -15,6 +15,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
+import app.market_data.service as market_data_service
 import app.pdf_extraction.service as pdf_extraction_service
 import app.pdf_normalization.service as pdf_normalization_service
 import app.pdf_persistence.service as pdf_persistence_service
@@ -116,6 +117,32 @@ def _portfolio_lot_detail_route_template() -> str:
     return path_template
 
 
+def _portfolio_workspace_endpoint_path(*, suffix: str) -> str:
+    """Return one workspace endpoint path under configured API prefix."""
+
+    module = _load_portfolio_analytics_routes_module()
+    settings = getattr(module, "settings", None)
+    if settings is None:
+        pytest.fail(
+            "Fail-first baseline: app.portfolio_analytics.routes.settings is missing. "
+            "Task 3.1 should expose configured route settings.",
+        )
+
+    path = f"{settings.api_prefix}/portfolio/{suffix}"
+    registered_paths = {
+        route_path
+        for route in app.routes
+        for route_path in [getattr(route, "path", None)]
+        if isinstance(route_path, str)
+    }
+    if path not in registered_paths:
+        pytest.fail(
+            f"Fail-first baseline: portfolio route {path} is not registered in app.main. "
+            "Implement backend workspace tasks before this test can pass.",
+        )
+    return path
+
+
 def _assert_decimal_field(row: Mapping[str, object], field: str, expected: str) -> None:
     """Assert one numeric response field using stable Decimal comparison."""
 
@@ -147,6 +174,11 @@ def _patch_forbidden_upstream_calls(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(pdf_extraction_service, "extract_pdf_from_storage", _forbidden_call)
     monkeypatch.setattr(pdf_normalization_service, "normalize_pdf_from_storage", _forbidden_call)
     monkeypatch.setattr(pdf_persistence_service, "persist_pdf_from_storage", _forbidden_call)
+    monkeypatch.setattr(
+        market_data_service,
+        "refresh_yfinance_supported_universe",
+        _forbidden_call,
+    )
     monkeypatch.setattr(
         portfolio_ledger_service,
         "rebuild_portfolio_ledger_from_canonical_records",
@@ -184,6 +216,7 @@ async def _seed_persisted_ledger_state(
     engine: AsyncEngine,
     *,
     include_market_data: bool = True,
+    price_history_points: int = 1,
 ) -> None:
     """Insert deterministic persisted ledger rows used by analytics integration tests."""
 
@@ -476,6 +509,8 @@ async def _seed_persisted_ledger_state(
             )
         )
         if include_market_data:
+            if price_history_points < 1:
+                pytest.fail("price_history_points must be at least 1 for integration seeding.")
             market_snapshot = MarketDataSnapshot(
                 source_type="market_data_provider",
                 source_provider="yfinance",
@@ -485,26 +520,53 @@ async def _seed_persisted_ledger_state(
             )
             session.add(market_snapshot)
             await session.flush()
-            session.add_all(
-                (
-                    PriceHistory(
-                        snapshot_id=market_snapshot.id,
-                        instrument_symbol="AAPL",
-                        trading_date=date(2025, 2, 20),
-                        price_value=Decimal("190.00"),
-                        currency_code="USD",
-                        source_payload={"seed": True},
-                    ),
-                    PriceHistory(
-                        snapshot_id=market_snapshot.id,
-                        instrument_symbol="VOO",
-                        trading_date=date(2025, 2, 20),
-                        price_value=Decimal("105.00"),
-                        currency_code="USD",
-                        source_payload={"seed": True},
-                    ),
+            if price_history_points == 1:
+                session.add_all(
+                    (
+                        PriceHistory(
+                            snapshot_id=market_snapshot.id,
+                            instrument_symbol="AAPL",
+                            trading_date=date(2025, 2, 20),
+                            price_value=Decimal("190.00"),
+                            currency_code="USD",
+                            source_payload={"seed": True},
+                        ),
+                        PriceHistory(
+                            snapshot_id=market_snapshot.id,
+                            instrument_symbol="VOO",
+                            trading_date=date(2025, 2, 20),
+                            price_value=Decimal("105.00"),
+                            currency_code="USD",
+                            source_payload={"seed": True},
+                        ),
+                    )
                 )
-            )
+            else:
+                baseline_trading_date = date(2025, 1, 1)
+                generated_rows: list[PriceHistory] = []
+                for day_offset in range(price_history_points):
+                    trading_day = baseline_trading_date + timedelta(days=day_offset)
+                    generated_rows.append(
+                        PriceHistory(
+                            snapshot_id=market_snapshot.id,
+                            instrument_symbol="AAPL",
+                            trading_date=trading_day,
+                            price_value=Decimal("175.00") + Decimal(day_offset),
+                            currency_code="USD",
+                            source_payload={"seed": True, "series": "analytics"},
+                        )
+                    )
+                    generated_rows.append(
+                        PriceHistory(
+                            snapshot_id=market_snapshot.id,
+                            instrument_symbol="VOO",
+                            trading_date=trading_day,
+                            price_value=Decimal("95.00") + (Decimal(day_offset) * Decimal("0.5")),
+                            currency_code="USD",
+                            source_payload={"seed": True, "series": "analytics"},
+                        )
+                    )
+                session.add_all(generated_rows)
 
         await session.commit()
 
@@ -696,3 +758,359 @@ def test_lot_detail_endpoint_rejects_unknown_symbol_with_explicit_client_error(
     if not isinstance(detail, str):
         pytest.fail("Unknown-symbol response must include string 'detail'.")
     assert "not found" in detail.lower()
+
+
+@pytest.mark.integration
+def test_time_series_endpoint_returns_max_period_points_from_persisted_history(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    test_db_engine: AsyncEngine,
+) -> None:
+    """Time-series route should return deterministic MAX-period points with provenance."""
+
+    time_series_path = _portfolio_workspace_endpoint_path(suffix="time-series")
+    _patch_forbidden_upstream_calls(monkeypatch)
+    asyncio.run(_seed_persisted_ledger_state(test_db_engine, price_history_points=35))
+
+    response = client.get(
+        time_series_path,
+        params={"period": "MAX"},
+    )
+    assert response.status_code == 200
+
+    payload_raw = response.json()
+    if not isinstance(payload_raw, dict):
+        pytest.fail("Time-series response must be a JSON object.")
+    payload = cast(dict[str, object], payload_raw)
+    assert payload.get("period") == "MAX"
+    assert payload.get("frequency") == "1D"
+    assert payload.get("timezone") == "UTC"
+    as_of_ledger_at = payload.get("as_of_ledger_at")
+    assert isinstance(as_of_ledger_at, str)
+    assert as_of_ledger_at
+
+    points_raw = payload.get("points")
+    if not isinstance(points_raw, list):
+        pytest.fail("Time-series response must include a 'points' list.")
+    points = cast(list[object], points_raw)
+    assert len(points) == 35
+
+    captured_at_values: list[str] = []
+    for point_candidate in points:
+        if not isinstance(point_candidate, Mapping):
+            pytest.fail("Time-series points must be JSON objects.")
+        point = cast(Mapping[str, object], point_candidate)
+        captured_at = point.get("captured_at")
+        if not isinstance(captured_at, str):
+            pytest.fail("Time-series points must include string 'captured_at'.")
+        captured_at_values.append(captured_at)
+        _assert_decimal_field(
+            point, "portfolio_value_usd", str(Decimal(str(point["portfolio_value_usd"])))
+        )
+        _assert_decimal_field(point, "pnl_usd", str(Decimal(str(point["pnl_usd"]))))
+
+    assert captured_at_values == sorted(captured_at_values)
+
+
+@pytest.mark.integration
+def test_time_series_endpoint_rejects_unsupported_period_with_explicit_detail(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    test_db_engine: AsyncEngine,
+) -> None:
+    """Time-series route should reject unsupported chart periods with explicit detail."""
+
+    time_series_path = _portfolio_workspace_endpoint_path(suffix="time-series")
+    _patch_forbidden_upstream_calls(monkeypatch)
+    asyncio.run(_seed_persisted_ledger_state(test_db_engine, price_history_points=35))
+
+    response = client.get(
+        time_series_path,
+        params={"period": "45D"},
+    )
+    assert response.status_code == 422
+    payload_raw = response.json()
+    if not isinstance(payload_raw, dict):
+        pytest.fail("Unsupported-period response must be a JSON object.")
+    payload = cast(dict[str, object], payload_raw)
+    detail = payload.get("detail")
+    if not isinstance(detail, str):
+        pytest.fail("Unsupported-period response must include string 'detail'.")
+    assert "supported periods" in detail.lower()
+
+
+@pytest.mark.integration
+def test_contribution_endpoint_returns_symbol_breakdown_for_max_period(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    test_db_engine: AsyncEngine,
+) -> None:
+    """Contribution route should return per-symbol deterministic rows for MAX period."""
+
+    contribution_path = _portfolio_workspace_endpoint_path(suffix="contribution")
+    _patch_forbidden_upstream_calls(monkeypatch)
+    asyncio.run(_seed_persisted_ledger_state(test_db_engine, price_history_points=35))
+
+    response = client.get(
+        contribution_path,
+        params={"period": "MAX"},
+    )
+    assert response.status_code == 200
+
+    payload_raw = response.json()
+    if not isinstance(payload_raw, dict):
+        pytest.fail("Contribution response must be a JSON object.")
+    payload = cast(dict[str, object], payload_raw)
+    assert payload.get("period") == "MAX"
+    as_of_ledger_at = payload.get("as_of_ledger_at")
+    assert isinstance(as_of_ledger_at, str)
+    assert as_of_ledger_at
+
+    rows_raw = payload.get("rows")
+    if not isinstance(rows_raw, list):
+        pytest.fail("Contribution response must include a 'rows' list.")
+    rows = cast(list[object], rows_raw)
+    assert len(rows) == 2
+
+    symbols: set[str] = set()
+    for row_candidate in rows:
+        if not isinstance(row_candidate, Mapping):
+            pytest.fail("Contribution rows must be JSON objects.")
+        row = cast(Mapping[str, object], row_candidate)
+        symbol = row.get("instrument_symbol")
+        if not isinstance(symbol, str):
+            pytest.fail("Contribution row instrument_symbol must be a string.")
+        symbols.add(symbol)
+        _assert_decimal_field(
+            row,
+            "contribution_pnl_usd",
+            str(Decimal(str(row["contribution_pnl_usd"]))),
+        )
+        _assert_decimal_field(
+            row,
+            "contribution_pct",
+            str(Decimal(str(row["contribution_pct"]))),
+        )
+
+    assert symbols == {"AAPL", "VOO"}
+
+
+@pytest.mark.integration
+def test_contribution_endpoint_normalizes_lowercase_period_values(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    test_db_engine: AsyncEngine,
+) -> None:
+    """Contribution route should normalize supported period values before computation."""
+
+    contribution_path = _portfolio_workspace_endpoint_path(suffix="contribution")
+    _patch_forbidden_upstream_calls(monkeypatch)
+    asyncio.run(_seed_persisted_ledger_state(test_db_engine, price_history_points=35))
+
+    response = client.get(
+        contribution_path,
+        params={"period": "max"},
+    )
+    assert response.status_code == 200
+    payload_raw = response.json()
+    if not isinstance(payload_raw, dict):
+        pytest.fail("Contribution response must be a JSON object.")
+    payload = cast(dict[str, object], payload_raw)
+    assert payload.get("period") == "MAX"
+
+
+@pytest.mark.integration
+def test_contribution_endpoint_rejects_insufficient_history_for_requested_period(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    test_db_engine: AsyncEngine,
+) -> None:
+    """Contribution route should fail explicitly when requested period coverage is missing."""
+
+    contribution_path = _portfolio_workspace_endpoint_path(suffix="contribution")
+    _patch_forbidden_upstream_calls(monkeypatch)
+    asyncio.run(_seed_persisted_ledger_state(test_db_engine, price_history_points=10))
+
+    response = client.get(
+        contribution_path,
+        params={"period": "30D"},
+    )
+    assert response.status_code == 409
+    payload_raw = response.json()
+    if not isinstance(payload_raw, dict):
+        pytest.fail("Contribution insufficiency response must be a JSON object.")
+    payload = cast(dict[str, object], payload_raw)
+    detail = payload.get("detail")
+    if not isinstance(detail, str):
+        pytest.fail("Contribution insufficiency response must include string 'detail'.")
+    assert "insufficient persisted history" in detail.lower()
+
+
+@pytest.mark.integration
+def test_risk_estimators_endpoint_returns_metrics_for_supported_window(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    test_db_engine: AsyncEngine,
+) -> None:
+    """Risk-estimators route should return metadata-complete metrics for valid windows."""
+
+    risk_path = _portfolio_workspace_endpoint_path(suffix="risk-estimators")
+    _patch_forbidden_upstream_calls(monkeypatch)
+    asyncio.run(_seed_persisted_ledger_state(test_db_engine, price_history_points=35))
+
+    response = client.get(
+        risk_path,
+        params={"window_days": 30},
+    )
+    assert response.status_code == 200
+
+    payload_raw = response.json()
+    if not isinstance(payload_raw, dict):
+        pytest.fail("Risk-estimators response must be a JSON object.")
+    payload = cast(dict[str, object], payload_raw)
+    assert payload.get("window_days") == 30
+    as_of_ledger_at = payload.get("as_of_ledger_at")
+    assert isinstance(as_of_ledger_at, str)
+    assert as_of_ledger_at
+
+    metrics_raw = payload.get("metrics")
+    if not isinstance(metrics_raw, list):
+        pytest.fail("Risk-estimators response must include a 'metrics' list.")
+    metrics = cast(list[object], metrics_raw)
+    assert len(metrics) == 3
+
+    metric_ids: set[str] = set()
+    for metric_candidate in metrics:
+        if not isinstance(metric_candidate, Mapping):
+            pytest.fail("Risk-estimator metrics must be JSON objects.")
+        metric = cast(Mapping[str, object], metric_candidate)
+        estimator_id = metric.get("estimator_id")
+        if not isinstance(estimator_id, str):
+            pytest.fail("Risk-estimator metric must include string 'estimator_id'.")
+        metric_ids.add(estimator_id)
+        _assert_decimal_field(metric, "value", str(Decimal(str(metric["value"]))))
+        assert metric.get("window_days") == 30
+        assert metric.get("return_basis") == "simple"
+        annualization_basis = metric.get("annualization_basis")
+        if not isinstance(annualization_basis, Mapping):
+            pytest.fail("Risk-estimator metric annualization_basis must be an object.")
+        annualization_basis_mapping = cast(Mapping[str, object], annualization_basis)
+        assert annualization_basis_mapping.get("kind") == "trading_days"
+        assert annualization_basis_mapping.get("value") == 252
+        as_of_timestamp = metric.get("as_of_timestamp")
+        if not isinstance(as_of_timestamp, str):
+            pytest.fail("Risk-estimator metric must include string 'as_of_timestamp'.")
+        assert as_of_timestamp
+
+    assert metric_ids == {"volatility_annualized", "max_drawdown", "beta"}
+
+
+@pytest.mark.integration
+def test_risk_estimators_endpoint_rejects_unsupported_window_explicitly(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    test_db_engine: AsyncEngine,
+) -> None:
+    """Risk-estimators route should reject unsupported windows with explicit 422 detail."""
+
+    risk_path = _portfolio_workspace_endpoint_path(suffix="risk-estimators")
+    _patch_forbidden_upstream_calls(monkeypatch)
+    asyncio.run(_seed_persisted_ledger_state(test_db_engine, price_history_points=35))
+
+    response = client.get(
+        risk_path,
+        params={"window_days": 45},
+    )
+    assert response.status_code == 422
+
+    payload_raw = response.json()
+    if not isinstance(payload_raw, dict):
+        pytest.fail("Unsupported-window response must be a JSON object.")
+    payload = cast(dict[str, object], payload_raw)
+    detail = payload.get("detail")
+    if not isinstance(detail, str):
+        pytest.fail("Unsupported-window response must include string 'detail'.")
+    assert "supported windows" in detail.lower()
+
+
+@pytest.mark.integration
+def test_risk_estimators_endpoint_rejects_insufficient_history_explicitly(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    test_db_engine: AsyncEngine,
+) -> None:
+    """Risk-estimators route should reject requests without required historical coverage."""
+
+    risk_path = _portfolio_workspace_endpoint_path(suffix="risk-estimators")
+    _patch_forbidden_upstream_calls(monkeypatch)
+    asyncio.run(_seed_persisted_ledger_state(test_db_engine, price_history_points=10))
+
+    response = client.get(
+        risk_path,
+        params={"window_days": 30},
+    )
+    assert response.status_code == 409
+
+    payload_raw = response.json()
+    if not isinstance(payload_raw, dict):
+        pytest.fail("Insufficiency response must be a JSON object.")
+    payload = cast(dict[str, object], payload_raw)
+    detail = payload.get("detail")
+    if not isinstance(detail, str):
+        pytest.fail("Insufficiency response must include string 'detail'.")
+    assert "insufficient persisted history" in detail.lower()
+
+
+@pytest.mark.integration
+def test_transactions_endpoint_returns_persisted_ledger_events(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    test_db_engine: AsyncEngine,
+) -> None:
+    """Transactions route should return persisted trade/dividend ledger events."""
+
+    transactions_path = _portfolio_workspace_endpoint_path(suffix="transactions")
+    _patch_forbidden_upstream_calls(monkeypatch)
+    asyncio.run(_seed_persisted_ledger_state(test_db_engine, price_history_points=35))
+
+    response = client.get(transactions_path)
+    assert response.status_code == 200
+
+    payload_raw = response.json()
+    if not isinstance(payload_raw, dict):
+        pytest.fail("Transactions response must be a JSON object.")
+    payload = cast(dict[str, object], payload_raw)
+    as_of_ledger_at = payload.get("as_of_ledger_at")
+    assert isinstance(as_of_ledger_at, str)
+    assert as_of_ledger_at
+
+    events_raw = payload.get("events")
+    if not isinstance(events_raw, list):
+        pytest.fail("Transactions response must include an 'events' list.")
+    events = cast(list[object], events_raw)
+    assert len(events) >= 5
+
+    event_types: set[str] = set()
+    for event_candidate in events:
+        if not isinstance(event_candidate, Mapping):
+            pytest.fail("Transaction events must be JSON objects.")
+        event = cast(Mapping[str, object], event_candidate)
+        event_id = event.get("id")
+        posted_at = event.get("posted_at")
+        instrument_symbol = event.get("instrument_symbol")
+        event_type = event.get("event_type")
+        if not isinstance(event_id, str):
+            pytest.fail("Transaction event id must be a string.")
+        if not isinstance(posted_at, str):
+            pytest.fail("Transaction event posted_at must be a string.")
+        if not isinstance(instrument_symbol, str):
+            pytest.fail("Transaction event instrument_symbol must be a string.")
+        if not isinstance(event_type, str):
+            pytest.fail("Transaction event event_type must be a string.")
+        event_types.add(event_type)
+        _assert_decimal_field(event, "quantity", str(Decimal(str(event["quantity"]))))
+        _assert_decimal_field(event, "cash_amount_usd", str(Decimal(str(event["cash_amount_usd"]))))
+
+    assert "buy" in event_types
+    assert "sell" in event_types
+    assert "dividend" in event_types

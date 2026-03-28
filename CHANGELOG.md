@@ -24,6 +24,19 @@ Use this structure for new entries:
 
 ## 2026-03-28
 
+### feat(frontend-workspace): close OpenSpec 5.x with navigation coverage, workspace evidence, and docs sync
+- Summary: Completed `expand-frontend-ux-and-analytics-workspace` task group `5.x` by adding workspace keyboard/navigation test coverage, extending frontend evidence harnesses to include workspace routes and analytics/risk API fixtures, capturing fresh accessibility/keyboard/CWV artifacts for `2026-03-28`, and syncing frontend guide/standard/roadmap/checklist documentation to implemented workspace contracts and deferred boundaries.
+- Why: Change closeout required implementation-grade quality evidence and documentation parity before marking the proposal implementation-ready.
+- Files: `frontend/src/components/workspace-layout/PortfolioWorkspaceLayout.test.tsx`, `frontend/scripts/{capture-frontend-evidence.mjs,measure-cwv.mjs}`, `docs/evidence/frontend/{accessibility-scan-2026-03-28.*,keyboard-walkthrough-2026-03-28.*,cwv-report-2026-03-28T04-35-40.732Z.json,cwv-report-2026-03-28.md,screenshots-2026-03-28/*}`, `docs/guides/{frontend-api-and-ux-guide.md,frontend-delivery-checklist.md}`, `docs/standards/frontend-standard.md`, `docs/product/frontend-ux-analytics-expansion-roadmap.md`, `openspec/changes/expand-frontend-ux-and-analytics-workspace/tasks.md`, `CHANGELOG.md`.
+- Validation: `npm --prefix frontend run build` (pass), `npm --prefix frontend run frontend:evidence` (pass), `npm --prefix frontend run cwv:measure` (pass), `npm --prefix frontend run lint` (pass), `npm --prefix frontend run test` (62 passed), `OPENSPEC_TELEMETRY=0 openspec validate expand-frontend-ux-and-analytics-workspace --type change --strict --json` (pass), `OPENSPEC_TELEMETRY=0 openspec validate --specs --all --json` (16/16 passed).
+- Notes: Evidence scripts were executed with elevated permissions in this environment due local-socket sandbox restrictions.
+
+### fix(test-typing): make quant dependency policy tests pyright-strict compatible
+- Summary: Refactored `app/portfolio_analytics/tests/test_quant_dependency_policy.py` to coerce TOML objects through explicit typed helpers and remove `Unknown`-typed access paths in strict pyright.
+- Why: 5.4 validation gates require `pyright app/` to pass; strict unknown-type failures were blocking closeout.
+- Files: `app/portfolio_analytics/tests/test_quant_dependency_policy.py`, `CHANGELOG.md`.
+- Validation: `UV_CACHE_DIR=/tmp/uv-cache uv run mypy app/` (pass), `UV_CACHE_DIR=/tmp/uv-cache uv run pyright app/` (0 errors), `UV_CACHE_DIR=/tmp/uv-cache uv run ty check app` (pass), `UV_CACHE_DIR=/tmp/uv-cache uv run pytest -q app/portfolio_analytics/tests/test_quant_dependency_policy.py` (pass).
+
 ### docs/workflow: harden ci-equivalent env handling and network-aware security gate behavior
 - Summary: Updated local environment templates to quote `APP_NAME` values, switched `just` lint gate to `black --check --diff --workers 1` for constrained-runtime compatibility, added `scripts/security/run-pip-audit.sh` wrapper to classify DNS/network outages as blocked evidence when explicitly enabled, and documented the CI scripting rule to avoid `source .env`.
 - Why: Recent CI-equivalent runs showed avoidable shell/env parsing drift and sandbox/network constraints; these changes preserve strict defaults while adding explicit, controlled behavior for restricted environments.
