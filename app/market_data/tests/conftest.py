@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import (
 )
 
 from app.core.config import get_settings
+from app.tests.db_url import resolve_test_database_url
 
 _REQUIRED_INTEGRATION_TABLES: tuple[str, ...] = (
     "source_document",
@@ -57,8 +58,9 @@ async def test_db_engine() -> AsyncGenerator[AsyncEngine, None]:
     """Create a fresh database engine for each market-data test."""
 
     settings = get_settings()
+    test_database_url = resolve_test_database_url(runtime_database_url=settings.database_url)
     engine = create_async_engine(
-        settings.database_url,
+        test_database_url,
         pool_pre_ping=True,
         pool_size=5,
         max_overflow=10,

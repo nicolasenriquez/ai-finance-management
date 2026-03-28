@@ -10,6 +10,7 @@ Applies to:
 
 - portfolio summary UI
 - lot-detail UI
+- workspace routes (`/portfolio/home`, `/portfolio/analytics`, `/portfolio/risk`, `/portfolio/transactions`)
 - shared frontend components, formatting utilities, and state handling
 
 ## Core Principles
@@ -25,6 +26,9 @@ Applies to:
 - Frontend must not infer unsupported market or FX values.
 - Unknown-symbol responses must render explicit not-found behavior.
 - `as_of_ledger_at` must be visible on analytics screens.
+- Chart period submissions must remain constrained to the backend enum (`30D`, `90D`, `252D`, `MAX`).
+- Risk estimator views must render methodology metadata from payload (`window_days`, `return_basis`, `annualization_basis`, `as_of_timestamp`).
+- Transactions v1 route must remain ledger-event-only; market-refresh diagnostics stay deferred.
 
 ## Accessibility Rules (WCAG 2.2 AA Baseline)
 
@@ -90,6 +94,9 @@ Additional rules:
   - lot detail success
   - unknown symbol flow
   - API error rendering
+  - workspace navigation active-state mapping
+  - keyboard navigation across workspace tabs
+  - period/window normalization behavior for workspace routes
 - Add coverage for theme preference resolution if a user-selectable theme ships.
 - Include accessibility test pass evidence for core screens.
 - Include performance measurement evidence for core screens.

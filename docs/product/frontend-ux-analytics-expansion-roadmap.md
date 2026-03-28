@@ -10,6 +10,25 @@ It integrates:
 - current backend/frontend contract boundaries in this repository
 - delivery order before database hardening expansion
 
+## Current Implementation Baseline (2026-03-28)
+
+- Workspace routes are implemented and active:
+  - `/portfolio/home`
+  - `/portfolio/analytics`
+  - `/portfolio/risk`
+  - `/portfolio/transactions`
+- Backend contracts implemented for workspace analytics:
+  - `/api/portfolio/time-series`
+  - `/api/portfolio/contribution`
+  - `/api/portfolio/risk-estimators`
+- Period enum is locked and enforced end-to-end (`30D`, `90D`, `252D`, `MAX`).
+- Risk methodology metadata is surfaced in UI from API payload (`window_days`, `return_basis`, `annualization_basis`, `as_of_timestamp`).
+- Transactions v1 scope remains ledger-history-only; market-refresh diagnostics are deferred.
+- Route-level evidence is captured for workspace + baseline portfolio routes:
+  - accessibility: `docs/evidence/frontend/accessibility-scan-2026-03-28.md`
+  - keyboard: `docs/evidence/frontend/keyboard-walkthrough-2026-03-28.md`
+  - CWV: `docs/evidence/frontend/cwv-report-2026-03-28.md`
+
 ## Decision: React + Vite Now, Next.js Later by Gate
 
 ### Decision now
@@ -52,6 +71,16 @@ Stay on the current `React + Vite` stack for the next delivery phases.
 - New analytics screens can be built without one-off patterns.
 - All new components align with existing accessibility and formatting standards.
 
+### Chart Foundation Lock (v1)
+
+- `Recharts` is the locked v1 chart foundation for workspace routes.
+- Re-evaluation is allowed only with explicit route-level evidence on `/portfolio/home`, `/portfolio/analytics`, and `/portfolio/risk`.
+- Evidence must show a sustained blocker after optimization attempts:
+  - CWV regression attributable to chart rendering (`LCP` > `2.5s` p75 or `INP` > `200ms` p75),
+  - unresolved accessibility blocker that cannot be solved safely with current chart primitives, or
+  - required product interaction not implementable with maintainable complexity.
+- Any chart-library switch requires a documented decision artifact with side-by-side evidence.
+
 ## Phase B: Analytics API Contract Expansion
 
 ### Objectives
@@ -82,6 +111,11 @@ Stay on the current `React + Vite` stack for the next delivery phases.
   - `Transactions`
 - Replace table-only first impression with dashboard-first workflow.
 
+### Transactions Scope Lock (v1)
+
+- `Transactions` is ledger-history-only in v1.
+- Market-refresh diagnostics are deferred to a separate operator-facing follow-up capability and must not be mixed into the v1 transaction-history contract.
+
 ### Deliverables
 
 - Home summary with KPI cards, trend chart, top movers, and transaction highlights
@@ -106,6 +140,19 @@ Stay on the current `React + Vite` stack for the next delivery phases.
 - `pandas-ta` is optional for non-canonical analytics overlays and must not be the source of truth for risk metrics.
 - Rejected for this phase: `zipline`, `zipline-reloaded`, `pyfolio`, `pyrisk`, `mibian`, `backtrader`, `QuantLib-Python`.
 - Dependency governance: pin exact versions in `pyproject.toml` and `uv.lock`; any upgrade requires estimator fixture comparison and documented review.
+
+### Frozen v1 estimator methodology contract
+
+- Default estimator windows: `30`, `90`, `252` trading-day periods.
+- Return basis semantics: baseline estimators use `simple` returns unless metadata explicitly declares `log`.
+- Annualization basis semantics: annualized metrics use explicit basis metadata with default `252` trading days unless endpoint contract explicitly overrides it.
+- Required response metadata fields:
+  - `estimator_id`
+  - `window_days`
+  - `return_basis`
+  - `annualization_basis.kind`
+  - `annualization_basis.value`
+  - `as_of_timestamp`
 
 ### Initial metric set
 

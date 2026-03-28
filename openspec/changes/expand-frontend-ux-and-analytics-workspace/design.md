@@ -106,6 +106,23 @@ Decision:
 - Allow `pandas-ta` only for optional analytics overlays in UI-facing modules; it is not canonical for risk-estimator truth.
 - Pin approved quant dependencies in repository dependency manifests/lockfiles to keep estimator output reproducible.
 - Reject the following packages for this phase: `zipline`, `zipline-reloaded`, `pyfolio`, `pyrisk`, `mibian`, `backtrader`, `QuantLib-Python`.
+- Apply quant upgrade policy: upgrades are PR-scoped, keep exact pins synchronized in `pyproject.toml` + `uv.lock`, and require estimator fixture-diff review evidence before merge.
+
+Package decision matrix:
+
+| Package | Decision | Rationale |
+|---|---|---|
+| `numpy` | accepted | canonical numeric kernel for deterministic estimator math |
+| `pandas` | accepted | canonical time-series/tabular preprocessing and aggregation layer |
+| `scipy` | accepted | advanced stats/optimization routines only when estimator contract requires them |
+| `pandas-ta` | conditional | optional analytics overlays only; never canonical risk-estimator truth |
+| `zipline` | rejected (v1) | backtesting framework scope exceeds current estimator requirements |
+| `zipline-reloaded` | rejected (v1) | same scope mismatch with additional maintenance/runtime surface |
+| `pyfolio` | rejected (v1) | tear-sheet tooling not required by current API contracts |
+| `pyrisk` | rejected (v1) | overlapping scope not required for v1 baseline estimators |
+| `mibian` | rejected (v1) | derivatives-pricing specialization out of v1 scope |
+| `backtrader` | rejected (v1) | strategy-engine scope out of current analytics boundary |
+| `QuantLib-Python` | rejected (v1) | heavyweight derivatives toolkit not needed for current estimator set |
 
 Why:
 
@@ -146,7 +163,9 @@ Alternative considered:
 Decision:
 
 - Set v1 default evaluation windows to `30`, `90`, and `252` trading-day periods for rolling estimators unless endpoint-level capability explicitly states otherwise.
-- Require estimator responses to expose methodology metadata at minimum: estimator id, return basis (`simple` or `log`), annualization basis, window length, and as-of timestamp.
+- Freeze v1 return-basis semantics: baseline estimators use `simple` returns by default; `log` is allowed only when estimator metadata explicitly declares it.
+- Freeze v1 annualization basis contract to explicit metadata (`annualization_basis.kind`, `annualization_basis.value`) with default trading-day basis `252` for annualized metrics unless estimator contract states a different basis.
+- Require estimator responses to expose methodology metadata fields at minimum: `estimator_id`, `window_days`, `return_basis`, `annualization_basis`, and `as_of_timestamp`.
 
 Why:
 
@@ -163,6 +182,12 @@ Alternative considered:
 Decision:
 
 - Use `Recharts` as the default chart library for v1 analytics workspace routes.
+- Keep `Recharts` locked for v1 unless route-level evidence demonstrates a chart-library blocker.
+- Allow chart-library re-evaluation only when documented evidence on workspace routes (`/portfolio/home`, `/portfolio/analytics`, `/portfolio/risk`) shows at least one sustained blocker:
+  - repeated CWV regression attributable to chart rendering (`LCP` over `2.5s` p75 or `INP` over `200ms` p75 after route-level optimization attempts),
+  - repeated accessibility non-conformance that cannot be solved within `Recharts` constraints without unsafe custom workarounds,
+  - required v1/v1.1 chart interaction not implementable with maintainable complexity in `Recharts`.
+- Any proposed switch must include a decision artifact with side-by-side route-level performance and accessibility evidence before implementation.
 
 Why:
 
@@ -181,6 +206,7 @@ Decision:
 
 - `Transactions` route v1 displays persisted ledger events only.
 - Market-refresh operation diagnostics are explicitly deferred to a follow-up slice.
+- Deferred follow-up scope is a dedicated operator-facing diagnostics surface outside the v1 `Transactions` contract.
 
 Why:
 

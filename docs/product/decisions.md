@@ -238,3 +238,93 @@ Implications:
 - public market-data routes remain deferred; command-level operations are the active execution boundary in this slice
 - legal usage notes and provider limitations must be documented explicitly
 - fundamentals/financial-document payloads from yfinance are analysis-enrichment inputs, not accounting truth
+
+### ADR-018: Quant Runtime Stack for Portfolio Estimators
+
+Status: Accepted (2026-03-27)
+
+Reason:
+
+- v1 estimator delivery needs deterministic, reproducible math kernels with low operational complexity.
+- the project scope is analytics/risk reporting, not full strategy backtesting or derivatives pricing.
+- a narrow stack reduces hidden methodology drift and dependency risk.
+
+Decision Matrix:
+
+| Package | Decision | Scope | Rationale |
+|---|---|---|---|
+| `numpy` | Accepted | canonical estimator runtime | deterministic numeric kernels and array math foundation |
+| `pandas` | Accepted | canonical estimator/runtime tabular layer | explicit time-series and contract-safe preprocessing workflows |
+| `scipy` | Accepted | canonical estimator runtime (advanced methods only) | vetted statistical/optimization routines when estimator contract needs them |
+| `pandas-ta` | Conditional | optional UI-facing overlays only | convenience indicators allowed, but not canonical risk truth source |
+| `zipline` | Rejected (v1) | runtime estimator dependencies | backtesting framework scope exceeds current product boundary |
+| `zipline-reloaded` | Rejected (v1) | runtime estimator dependencies | same scope mismatch plus added maintenance surface |
+| `pyfolio` | Rejected (v1) | runtime estimator dependencies | portfolio tear-sheet tooling not required for current API contracts |
+| `pyrisk` | Rejected (v1) | runtime estimator dependencies | unnecessary overlap with approved stack for baseline metrics |
+| `mibian` | Rejected (v1) | runtime estimator dependencies | options-pricing focus is out of v1 scope |
+| `backtrader` | Rejected (v1) | runtime estimator dependencies | strategy engine scope is out of current analytics boundary |
+| `QuantLib-Python` | Rejected (v1) | runtime estimator dependencies | heavyweight derivatives toolkit not needed for v1 estimator set |
+
+Upgrade Policy:
+
+- quant dependency upgrades must be PR-scoped and explicit; do not batch unrelated runtime upgrades in the same PR.
+- approved quant packages are pinned in `pyproject.toml` and `uv.lock`; upgrades must keep exact pins synchronized.
+- each quant upgrade PR must run estimator regression fixtures and include fixture-diff review evidence before merge.
+
+Implications:
+
+- runtime estimator implementations are restricted to the accepted canonical stack.
+- rejected packages must stay outside runtime estimator dependency closure.
+- optional overlay libraries (such as `pandas-ta`) must not become canonical risk-estimator truth.
+
+### ADR-019: Freeze v1 Estimator Methodology Contract Before Endpoint Implementation
+
+Status: Accepted (2026-03-28)
+
+Reason:
+
+- endpoint implementation needs a fixed methodology contract to avoid frontend/backend interpretation drift.
+- default windows, return-basis semantics, and annualization semantics are high-impact assumptions that should not be inferred during coding.
+
+Decision:
+
+- default estimator windows are fixed to `30`, `90`, and `252` trading-day periods for v1.
+- baseline return basis is `simple` unless metric metadata explicitly declares `log`.
+- annualized metrics use explicit annualization metadata with default `252` trading days unless endpoint contract explicitly overrides it.
+- required methodology metadata fields for v1 responses:
+  - `estimator_id`
+  - `window_days`
+  - `return_basis`
+  - `annualization_basis.kind`
+  - `annualization_basis.value`
+  - `as_of_timestamp`
+
+### ADR-020: Lock Workspace Chart Foundation to Recharts for v1
+
+Status: Accepted (2026-03-28)
+
+Reason:
+
+- current delivery priority is fast, predictable workspace implementation on the existing React + Vite stack.
+- chart-library churn before route-level evidence adds avoidable execution risk.
+
+Decision:
+
+- `Recharts` is the required v1 chart foundation for workspace routes.
+- chart-library re-evaluation is allowed only with explicit route-level evidence from `/portfolio/home`, `/portfolio/analytics`, and `/portfolio/risk`.
+- acceptable re-evaluation trigger evidence includes sustained chart-attributable CWV/accessibility blockers or required interactions that cannot be delivered with maintainable complexity.
+- any switch requires a documented decision artifact with side-by-side evidence before implementation.
+
+### ADR-021: Keep Transactions v1 Scope Ledger-History-Only
+
+Status: Accepted (2026-03-28)
+
+Reason:
+
+- user-facing transaction history and operator refresh diagnostics serve different purposes and should not be merged in v1.
+- ledger-first trust boundary is clearer when `Transactions` stays tied to persisted ledger events.
+
+Decision:
+
+- `Transactions` route v1 includes persisted ledger events only.
+- market-refresh diagnostics are explicitly deferred to a follow-up operator-facing capability.

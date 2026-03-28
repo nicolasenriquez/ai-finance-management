@@ -3,17 +3,36 @@ import {
   createBrowserRouter,
 } from "react-router-dom";
 
+import { PortfolioAnalyticsPage } from "../pages/portfolio-analytics-page/PortfolioAnalyticsPage";
+import { PortfolioHomePage } from "../pages/portfolio-home-page/PortfolioHomePage";
 import { PortfolioLotDetailPage } from "../pages/portfolio-lot-detail-page/PortfolioLotDetailPage";
-import { PortfolioSummaryPage } from "../pages/portfolio-summary-page/PortfolioSummaryPage";
+import { PortfolioRiskPage } from "../pages/portfolio-risk-page/PortfolioRiskPage";
+import { PortfolioTransactionsPage } from "../pages/portfolio-transactions-page/PortfolioTransactionsPage";
 
 export const appRouter = createBrowserRouter([
   {
     path: "/",
-    element: <Navigate to="/portfolio" replace />,
+    element: <Navigate to="/portfolio/home" replace />,
   },
   {
     path: "/portfolio",
-    element: <PortfolioSummaryPage />,
+    element: <Navigate to="/portfolio/home" replace />,
+  },
+  {
+    path: "/portfolio/home",
+    element: <PortfolioHomePage />,
+  },
+  {
+    path: "/portfolio/analytics",
+    element: <PortfolioAnalyticsPage />,
+  },
+  {
+    path: "/portfolio/risk",
+    element: <PortfolioRiskPage />,
+  },
+  {
+    path: "/portfolio/transactions",
+    element: <PortfolioTransactionsPage />,
   },
   {
     path: "/portfolio/:symbol",

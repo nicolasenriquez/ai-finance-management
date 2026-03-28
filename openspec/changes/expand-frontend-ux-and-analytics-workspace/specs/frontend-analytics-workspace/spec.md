@@ -24,6 +24,14 @@ The Analytics route SHALL provide chart modules for performance and contribution
 - **THEN** the route renders chart modules for successful responses
 - **THEN** unavailable or failed responses render explicit fallback states with retry or scope messaging
 
+### Requirement: Workspace chart foundation SHALL remain `Recharts` for v1 unless evidence-gated review approves a change
+The analytics workspace SHALL use `Recharts` as the v1 chart foundation. A chart-library switch SHALL require an explicit decision artifact grounded in route-level evidence.
+
+#### Scenario: Chart-library switch is blocked without route-level evidence
+- **WHEN** chart-library replacement is proposed during v1 delivery
+- **THEN** the proposal includes route-level evidence from `/portfolio/home`, `/portfolio/analytics`, and `/portfolio/risk` covering CWV/accessibility blockers and maintainability impact
+- **THEN** without that evidence and explicit approval, `Recharts` remains the required chart foundation
+
 ### Requirement: Analytics controls SHALL constrain chart-period inputs to approved backend enum values
 The Analytics route SHALL expose chart-period controls aligned with approved backend period values (`30D`, `90D`, `252D`, `MAX`) and SHALL prevent unsupported period submissions.
 
@@ -55,3 +63,8 @@ The Transactions route SHALL present persisted ledger-event history as its v1 sc
 - **WHEN** the user opens the Transactions route
 - **THEN** the displayed list/table reflects persisted ledger events with deterministic ordering/filter behavior
 - **THEN** market-refresh operation diagnostics are not rendered in this v1 route contract
+
+#### Scenario: Diagnostics follow-up scope remains explicit and deferred
+- **WHEN** users need market-refresh diagnostics visibility
+- **THEN** the requirement is handled by a dedicated follow-up operator-facing capability
+- **THEN** the v1 `Transactions` route contract remains ledger-history-only

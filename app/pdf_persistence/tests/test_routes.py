@@ -21,6 +21,7 @@ from app.core.database import AsyncSessionLocal, engine
 from app.main import app
 from app.pdf_ingestion.service import build_metadata_storage_key
 from app.pdf_persistence.service import persist_pdf_from_storage
+from app.tests.db_url import resolve_test_database_url
 
 _GOLDEN_PDF_PATH = Path("app/golden_sets/dataset_1/202602_stocks.pdf")
 
@@ -100,8 +101,9 @@ async def _truncate_persistence_tables() -> None:
     """Truncate persistence tables to keep route tests isolated."""
 
     settings = get_settings()
+    test_database_url = resolve_test_database_url(runtime_database_url=settings.database_url)
     cleanup_engine: AsyncEngine = create_async_engine(
-        settings.database_url,
+        test_database_url,
         poolclass=NullPool,
     )
     try:

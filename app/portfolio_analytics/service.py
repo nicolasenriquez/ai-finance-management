@@ -2,26 +2,42 @@
 
 from __future__ import annotations
 
+import math
 from collections import defaultdict
 from collections.abc import Mapping, Sequence
-from datetime import date, datetime
+from datetime import UTC, date, datetime, time, timedelta
 from decimal import Decimal, InvalidOperation
+from itertools import pairwise
 from typing import cast
 
+import numpy as np
+import pandas as pd
+from scipy import stats
 from sqlalchemy import func, select, text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logging import get_logger
+from app.market_data.models import PriceHistory
 from app.market_data.service import (
     MarketDataClientError,
     resolve_latest_consistent_snapshot_coverage_for_symbols,
 )
 from app.portfolio_analytics.schemas import (
+    PortfolioAnnualizationBasis,
+    PortfolioChartPeriod,
+    PortfolioContributionResponse,
+    PortfolioContributionRow,
     PortfolioLotDetailResponse,
     PortfolioLotDetailRow,
+    PortfolioRiskEstimatorMetric,
+    PortfolioRiskEstimatorsResponse,
     PortfolioSummaryResponse,
     PortfolioSummaryRow,
+    PortfolioTimeSeriesPoint,
+    PortfolioTimeSeriesResponse,
+    PortfolioTransactionEvent,
+    PortfolioTransactionsResponse,
 )
 from app.portfolio_ledger.models import DividendEvent, Lot, LotDisposition, PortfolioTransaction
 from app.shared.models import utcnow
@@ -31,6 +47,17 @@ logger = get_logger(__name__)
 _QTY_SCALE = Decimal("0.000000001")
 _MONEY_SCALE = Decimal("0.01")
 _PCT_SCALE = Decimal("0.01")
+_RATIO_SCALE = Decimal("0.000001")
+_PERIOD_TO_REQUIRED_POINTS: dict[PortfolioChartPeriod, int | None] = {
+    PortfolioChartPeriod.D30: 30,
+    PortfolioChartPeriod.D90: 90,
+    PortfolioChartPeriod.D252: 252,
+    PortfolioChartPeriod.MAX: None,
+}
+_SUPPORTED_RISK_WINDOWS: set[int] = {30, 90, 252}
+_SUPPORTED_CHART_PERIOD_VALUES: tuple[str, ...] = tuple(
+    period.value for period in PortfolioChartPeriod
+)
 
 
 class PortfolioAnalyticsClientError(ValueError):
@@ -43,6 +70,31 @@ class PortfolioAnalyticsClientError(ValueError):
 
         super().__init__(message)
         self.status_code = status_code
+
+
+def normalize_chart_period(*, period_value: object) -> PortfolioChartPeriod:
+    """Normalize one chart period input into the approved v1 enum values."""
+
+    if isinstance(period_value, PortfolioChartPeriod):
+        return period_value
+
+    if not isinstance(period_value, str):
+        raise PortfolioAnalyticsClientError(
+            "Unsupported chart period value. "
+            f"Supported periods are: {', '.join(_SUPPORTED_CHART_PERIOD_VALUES)}.",
+            status_code=422,
+        )
+
+    normalized_period_value = period_value.strip().upper()
+    for period in PortfolioChartPeriod:
+        if normalized_period_value == period.value:
+            return period
+
+    raise PortfolioAnalyticsClientError(
+        "Unsupported chart period value. "
+        f"Supported periods are: {', '.join(_SUPPORTED_CHART_PERIOD_VALUES)}.",
+        status_code=422,
+    )
 
 
 async def get_portfolio_summary_response(*, db: AsyncSession) -> PortfolioSummaryResponse:
@@ -237,6 +289,391 @@ async def get_portfolio_lot_detail_response(
         lot_count=len(lot_detail_response.lots),
     )
     return lot_detail_response
+
+
+async def get_portfolio_time_series_response(
+    *,
+    db: AsyncSession,
+    period: PortfolioChartPeriod,
+) -> PortfolioTimeSeriesResponse:
+    """Return chart-ready portfolio time-series for one supported period."""
+
+    logger.info(
+        "portfolio_analytics.time_series_started",
+        period=period.value,
+    )
+    required_points = _PERIOD_TO_REQUIRED_POINTS[period]
+    insufficient_history_detail = (
+        f"Insufficient persisted history for requested period {period.value}."
+    )
+    try:
+        async with db.begin():
+            await _set_repeatable_read_snapshot(db=db)
+            (
+                open_quantity_by_symbol,
+                total_open_cost_basis_usd,
+                price_series_by_symbol,
+            ) = await _load_open_position_price_inputs(db=db)
+
+            aligned_timestamps = _select_aligned_timestamps(
+                price_series_by_symbol=price_series_by_symbol,
+                required_points=required_points,
+                minimum_points=1,
+                insufficient_history_detail=insufficient_history_detail,
+            )
+            points_payload = build_portfolio_time_series_points(
+                aligned_timestamps=aligned_timestamps,
+                open_quantity_by_symbol=open_quantity_by_symbol,
+                price_series_by_symbol=price_series_by_symbol,
+                total_open_cost_basis_usd=total_open_cost_basis_usd,
+            )
+            as_of_ledger_at = await _fetch_as_of_ledger_at(db=db)
+            response = PortfolioTimeSeriesResponse(
+                as_of_ledger_at=as_of_ledger_at,
+                period=period,
+                frequency="1D",
+                timezone="UTC",
+                points=[
+                    PortfolioTimeSeriesPoint.model_validate(point_payload)
+                    for point_payload in points_payload
+                ],
+            )
+    except MarketDataClientError as exc:
+        logger.error(
+            "portfolio_analytics.time_series_failed",
+            period=period.value,
+            error=str(exc),
+            error_type=type(exc).__name__,
+            exc_info=True,
+        )
+        raise PortfolioAnalyticsClientError(
+            str(exc),
+            status_code=exc.status_code,
+        ) from exc
+    except PortfolioAnalyticsClientError:
+        raise
+    except SQLAlchemyError as exc:
+        logger.error(
+            "portfolio_analytics.time_series_failed",
+            period=period.value,
+            error=str(exc),
+            error_type=type(exc).__name__,
+            exc_info=True,
+        )
+        raise PortfolioAnalyticsClientError(
+            "Failed to build portfolio time-series due to a database error.",
+            status_code=500,
+        ) from exc
+
+    logger.info(
+        "portfolio_analytics.time_series_completed",
+        period=response.period.value,
+        point_count=len(response.points),
+        as_of_ledger_at=response.as_of_ledger_at.isoformat(),
+    )
+    return response
+
+
+async def get_portfolio_contribution_response(
+    *,
+    db: AsyncSession,
+    period: PortfolioChartPeriod,
+) -> PortfolioContributionResponse:
+    """Return per-symbol contribution aggregates for one supported period."""
+
+    logger.info(
+        "portfolio_analytics.contribution_started",
+        period=period.value,
+    )
+    required_points = _PERIOD_TO_REQUIRED_POINTS[period]
+    insufficient_history_detail = (
+        f"Insufficient persisted history for contribution period {period.value}."
+    )
+    try:
+        async with db.begin():
+            await _set_repeatable_read_snapshot(db=db)
+            (
+                open_quantity_by_symbol,
+                _total_open_cost_basis_usd,
+                price_series_by_symbol,
+            ) = await _load_open_position_price_inputs(db=db)
+
+            aligned_timestamps = _select_aligned_timestamps(
+                price_series_by_symbol=price_series_by_symbol,
+                required_points=required_points,
+                minimum_points=2,
+                insufficient_history_detail=insufficient_history_detail,
+            )
+            contribution_rows_payload = build_portfolio_contribution_rows(
+                aligned_timestamps=aligned_timestamps,
+                open_quantity_by_symbol=open_quantity_by_symbol,
+                price_series_by_symbol=price_series_by_symbol,
+            )
+            as_of_ledger_at = await _fetch_as_of_ledger_at(db=db)
+            response = PortfolioContributionResponse(
+                as_of_ledger_at=as_of_ledger_at,
+                period=period,
+                rows=[
+                    PortfolioContributionRow.model_validate(row_payload)
+                    for row_payload in contribution_rows_payload
+                ],
+            )
+    except MarketDataClientError as exc:
+        logger.error(
+            "portfolio_analytics.contribution_failed",
+            period=period.value,
+            error=str(exc),
+            error_type=type(exc).__name__,
+            exc_info=True,
+        )
+        raise PortfolioAnalyticsClientError(
+            str(exc),
+            status_code=exc.status_code,
+        ) from exc
+    except PortfolioAnalyticsClientError:
+        raise
+    except SQLAlchemyError as exc:
+        logger.error(
+            "portfolio_analytics.contribution_failed",
+            period=period.value,
+            error=str(exc),
+            error_type=type(exc).__name__,
+            exc_info=True,
+        )
+        raise PortfolioAnalyticsClientError(
+            "Failed to build portfolio contribution due to a database error.",
+            status_code=500,
+        ) from exc
+
+    logger.info(
+        "portfolio_analytics.contribution_completed",
+        period=response.period.value,
+        row_count=len(response.rows),
+        as_of_ledger_at=response.as_of_ledger_at.isoformat(),
+    )
+    return response
+
+
+async def get_portfolio_risk_estimators_response(
+    *,
+    db: AsyncSession,
+    window_days: int,
+) -> PortfolioRiskEstimatorsResponse:
+    """Return bounded v1 risk estimators with explicit methodology metadata."""
+
+    if window_days not in _SUPPORTED_RISK_WINDOWS:
+        supported_windows_csv = ", ".join(str(window) for window in sorted(_SUPPORTED_RISK_WINDOWS))
+        raise PortfolioAnalyticsClientError(
+            "Unsupported risk window value. " f"Supported windows are: {supported_windows_csv}.",
+            status_code=422,
+        )
+
+    logger.info(
+        "portfolio_analytics.risk_estimators_started",
+        window_days=window_days,
+    )
+    try:
+        async with db.begin():
+            await _set_repeatable_read_snapshot(db=db)
+            (
+                open_quantity_by_symbol,
+                _total_open_cost_basis_usd,
+                price_series_by_symbol,
+            ) = await _load_open_position_price_inputs(db=db)
+            aligned_timestamps = _select_aligned_timestamps(
+                price_series_by_symbol=price_series_by_symbol,
+                required_points=window_days + 1,
+                minimum_points=window_days + 1,
+                insufficient_history_detail=(
+                    f"Insufficient persisted history for risk window {window_days}."
+                ),
+            )
+            price_frame = _build_aligned_price_frame(
+                aligned_timestamps=aligned_timestamps,
+                price_series_by_symbol=price_series_by_symbol,
+            )
+            computed_metrics = _compute_risk_metrics_from_price_frame(
+                price_frame=price_frame,
+                open_quantity_by_symbol=open_quantity_by_symbol,
+                window_days=window_days,
+            )
+
+            as_of_ledger_at = await _fetch_as_of_ledger_at(db=db)
+            latest_timestamp = price_frame.index[-1].to_pydatetime(warn=False)
+            if latest_timestamp.tzinfo is None:
+                latest_timestamp = latest_timestamp.replace(tzinfo=UTC)
+            else:
+                latest_timestamp = latest_timestamp.astimezone(UTC)
+            annualization_basis = PortfolioAnnualizationBasis(
+                kind="trading_days",
+                value=252,
+            )
+            metrics = [
+                PortfolioRiskEstimatorMetric(
+                    estimator_id="volatility_annualized",
+                    value=_quantize_ratio(computed_metrics["volatility_annualized"]),
+                    window_days=window_days,
+                    return_basis="simple",
+                    annualization_basis=annualization_basis,
+                    as_of_timestamp=latest_timestamp,
+                ),
+                PortfolioRiskEstimatorMetric(
+                    estimator_id="max_drawdown",
+                    value=_quantize_ratio(computed_metrics["max_drawdown"]),
+                    window_days=window_days,
+                    return_basis="simple",
+                    annualization_basis=annualization_basis,
+                    as_of_timestamp=latest_timestamp,
+                ),
+                PortfolioRiskEstimatorMetric(
+                    estimator_id="beta",
+                    value=_quantize_ratio(computed_metrics["beta"]),
+                    window_days=window_days,
+                    return_basis="simple",
+                    annualization_basis=annualization_basis,
+                    as_of_timestamp=latest_timestamp,
+                ),
+            ]
+            response = PortfolioRiskEstimatorsResponse(
+                as_of_ledger_at=as_of_ledger_at,
+                window_days=window_days,
+                metrics=metrics,
+            )
+    except MarketDataClientError as exc:
+        logger.error(
+            "portfolio_analytics.risk_estimators_failed",
+            window_days=window_days,
+            error=str(exc),
+            error_type=type(exc).__name__,
+            exc_info=True,
+        )
+        raise PortfolioAnalyticsClientError(
+            str(exc),
+            status_code=exc.status_code,
+        ) from exc
+    except PortfolioAnalyticsClientError:
+        raise
+    except SQLAlchemyError as exc:
+        logger.error(
+            "portfolio_analytics.risk_estimators_failed",
+            window_days=window_days,
+            error=str(exc),
+            error_type=type(exc).__name__,
+            exc_info=True,
+        )
+        raise PortfolioAnalyticsClientError(
+            "Failed to build portfolio risk estimators due to a database error.",
+            status_code=500,
+        ) from exc
+
+    logger.info(
+        "portfolio_analytics.risk_estimators_completed",
+        window_days=response.window_days,
+        metric_count=len(response.metrics),
+        as_of_ledger_at=response.as_of_ledger_at.isoformat(),
+    )
+    return response
+
+
+async def get_portfolio_transactions_response(
+    *,
+    db: AsyncSession,
+) -> PortfolioTransactionsResponse:
+    """Return persisted ledger-event history for transactions workspace route."""
+
+    logger.info("portfolio_analytics.transactions_started")
+    try:
+        async with db.begin():
+            await _set_repeatable_read_snapshot(db=db)
+            trade_rows_result = await db.execute(select(PortfolioTransaction))
+            dividend_rows_result = await db.execute(select(DividendEvent))
+
+            event_rows: list[PortfolioTransactionEvent] = []
+            for trade_row in trade_rows_result.scalars().all():
+                normalized_trade_side = (
+                    trade_row.trade_side.strip().lower() if trade_row.trade_side else "trade"
+                )
+                posted_at = datetime.combine(trade_row.event_date, time.min, tzinfo=UTC)
+                event_rows.append(
+                    PortfolioTransactionEvent(
+                        id=f"trade:{trade_row.id}",
+                        posted_at=posted_at,
+                        instrument_symbol=_normalize_symbol(
+                            symbol_value=trade_row.instrument_symbol,
+                            field="instrument_symbol",
+                        ),
+                        event_type=normalized_trade_side,
+                        quantity=_quantize_qty(
+                            _coerce_decimal(
+                                value=trade_row.quantity,
+                                field="quantity",
+                                context="portfolio_transaction",
+                            )
+                        ),
+                        cash_amount_usd=_quantize_money(
+                            _coerce_decimal(
+                                value=trade_row.gross_amount_usd,
+                                field="gross_amount_usd",
+                                context="portfolio_transaction",
+                            )
+                        ),
+                    )
+                )
+
+            for dividend_row in dividend_rows_result.scalars().all():
+                posted_at = datetime.combine(dividend_row.event_date, time.min, tzinfo=UTC)
+                event_rows.append(
+                    PortfolioTransactionEvent(
+                        id=f"dividend:{dividend_row.id}",
+                        posted_at=posted_at,
+                        instrument_symbol=_normalize_symbol(
+                            symbol_value=dividend_row.instrument_symbol,
+                            field="instrument_symbol",
+                        ),
+                        event_type="dividend",
+                        quantity=Decimal("0").quantize(_QTY_SCALE),
+                        cash_amount_usd=_quantize_money(
+                            _coerce_decimal(
+                                value=dividend_row.net_amount_usd,
+                                field="net_amount_usd",
+                                context="dividend_event",
+                            )
+                        ),
+                    )
+                )
+
+            event_rows.sort(
+                key=lambda event_row: (
+                    event_row.posted_at,
+                    event_row.id,
+                ),
+                reverse=True,
+            )
+            as_of_ledger_at = await _fetch_as_of_ledger_at(db=db)
+            response = PortfolioTransactionsResponse(
+                as_of_ledger_at=as_of_ledger_at,
+                events=event_rows,
+            )
+    except PortfolioAnalyticsClientError:
+        raise
+    except SQLAlchemyError as exc:
+        logger.error(
+            "portfolio_analytics.transactions_failed",
+            error=str(exc),
+            error_type=type(exc).__name__,
+            exc_info=True,
+        )
+        raise PortfolioAnalyticsClientError(
+            "Failed to load portfolio transactions due to a database error.",
+            status_code=500,
+        ) from exc
+
+    logger.info(
+        "portfolio_analytics.transactions_completed",
+        event_count=len(response.events),
+        as_of_ledger_at=response.as_of_ledger_at.isoformat(),
+    )
+    return response
 
 
 def build_grouped_portfolio_summary_from_ledger(
@@ -574,6 +1011,693 @@ def validate_open_position_price_coverage(
         f"for symbol(s): {missing_symbols_csv}.",
         status_code=409,
     )
+
+
+async def _load_open_position_price_inputs(
+    *,
+    db: AsyncSession,
+) -> tuple[dict[str, Decimal], Decimal, dict[str, dict[datetime, Decimal]]]:
+    """Load open-position quantities and aligned snapshot price history inputs."""
+
+    lots_result = await db.execute(
+        select(Lot).where(Lot.remaining_qty > Decimal("0")),
+    )
+    open_lots = cast(list[Lot], lots_result.scalars().all())
+    if not open_lots:
+        raise PortfolioAnalyticsClientError(
+            "No open positions are available for analytics computation.",
+            status_code=409,
+        )
+
+    open_quantity_by_symbol: dict[str, Decimal] = defaultdict(lambda: Decimal("0"))
+    total_open_cost_basis_usd = Decimal("0")
+    for lot in open_lots:
+        normalized_symbol = _normalize_symbol(
+            symbol_value=lot.instrument_symbol,
+            field="instrument_symbol",
+        )
+        remaining_qty = _coerce_decimal(
+            value=lot.remaining_qty,
+            field="remaining_qty",
+            context="lot",
+        )
+        total_cost_basis_usd = _coerce_decimal(
+            value=lot.total_cost_basis_usd,
+            field="total_cost_basis_usd",
+            context="lot",
+        )
+        open_quantity_by_symbol[normalized_symbol] += remaining_qty
+        total_open_cost_basis_usd += total_cost_basis_usd
+
+    required_symbols = set(open_quantity_by_symbol)
+    snapshot_coverage = await resolve_latest_consistent_snapshot_coverage_for_symbols(
+        db=db,
+        required_symbols=required_symbols,
+    )
+    if snapshot_coverage is None:
+        missing_symbols_csv = ", ".join(sorted(required_symbols))
+        raise PortfolioAnalyticsClientError(
+            "No consistent persisted market-data snapshot provides complete USD pricing "
+            f"coverage for open position symbol(s): {missing_symbols_csv}.",
+            status_code=409,
+        )
+
+    price_rows = await _load_snapshot_price_rows(
+        db=db,
+        snapshot_id=snapshot_coverage.snapshot_id,
+        required_symbols=required_symbols,
+    )
+    price_series_by_symbol = _build_price_series_by_symbol(
+        price_rows=price_rows,
+        required_symbols=required_symbols,
+    )
+    return (
+        dict(open_quantity_by_symbol),
+        total_open_cost_basis_usd,
+        price_series_by_symbol,
+    )
+
+
+async def _load_snapshot_price_rows(
+    *,
+    db: AsyncSession,
+    snapshot_id: int,
+    required_symbols: set[str],
+) -> list[PriceHistory]:
+    """Load deterministic USD price rows for one snapshot and symbol set."""
+
+    query = (
+        select(PriceHistory)
+        .where(
+            PriceHistory.snapshot_id == snapshot_id,
+            PriceHistory.instrument_symbol.in_(required_symbols),
+            PriceHistory.currency_code == "USD",
+        )
+        .order_by(
+            PriceHistory.instrument_symbol.asc(),
+            PriceHistory.market_timestamp.asc().nullslast(),
+            PriceHistory.trading_date.asc().nullslast(),
+            PriceHistory.id.asc(),
+        )
+    )
+    result = await db.execute(query)
+    return cast(list[PriceHistory], result.scalars().all())
+
+
+def _build_price_series_by_symbol(
+    *,
+    price_rows: Sequence[PriceHistory],
+    required_symbols: set[str],
+) -> dict[str, dict[datetime, Decimal]]:
+    """Build timestamp-indexed price series for each required symbol."""
+
+    series_by_symbol: dict[str, dict[datetime, Decimal]] = {
+        symbol: {} for symbol in sorted(required_symbols)
+    }
+    for price_row in price_rows:
+        normalized_symbol = _normalize_symbol(
+            symbol_value=price_row.instrument_symbol,
+            field="instrument_symbol",
+        )
+        if normalized_symbol not in series_by_symbol:
+            continue
+
+        captured_at = _coerce_price_row_timestamp(price_row=price_row)
+        price_value = _coerce_decimal(
+            value=price_row.price_value,
+            field="price_value",
+            context="price_history",
+        )
+        series_by_symbol[normalized_symbol][captured_at] = price_value
+
+    missing_symbols = [
+        symbol for symbol, symbol_series in series_by_symbol.items() if not symbol_series
+    ]
+    if missing_symbols:
+        missing_symbols_csv = ", ".join(sorted(missing_symbols))
+        raise PortfolioAnalyticsClientError(
+            "Insufficient persisted history: selected snapshot is missing price rows for "
+            f"open position symbol(s): {missing_symbols_csv}.",
+            status_code=409,
+        )
+
+    return series_by_symbol
+
+
+def _coerce_price_row_timestamp(*, price_row: PriceHistory) -> datetime:
+    """Return one timezone-aware timestamp for a price-history row."""
+
+    if price_row.market_timestamp is not None:
+        timestamp = price_row.market_timestamp
+    elif price_row.trading_date is not None:
+        timestamp = datetime.combine(price_row.trading_date, time.min, tzinfo=UTC)
+    else:
+        raise PortfolioAnalyticsClientError(
+            "Price-history row is missing market time context.",
+            status_code=422,
+        )
+
+    if timestamp.tzinfo is None:
+        return timestamp.replace(tzinfo=UTC)
+    return timestamp.astimezone(UTC)
+
+
+def _select_aligned_timestamps(
+    *,
+    price_series_by_symbol: Mapping[str, Mapping[datetime, Decimal]],
+    required_points: int | None,
+    minimum_points: int,
+    insufficient_history_detail: str,
+) -> list[datetime]:
+    """Select deterministic aligned timestamps across all required symbols."""
+
+    symbol_timestamp_sets: list[set[datetime]] = [
+        set(symbol_series.keys()) for symbol_series in price_series_by_symbol.values()
+    ]
+    if not symbol_timestamp_sets:
+        raise PortfolioAnalyticsClientError(
+            insufficient_history_detail,
+            status_code=409,
+        )
+
+    common_timestamps: set[datetime] = set(symbol_timestamp_sets[0])
+    for symbol_timestamps in symbol_timestamp_sets[1:]:
+        common_timestamps &= symbol_timestamps
+
+    ordered_timestamps: list[datetime] = sorted(common_timestamps)
+    if required_points is not None:
+        if len(ordered_timestamps) < required_points:
+            raise PortfolioAnalyticsClientError(
+                insufficient_history_detail,
+                status_code=409,
+            )
+        ordered_timestamps = ordered_timestamps[-required_points:]
+
+    if len(ordered_timestamps) < minimum_points:
+        raise PortfolioAnalyticsClientError(
+            insufficient_history_detail,
+            status_code=409,
+        )
+    return ordered_timestamps
+
+
+def _build_aligned_price_frame(
+    *,
+    aligned_timestamps: Sequence[datetime],
+    price_series_by_symbol: Mapping[str, Mapping[datetime, Decimal]],
+) -> pd.DataFrame:
+    """Build one deterministic, UTC-aware aligned price frame for estimator kernels."""
+
+    _validate_aligned_timestamp_index(aligned_timestamps=aligned_timestamps)
+    ordered_symbols = sorted(price_series_by_symbol)
+    if not ordered_symbols:
+        raise PortfolioAnalyticsClientError(
+            "Risk estimator preprocessing requires at least one symbol series.",
+            status_code=422,
+        )
+
+    price_columns: dict[str, list[float]] = {}
+    for symbol in ordered_symbols:
+        symbol_series = price_series_by_symbol.get(symbol)
+        if symbol_series is None:
+            raise PortfolioAnalyticsClientError(
+                "Risk estimator preprocessing found missing symbol series mapping.",
+                status_code=422,
+            )
+
+        symbol_prices: list[float] = []
+        for timestamp in aligned_timestamps:
+            raw_price = symbol_series.get(timestamp)
+            if raw_price is None:
+                raise PortfolioAnalyticsClientError(
+                    "Risk estimator preprocessing found missing aligned symbol price point.",
+                    status_code=422,
+                )
+            normalized_price = _coerce_decimal(
+                value=raw_price,
+                field="price_value",
+                context="risk_estimator_preprocessing",
+            )
+            symbol_prices.append(float(normalized_price))
+        price_columns[symbol] = symbol_prices
+
+    datetime_index = pd.DatetimeIndex(list(aligned_timestamps))
+    if datetime_index.tz is None:
+        raise PortfolioAnalyticsClientError(
+            "Risk estimator preprocessing requires timezone-aware UTC timestamps.",
+            status_code=422,
+        )
+
+    price_frame = pd.DataFrame(
+        price_columns,
+        index=datetime_index,
+        dtype=np.float64,
+    )
+    if price_frame.empty:
+        raise PortfolioAnalyticsClientError(
+            "Risk estimator preprocessing produced an empty aligned price frame.",
+            status_code=422,
+        )
+    if price_frame.isna().to_numpy(dtype=bool).any():
+        raise PortfolioAnalyticsClientError(
+            "Risk estimator preprocessing does not allow missing aligned values.",
+            status_code=422,
+        )
+    if not np.isfinite(price_frame.to_numpy(dtype=np.float64)).all():
+        raise PortfolioAnalyticsClientError(
+            "Risk estimator preprocessing requires finite aligned price values.",
+            status_code=422,
+        )
+    return price_frame
+
+
+def _compute_risk_metrics_from_price_frame(
+    *,
+    price_frame: pd.DataFrame,
+    open_quantity_by_symbol: Mapping[str, Decimal],
+    window_days: int,
+) -> dict[str, Decimal]:
+    """Compute baseline v1 risk metrics from aligned prices using pandas/NumPy/SciPy."""
+
+    if window_days <= 1:
+        raise PortfolioAnalyticsClientError(
+            "Risk estimator window must be greater than one day.",
+            status_code=422,
+        )
+    if price_frame.shape[0] < window_days + 1:
+        raise PortfolioAnalyticsClientError(
+            f"Insufficient persisted history for risk window {window_days}.",
+            status_code=409,
+        )
+
+    ordered_symbols = [str(column_name) for column_name in price_frame.columns]
+    if not ordered_symbols:
+        raise PortfolioAnalyticsClientError(
+            "Risk estimator preprocessing requires at least one symbol column.",
+            status_code=422,
+        )
+
+    quantity_vector_values: list[float] = []
+    for symbol in ordered_symbols:
+        if symbol not in open_quantity_by_symbol:
+            raise PortfolioAnalyticsClientError(
+                "Risk estimator preprocessing found symbol alignment mismatch.",
+                status_code=422,
+            )
+        normalized_quantity = _coerce_decimal(
+            value=open_quantity_by_symbol[symbol],
+            field="open_quantity",
+            context="risk_estimator_preprocessing",
+        )
+        if normalized_quantity <= Decimal("0"):
+            raise PortfolioAnalyticsClientError(
+                "Risk estimator preprocessing requires positive open quantities.",
+                status_code=422,
+            )
+        quantity_vector_values.append(float(normalized_quantity))
+
+    quantity_vector = np.array(quantity_vector_values, dtype=np.float64)
+    price_matrix = price_frame.to_numpy(dtype=np.float64)
+    if not np.isfinite(price_matrix).all():
+        raise PortfolioAnalyticsClientError(
+            "Risk estimator preprocessing requires finite aligned symbol prices.",
+            status_code=422,
+        )
+    if np.any(price_matrix <= 0):
+        raise PortfolioAnalyticsClientError(
+            "Risk estimators require positive historical symbol prices.",
+            status_code=409,
+        )
+
+    portfolio_values = np.matmul(price_matrix, quantity_vector)
+    if not np.isfinite(portfolio_values).all():
+        raise PortfolioAnalyticsClientError(
+            "Risk estimator preprocessing produced non-finite portfolio values.",
+            status_code=422,
+        )
+    if np.any(portfolio_values <= 0):
+        raise PortfolioAnalyticsClientError(
+            "Risk estimators require positive historical portfolio values to compute returns.",
+            status_code=409,
+        )
+
+    portfolio_value_series = pd.Series(
+        portfolio_values,
+        index=price_frame.index,
+        name="portfolio_value",
+    )
+    portfolio_returns = portfolio_value_series.pct_change().dropna()
+    symbol_returns = price_frame.pct_change().dropna(how="all")
+    if symbol_returns.isna().to_numpy(dtype=bool).any():
+        raise PortfolioAnalyticsClientError(
+            "Risk estimator preprocessing does not allow implicit missing-data fills.",
+            status_code=422,
+        )
+    proxy_returns = symbol_returns.mean(axis=1)
+
+    risk_window_frame = pd.concat(
+        (
+            portfolio_returns.rename("portfolio"),
+            proxy_returns.rename("proxy"),
+        ),
+        axis=1,
+        join="inner",
+    ).tail(window_days)
+    if len(risk_window_frame) < window_days:
+        raise PortfolioAnalyticsClientError(
+            f"Insufficient persisted history for risk window {window_days}.",
+            status_code=409,
+        )
+    if risk_window_frame.isna().to_numpy(dtype=bool).any():
+        raise PortfolioAnalyticsClientError(
+            "Risk estimator preprocessing found missing aligned return values.",
+            status_code=422,
+        )
+
+    portfolio_window = risk_window_frame["portfolio"]
+    proxy_window = risk_window_frame["proxy"]
+    rolling_std = portfolio_window.rolling(
+        window=window_days,
+        min_periods=window_days,
+    ).std(ddof=1)
+    volatility_annualized = float(rolling_std.iloc[-1]) * float(np.sqrt(252.0))
+
+    cumulative_peaks = portfolio_value_series.cummax()
+    drawdown_series = (portfolio_value_series / cumulative_peaks) - 1.0
+    max_drawdown = float(drawdown_series.min())
+
+    rolling_covariance = portfolio_window.rolling(
+        window=window_days,
+        min_periods=window_days,
+    ).cov(proxy_window)
+    rolling_variance = proxy_window.rolling(
+        window=window_days,
+        min_periods=window_days,
+    ).var(ddof=1)
+    covariance_value = float(rolling_covariance.iloc[-1])
+    variance_value = float(rolling_variance.iloc[-1])
+
+    if not np.isfinite(variance_value):
+        raise PortfolioAnalyticsClientError(
+            "Risk estimator variance computation produced non-finite values.",
+            status_code=422,
+        )
+
+    if variance_value == 0.0:
+        raise PortfolioAnalyticsClientError(
+            "Risk estimator regression failed because proxy return variance is zero.",
+            status_code=422,
+        )
+
+    try:
+        regression_result = stats.linregress(
+            proxy_window.to_numpy(dtype=np.float64),
+            portfolio_window.to_numpy(dtype=np.float64),
+        )
+    except ValueError as exc:
+        raise PortfolioAnalyticsClientError(
+            "Risk estimator regression failed due to invalid input domain.",
+            status_code=422,
+        ) from exc
+    if not np.isfinite(regression_result.slope):
+        raise PortfolioAnalyticsClientError(
+            "Risk estimator regression produced a non-finite beta slope.",
+            status_code=422,
+        )
+    beta_from_covariance = covariance_value / variance_value
+    beta = float(regression_result.slope)
+    if np.isfinite(beta_from_covariance):
+        beta = float((beta + beta_from_covariance) / 2.0)
+
+    return {
+        "volatility_annualized": _decimal_from_float(
+            value=volatility_annualized,
+            field="volatility_annualized",
+        ),
+        "max_drawdown": _decimal_from_float(
+            value=max_drawdown,
+            field="max_drawdown",
+        ),
+        "beta": _decimal_from_float(
+            value=beta,
+            field="beta",
+        ),
+    }
+
+
+def _validate_aligned_timestamp_index(*, aligned_timestamps: Sequence[datetime]) -> None:
+    """Validate UTC-aware monotonic event-time index without implicit calendar coercion."""
+
+    if not aligned_timestamps:
+        raise PortfolioAnalyticsClientError(
+            "Risk estimator preprocessing requires non-empty aligned timestamps.",
+            status_code=422,
+        )
+
+    normalized_timestamps: list[datetime] = []
+    for timestamp in aligned_timestamps:
+        if timestamp.tzinfo is None:
+            raise PortfolioAnalyticsClientError(
+                "Risk estimator preprocessing requires timezone-aware timestamps.",
+                status_code=422,
+            )
+        if timestamp.utcoffset() != timedelta(0):
+            raise PortfolioAnalyticsClientError(
+                "Risk estimator preprocessing requires UTC-aligned timestamps.",
+                status_code=422,
+            )
+        normalized_timestamps.append(timestamp.astimezone(UTC))
+
+    for previous_timestamp, current_timestamp in pairwise(normalized_timestamps):
+        if current_timestamp <= previous_timestamp:
+            raise PortfolioAnalyticsClientError(
+                "Risk estimator preprocessing requires strictly sorted timestamps.",
+                status_code=422,
+            )
+
+
+def build_portfolio_time_series_points(
+    *,
+    aligned_timestamps: Sequence[datetime],
+    open_quantity_by_symbol: Mapping[str, Decimal],
+    price_series_by_symbol: Mapping[str, Mapping[datetime, Decimal]],
+    total_open_cost_basis_usd: Decimal,
+) -> list[dict[str, object]]:
+    """Build deterministic time-series points from open-position pricing history."""
+
+    points: list[dict[str, object]] = []
+    ordered_symbols = sorted(open_quantity_by_symbol)
+    for captured_at in aligned_timestamps:
+        portfolio_value_usd = Decimal("0")
+        for symbol in ordered_symbols:
+            symbol_price_series = price_series_by_symbol.get(symbol)
+            if symbol_price_series is None or captured_at not in symbol_price_series:
+                raise PortfolioAnalyticsClientError(
+                    "Aligned time-series computation found missing symbol coverage.",
+                    status_code=422,
+                )
+            portfolio_value_usd += (
+                open_quantity_by_symbol[symbol] * symbol_price_series[captured_at]
+            )
+
+        pnl_usd = portfolio_value_usd - total_open_cost_basis_usd
+        points.append(
+            {
+                "captured_at": captured_at,
+                "portfolio_value_usd": _quantize_money(portfolio_value_usd),
+                "pnl_usd": _quantize_money(pnl_usd),
+            }
+        )
+    return points
+
+
+def build_portfolio_contribution_rows(
+    *,
+    aligned_timestamps: Sequence[datetime],
+    open_quantity_by_symbol: Mapping[str, Decimal],
+    price_series_by_symbol: Mapping[str, Mapping[datetime, Decimal]],
+) -> list[dict[str, object]]:
+    """Build deterministic contribution rows from period start/end valuations."""
+
+    start_timestamp = aligned_timestamps[0]
+    end_timestamp = aligned_timestamps[-1]
+    contribution_pnl_usd_by_symbol: dict[str, Decimal] = {}
+    for symbol in sorted(open_quantity_by_symbol):
+        symbol_series = price_series_by_symbol.get(symbol)
+        if symbol_series is None:
+            raise PortfolioAnalyticsClientError(
+                "Contribution computation found missing symbol price series.",
+                status_code=422,
+            )
+        start_price = symbol_series.get(start_timestamp)
+        end_price = symbol_series.get(end_timestamp)
+        if start_price is None or end_price is None:
+            raise PortfolioAnalyticsClientError(
+                "Contribution computation found missing aligned symbol price point.",
+                status_code=422,
+            )
+        contribution_pnl_usd_by_symbol[symbol] = open_quantity_by_symbol[symbol] * (
+            end_price - start_price
+        )
+
+    total_contribution_pnl = sum(
+        contribution_pnl_usd_by_symbol.values(),
+        start=Decimal("0"),
+    )
+    rows: list[dict[str, object]] = []
+    for symbol in sorted(contribution_pnl_usd_by_symbol):
+        contribution_pnl_usd = contribution_pnl_usd_by_symbol[symbol]
+        contribution_pct = Decimal("0")
+        if total_contribution_pnl != Decimal("0"):
+            contribution_pct = (contribution_pnl_usd / total_contribution_pnl) * Decimal("100")
+        rows.append(
+            {
+                "instrument_symbol": symbol,
+                "contribution_pnl_usd": _quantize_money(contribution_pnl_usd),
+                "contribution_pct": contribution_pct.quantize(_PCT_SCALE),
+            }
+        )
+    return rows
+
+
+def _compute_simple_returns_from_values(
+    *,
+    portfolio_values: Sequence[Decimal],
+    insufficient_history_detail: str,
+) -> list[Decimal]:
+    """Compute simple returns from sequential portfolio values."""
+
+    if len(portfolio_values) < 2:
+        raise PortfolioAnalyticsClientError(
+            insufficient_history_detail,
+            status_code=409,
+        )
+
+    returns: list[Decimal] = []
+    for previous_value, current_value in pairwise(portfolio_values):
+        if previous_value <= Decimal("0"):
+            raise PortfolioAnalyticsClientError(
+                "Risk estimators require positive historical portfolio values to compute returns.",
+                status_code=409,
+            )
+        returns.append((current_value / previous_value) - Decimal("1"))
+    return returns
+
+
+def _build_equal_weight_proxy_returns(
+    *,
+    aligned_timestamps: Sequence[datetime],
+    price_series_by_symbol: Mapping[str, Mapping[datetime, Decimal]],
+) -> list[Decimal]:
+    """Build equal-weight symbol return proxy aligned to portfolio return points."""
+
+    if len(aligned_timestamps) < 2:
+        return []
+
+    ordered_symbols = sorted(price_series_by_symbol)
+    proxy_returns: list[Decimal] = []
+    for previous_timestamp, current_timestamp in pairwise(aligned_timestamps):
+        symbol_returns: list[Decimal] = []
+        for symbol in ordered_symbols:
+            symbol_series = price_series_by_symbol[symbol]
+            previous_price = symbol_series.get(previous_timestamp)
+            current_price = symbol_series.get(current_timestamp)
+            if previous_price is None or current_price is None:
+                raise PortfolioAnalyticsClientError(
+                    "Risk estimator proxy alignment found missing symbol price point.",
+                    status_code=422,
+                )
+            if previous_price <= Decimal("0"):
+                raise PortfolioAnalyticsClientError(
+                    "Risk estimators require positive historical symbol prices.",
+                    status_code=409,
+                )
+            symbol_returns.append((current_price / previous_price) - Decimal("1"))
+
+        proxy_returns.append(sum(symbol_returns, start=Decimal("0")) / Decimal(len(symbol_returns)))
+
+    return proxy_returns
+
+
+def _compute_annualized_volatility(
+    *,
+    returns: Sequence[Decimal],
+    annualization_days: int,
+) -> Decimal:
+    """Compute sample annualized volatility from simple returns."""
+
+    if len(returns) < 2:
+        return Decimal("0")
+    sample_std = _compute_sample_standard_deviation(values=returns)
+    annualized_volatility = sample_std * math.sqrt(annualization_days)
+    return Decimal(str(annualized_volatility))
+
+
+def _compute_sample_standard_deviation(*, values: Sequence[Decimal]) -> float:
+    """Compute sample standard deviation for decimal values."""
+
+    if len(values) < 2:
+        return 0.0
+    mean_value = sum(values, start=Decimal("0")) / Decimal(len(values))
+    variance = sum(
+        ((value - mean_value) ** 2 for value in values),
+        start=Decimal("0"),
+    ) / Decimal(len(values) - 1)
+    return math.sqrt(float(variance))
+
+
+def _compute_max_drawdown(*, values: Sequence[Decimal]) -> Decimal:
+    """Compute max drawdown from sequential portfolio values."""
+
+    if not values:
+        return Decimal("0")
+
+    peak_value = values[0]
+    max_drawdown = Decimal("0")
+    for value in values:
+        if value > peak_value:
+            peak_value = value
+        if peak_value <= Decimal("0"):
+            raise PortfolioAnalyticsClientError(
+                "Risk estimators require positive historical portfolio peaks.",
+                status_code=409,
+            )
+        drawdown = (value / peak_value) - Decimal("1")
+        if drawdown < max_drawdown:
+            max_drawdown = drawdown
+    return max_drawdown
+
+
+def _compute_beta(
+    *,
+    portfolio_returns: Sequence[Decimal],
+    proxy_returns: Sequence[Decimal],
+) -> Decimal:
+    """Compute portfolio beta versus equal-weight proxy returns."""
+
+    if len(portfolio_returns) != len(proxy_returns) or len(portfolio_returns) < 2:
+        return Decimal("0")
+
+    portfolio_mean = sum(portfolio_returns, start=Decimal("0")) / Decimal(len(portfolio_returns))
+    proxy_mean = sum(proxy_returns, start=Decimal("0")) / Decimal(len(proxy_returns))
+    covariance = sum(
+        (
+            (portfolio_return - portfolio_mean) * (proxy_return - proxy_mean)
+            for portfolio_return, proxy_return in zip(
+                portfolio_returns,
+                proxy_returns,
+                strict=True,
+            )
+        ),
+        start=Decimal("0"),
+    ) / Decimal(len(portfolio_returns) - 1)
+    proxy_variance = sum(
+        ((proxy_return - proxy_mean) ** 2 for proxy_return in proxy_returns),
+        start=Decimal("0"),
+    ) / Decimal(len(proxy_returns) - 1)
+    if proxy_variance == Decimal("0"):
+        return Decimal("0")
+    return covariance / proxy_variance
 
 
 def build_lot_detail_from_ledger(
@@ -998,6 +2122,17 @@ def _normalize_symbol(*, symbol_value: object, field: str) -> str:
     return normalized_symbol
 
 
+def _decimal_from_float(*, value: float, field: str) -> Decimal:
+    """Convert one finite float kernel output into deterministic decimal text form."""
+
+    if not np.isfinite(value):
+        raise PortfolioAnalyticsClientError(
+            f"Risk estimator field '{field}' produced a non-finite numeric result.",
+            status_code=422,
+        )
+    return Decimal(str(value))
+
+
 def _quantize_qty(value: Decimal) -> Decimal:
     """Quantize quantity-like decimals to fixed scale."""
 
@@ -1008,6 +2143,12 @@ def _quantize_money(value: Decimal) -> Decimal:
     """Quantize currency-like decimals to fixed scale."""
 
     return value.quantize(_MONEY_SCALE)
+
+
+def _quantize_ratio(value: Decimal) -> Decimal:
+    """Quantize ratio-like decimals to fixed scale."""
+
+    return value.quantize(_RATIO_SCALE)
 
 
 def _compute_unrealized_gain_pct(
