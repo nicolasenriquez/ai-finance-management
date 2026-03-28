@@ -13,6 +13,10 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logging import get_logger
+from app.market_data.service import (
+    MarketDataClientError,
+    resolve_latest_consistent_snapshot_coverage_for_symbols,
+)
 from app.portfolio_analytics.schemas import (
     PortfolioLotDetailResponse,
     PortfolioLotDetailRow,
@@ -26,6 +30,7 @@ logger = get_logger(__name__)
 
 _QTY_SCALE = Decimal("0.000000001")
 _MONEY_SCALE = Decimal("0.01")
+_PCT_SCALE = Decimal("0.01")
 
 
 class PortfolioAnalyticsClientError(ValueError):
@@ -56,28 +61,77 @@ async def get_portfolio_summary_response(*, db: AsyncSession) -> PortfolioSummar
             )
             dividend_events_result = await db.execute(select(DividendEvent))
 
+            serialized_lots = [_serialize_lot_row(row) for row in lots_result.scalars().all()]
+            serialized_lot_dispositions = [
+                _serialize_lot_disposition_row(row)
+                for row in lot_dispositions_result.scalars().all()
+            ]
+            serialized_sell_transactions = [
+                _serialize_portfolio_transaction_row(row)
+                for row in sell_transactions_result.scalars().all()
+            ]
+            serialized_dividends = [
+                _serialize_dividend_event_row(row) for row in dividend_events_result.scalars().all()
+            ]
+
+            open_position_symbols = collect_open_position_symbols_from_lots(lots=serialized_lots)
+            latest_close_price_usd_by_symbol: dict[str, Decimal] = {}
+            pricing_snapshot_key: str | None = None
+            pricing_snapshot_captured_at: datetime | None = None
+            if open_position_symbols:
+                snapshot_coverage = await resolve_latest_consistent_snapshot_coverage_for_symbols(
+                    db=db,
+                    required_symbols=open_position_symbols,
+                )
+                if snapshot_coverage is None:
+                    missing_symbols_csv = ", ".join(sorted(open_position_symbols))
+                    raise PortfolioAnalyticsClientError(
+                        "No consistent persisted market-data snapshot provides complete USD "
+                        "pricing coverage for open position symbol(s): "
+                        f"{missing_symbols_csv}.",
+                        status_code=409,
+                    )
+
+                validate_open_position_price_coverage(
+                    open_position_symbols=open_position_symbols,
+                    priced_symbols=set(snapshot_coverage.latest_close_price_usd_by_symbol),
+                    snapshot_key=snapshot_coverage.snapshot_key,
+                )
+                latest_close_price_usd_by_symbol = (
+                    snapshot_coverage.latest_close_price_usd_by_symbol
+                )
+                pricing_snapshot_key = snapshot_coverage.snapshot_key
+                pricing_snapshot_captured_at = snapshot_coverage.snapshot_captured_at
+
             rows_payload = build_grouped_portfolio_summary_from_ledger(
-                lots=[_serialize_lot_row(row) for row in lots_result.scalars().all()],
-                lot_dispositions=[
-                    _serialize_lot_disposition_row(row)
-                    for row in lot_dispositions_result.scalars().all()
-                ],
-                portfolio_transactions=[
-                    _serialize_portfolio_transaction_row(row)
-                    for row in sell_transactions_result.scalars().all()
-                ],
-                dividend_events=[
-                    _serialize_dividend_event_row(row)
-                    for row in dividend_events_result.scalars().all()
-                ],
+                lots=serialized_lots,
+                lot_dispositions=serialized_lot_dispositions,
+                portfolio_transactions=serialized_sell_transactions,
+                dividend_events=serialized_dividends,
+                latest_close_price_usd_by_symbol=latest_close_price_usd_by_symbol,
             )
             as_of_ledger_at = await _fetch_as_of_ledger_at(db=db)
             summary_response = PortfolioSummaryResponse(
                 as_of_ledger_at=as_of_ledger_at,
+                pricing_snapshot_key=pricing_snapshot_key,
+                pricing_snapshot_captured_at=pricing_snapshot_captured_at,
                 rows=[
                     PortfolioSummaryRow.model_validate(row_payload) for row_payload in rows_payload
                 ],
             )
+    except MarketDataClientError as exc:
+        logger.error(
+            "portfolio_analytics.summary_failed",
+            error=str(exc),
+            error_type=type(exc).__name__,
+            exc_info=True,
+        )
+        raise PortfolioAnalyticsClientError(
+            str(exc),
+            status_code=exc.status_code,
+        ) from exc
+    except PortfolioAnalyticsClientError:
+        raise
     except SQLAlchemyError as exc:
         logger.error(
             "portfolio_analytics.summary_failed",
@@ -93,6 +147,7 @@ async def get_portfolio_summary_response(*, db: AsyncSession) -> PortfolioSummar
     logger.info(
         "portfolio_analytics.summary_completed",
         as_of_ledger_at=summary_response.as_of_ledger_at.isoformat(),
+        pricing_snapshot_key=summary_response.pricing_snapshot_key,
         row_count=len(summary_response.rows),
     )
     return summary_response
@@ -190,8 +245,22 @@ def build_grouped_portfolio_summary_from_ledger(
     lot_dispositions: Sequence[Mapping[str, object]],
     portfolio_transactions: Sequence[Mapping[str, object]],
     dividend_events: Sequence[Mapping[str, object]],
+    latest_close_price_usd_by_symbol: Mapping[str, Decimal] | None = None,
 ) -> list[dict[str, object]]:
-    """Compute grouped ledger-only KPI rows by instrument symbol."""
+    """Compute grouped KPI rows by instrument symbol from ledger and optional pricing."""
+
+    normalized_latest_close_price_usd_by_symbol: dict[str, Decimal] = {}
+    if latest_close_price_usd_by_symbol is not None:
+        for raw_symbol, raw_price in latest_close_price_usd_by_symbol.items():
+            normalized_symbol = _normalize_symbol(
+                symbol_value=raw_symbol,
+                field="latest_close_price_usd_by_symbol",
+            )
+            normalized_latest_close_price_usd_by_symbol[normalized_symbol] = _coerce_decimal(
+                value=raw_price,
+                field="latest_close_price_usd_by_symbol",
+                context="market_data_price",
+            )
 
     open_quantity_by_symbol: dict[str, Decimal] = defaultdict(lambda: Decimal("0"))
     open_cost_basis_by_symbol: dict[str, Decimal] = defaultdict(lambda: Decimal("0"))
@@ -246,13 +315,16 @@ def build_grouped_portfolio_summary_from_ledger(
         )
         symbol_from_lot = lot_id_to_symbol.get(lot_id)
         if symbol_from_lot is None:
-            raw_symbol = disposition.get("instrument_symbol")
-            if raw_symbol is None:
+            raw_disposition_symbol = disposition.get("instrument_symbol")
+            if raw_disposition_symbol is None:
                 raise PortfolioAnalyticsClientError(
                     "Disposition row cannot be resolved to an instrument symbol.",
                     status_code=422,
                 )
-            symbol = _normalize_symbol(symbol_value=raw_symbol, field="instrument_symbol")
+            symbol = _normalize_symbol(
+                symbol_value=raw_disposition_symbol,
+                field="instrument_symbol",
+            )
         else:
             symbol = symbol_from_lot
 
@@ -408,6 +480,22 @@ def build_grouped_portfolio_summary_from_ledger(
         dividend_gross_usd = _quantize_money(dividend_gross_by_symbol.get(symbol, Decimal("0")))
         dividend_taxes_usd = _quantize_money(dividend_taxes_by_symbol.get(symbol, Decimal("0")))
         dividend_net_usd = _quantize_money(dividend_net_by_symbol.get(symbol, Decimal("0")))
+        latest_close_price_usd: Decimal | None = None
+        market_value_usd: Decimal | None = None
+        unrealized_gain_usd: Decimal | None = None
+        unrealized_gain_pct: Decimal | None = None
+        if open_quantity > Decimal("0"):
+            latest_close_candidate = normalized_latest_close_price_usd_by_symbol.get(symbol)
+            if latest_close_candidate is not None:
+                latest_close_price_usd = _quantize_money(latest_close_candidate)
+                raw_market_value_usd = open_quantity * latest_close_candidate
+                raw_unrealized_gain_usd = raw_market_value_usd - open_cost_basis_usd
+                market_value_usd = _quantize_money(raw_market_value_usd)
+                unrealized_gain_usd = _quantize_money(raw_unrealized_gain_usd)
+                unrealized_gain_pct = _compute_unrealized_gain_pct(
+                    unrealized_gain_usd=raw_unrealized_gain_usd,
+                    open_cost_basis_usd=open_cost_basis_usd,
+                )
 
         has_activity = any(
             (
@@ -434,10 +522,58 @@ def build_grouped_portfolio_summary_from_ledger(
                 "dividend_gross_usd": dividend_gross_usd,
                 "dividend_taxes_usd": dividend_taxes_usd,
                 "dividend_net_usd": dividend_net_usd,
+                "latest_close_price_usd": latest_close_price_usd,
+                "market_value_usd": market_value_usd,
+                "unrealized_gain_usd": unrealized_gain_usd,
+                "unrealized_gain_pct": unrealized_gain_pct,
             }
         )
 
     return summary_rows
+
+
+def collect_open_position_symbols_from_lots(*, lots: Sequence[Mapping[str, object]]) -> set[str]:
+    """Return normalized symbols with positive remaining quantity from lot rows."""
+
+    open_position_symbols: set[str] = set()
+    for lot in lots:
+        lot_context = "lot"
+        symbol = _normalize_symbol(
+            symbol_value=_read_required_field(
+                record=lot,
+                field="instrument_symbol",
+                context=lot_context,
+            ),
+            field="instrument_symbol",
+        )
+        remaining_qty = _coerce_decimal(
+            value=_read_required_field(record=lot, field="remaining_qty", context=lot_context),
+            field="remaining_qty",
+            context=lot_context,
+        )
+        if remaining_qty > Decimal("0"):
+            open_position_symbols.add(symbol)
+    return open_position_symbols
+
+
+def validate_open_position_price_coverage(
+    *,
+    open_position_symbols: set[str],
+    priced_symbols: set[str],
+    snapshot_key: str,
+) -> None:
+    """Fail fast when selected snapshot does not cover all open-position symbols."""
+
+    missing_symbols = sorted(open_position_symbols - priced_symbols)
+    if not missing_symbols:
+        return
+
+    missing_symbols_csv = ", ".join(missing_symbols)
+    raise PortfolioAnalyticsClientError(
+        f"Selected pricing snapshot '{snapshot_key}' is missing required open-position coverage "
+        f"for symbol(s): {missing_symbols_csv}.",
+        status_code=409,
+    )
 
 
 def build_lot_detail_from_ledger(
@@ -872,3 +1008,15 @@ def _quantize_money(value: Decimal) -> Decimal:
     """Quantize currency-like decimals to fixed scale."""
 
     return value.quantize(_MONEY_SCALE)
+
+
+def _compute_unrealized_gain_pct(
+    *,
+    unrealized_gain_usd: Decimal,
+    open_cost_basis_usd: Decimal,
+) -> Decimal | None:
+    """Compute unrealized gain percentage when open cost basis is positive."""
+
+    if open_cost_basis_usd <= Decimal("0"):
+        return None
+    return ((unrealized_gain_usd / open_cost_basis_usd) * Decimal("100")).quantize(_PCT_SCALE)

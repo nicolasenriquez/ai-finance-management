@@ -23,6 +23,8 @@ It defines exactly how payloads become UI states, labels, tables, and drill-down
 Shape:
 
 - `as_of_ledger_at: datetime`
+- `pricing_snapshot_key: str | null`
+- `pricing_snapshot_captured_at: datetime | null`
 - `rows: PortfolioSummaryRow[]`
 
 Row fields:
@@ -37,12 +39,18 @@ Row fields:
 - `dividend_gross_usd`
 - `dividend_taxes_usd`
 - `dividend_net_usd`
+- `latest_close_price_usd`
+- `market_value_usd`
+- `unrealized_gain_usd`
+- `unrealized_gain_pct`
 
 Behavioral notes:
 
 - Symbols are deterministic and uppercase.
 - Summary rows are symbol-sorted.
-- Values are ledger-derived only.
+- Ledger KPIs are always present.
+- Market-enriched valuation fields are snapshot-derived and may be null for closed rows.
+- Summary valuation fields must come from one consistent persisted snapshot per response.
 
 ### Lot Detail Response
 
@@ -80,7 +88,9 @@ Disposition fields:
   - Trim only trailing zeros in compact contexts.
 - Money fields:
   - Display in USD with 2 decimals.
-  - Do not infer FX conversions.
+  - Do not infer FX conversions beyond payload contract.
+- Unrealized percentage:
+  - Display with 2 decimals plus `%`.
 - Datetime:
   - Render `as_of_ledger_at` in user locale, with UTC option in tooltip.
 
@@ -154,6 +164,7 @@ Implementation notes:
 ## Anti-Patterns To Avoid
 
 - Inferring market-value or unrealized return from unsupported data.
+- Inferring pricing provenance not present in payload.
 - Hiding unknown-symbol failures behind empty lists.
 - Mutating raw API values in ways that change financial meaning.
 - Overloading the first view with charts before summary correctness is obvious.

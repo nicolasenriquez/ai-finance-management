@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Iterator, Mapping
-from datetime import date
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from importlib import import_module
 from types import ModuleType
@@ -20,10 +20,13 @@ import app.pdf_normalization.service as pdf_normalization_service
 import app.pdf_persistence.service as pdf_persistence_service
 import app.portfolio_ledger.service as portfolio_ledger_service
 from app.main import app
+from app.market_data.models import MarketDataSnapshot, PriceHistory
 from app.pdf_persistence.models import CanonicalPdfRecord, ImportJob, SourceDocument
 from app.portfolio_ledger.models import DividendEvent, Lot, LotDisposition, PortfolioTransaction
 
 _TRUNCATE_CANDIDATES: tuple[str, ...] = (
+    "price_history",
+    "market_data_snapshot",
     "lot_disposition",
     "lot",
     "corporate_action_event",
@@ -34,6 +37,8 @@ _TRUNCATE_CANDIDATES: tuple[str, ...] = (
     "source_document",
 )
 _REQUIRED_INTEGRATION_TABLES: tuple[str, ...] = (
+    "market_data_snapshot",
+    "price_history",
     "source_document",
     "import_job",
     "canonical_pdf_record",
@@ -175,7 +180,11 @@ async def _truncate_tables_if_present(session: AsyncSession) -> None:
     await session.commit()
 
 
-async def _seed_persisted_ledger_state(engine: AsyncEngine) -> None:
+async def _seed_persisted_ledger_state(
+    engine: AsyncEngine,
+    *,
+    include_market_data: bool = True,
+) -> None:
     """Insert deterministic persisted ledger rows used by analytics integration tests."""
 
     session_factory = async_sessionmaker(
@@ -466,6 +475,36 @@ async def _seed_persisted_ledger_state(engine: AsyncEngine) -> None:
                 ),
             )
         )
+        if include_market_data:
+            market_snapshot = MarketDataSnapshot(
+                source_type="market_data_provider",
+                source_provider="yfinance",
+                snapshot_key="yf|d1|1d|3mo|aa1rp1|2025-02-20|s2|testseed000001",
+                snapshot_captured_at=datetime(2025, 2, 20, 21, 0, tzinfo=UTC),
+                snapshot_metadata={"provider": "yfinance", "seed": "portfolio_analytics_tests"},
+            )
+            session.add(market_snapshot)
+            await session.flush()
+            session.add_all(
+                (
+                    PriceHistory(
+                        snapshot_id=market_snapshot.id,
+                        instrument_symbol="AAPL",
+                        trading_date=date(2025, 2, 20),
+                        price_value=Decimal("190.00"),
+                        currency_code="USD",
+                        source_payload={"seed": True},
+                    ),
+                    PriceHistory(
+                        snapshot_id=market_snapshot.id,
+                        instrument_symbol="VOO",
+                        trading_date=date(2025, 2, 20),
+                        price_value=Decimal("105.00"),
+                        currency_code="USD",
+                        source_payload={"seed": True},
+                    ),
+                )
+            )
 
         await session.commit()
 
@@ -501,6 +540,12 @@ def test_summary_endpoint_returns_grouped_rows_with_as_of_ledger_at(
     as_of_ledger_at = payload.get("as_of_ledger_at")
     assert isinstance(as_of_ledger_at, str)
     assert as_of_ledger_at
+    pricing_snapshot_key = payload.get("pricing_snapshot_key")
+    assert isinstance(pricing_snapshot_key, str)
+    assert pricing_snapshot_key
+    pricing_snapshot_captured_at = payload.get("pricing_snapshot_captured_at")
+    assert isinstance(pricing_snapshot_captured_at, str)
+    assert pricing_snapshot_captured_at
 
     rows_raw = payload.get("rows")
     if not isinstance(rows_raw, list):
@@ -529,6 +574,10 @@ def test_summary_endpoint_returns_grouped_rows_with_as_of_ledger_at(
     _assert_decimal_field(voo_row, "dividend_gross_usd", "7.00")
     _assert_decimal_field(voo_row, "dividend_taxes_usd", "1.00")
     _assert_decimal_field(voo_row, "dividend_net_usd", "6.00")
+    _assert_decimal_field(voo_row, "latest_close_price_usd", "105.00")
+    _assert_decimal_field(voo_row, "market_value_usd", "157.50")
+    _assert_decimal_field(voo_row, "unrealized_gain_usd", "-2.50")
+    _assert_decimal_field(voo_row, "unrealized_gain_pct", "-1.56")
 
     aapl_row = rows_by_symbol["AAPL"]
     _assert_decimal_field(aapl_row, "open_quantity", "3.000000000")
@@ -540,6 +589,35 @@ def test_summary_endpoint_returns_grouped_rows_with_as_of_ledger_at(
     _assert_decimal_field(aapl_row, "dividend_gross_usd", "0.00")
     _assert_decimal_field(aapl_row, "dividend_taxes_usd", "0.00")
     _assert_decimal_field(aapl_row, "dividend_net_usd", "0.00")
+    _assert_decimal_field(aapl_row, "latest_close_price_usd", "190.00")
+    _assert_decimal_field(aapl_row, "market_value_usd", "570.00")
+    _assert_decimal_field(aapl_row, "unrealized_gain_usd", "120.00")
+    _assert_decimal_field(aapl_row, "unrealized_gain_pct", "26.67")
+
+
+@pytest.mark.integration
+def test_summary_endpoint_rejects_missing_open_position_price_coverage(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    test_db_engine: AsyncEngine,
+) -> None:
+    """Summary route should fail explicitly when market coverage is incomplete."""
+
+    summary_path = _portfolio_summary_endpoint_path()
+    _patch_forbidden_upstream_calls(monkeypatch)
+    asyncio.run(_seed_persisted_ledger_state(test_db_engine, include_market_data=False))
+
+    response = client.get(summary_path)
+    assert response.status_code == 409
+
+    payload_raw = response.json()
+    if not isinstance(payload_raw, dict):
+        pytest.fail("Coverage-failure response must be a JSON object.")
+    payload = cast(dict[str, object], payload_raw)
+    detail = payload.get("detail")
+    if not isinstance(detail, str):
+        pytest.fail("Coverage-failure response must include string 'detail'.")
+    assert "coverage" in detail.lower()
 
 
 @pytest.mark.integration

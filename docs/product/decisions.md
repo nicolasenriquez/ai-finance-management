@@ -116,6 +116,8 @@ Implications:
 
 - `price_history` and quote refresh logic live outside the core transaction ledger
 - analytics must declare the pricing snapshot or timestamp used
+- grouped summary valuation uses one consistent persisted snapshot per response
+- lot-detail analytics remain ledger-derived unless a later approved change expands that contract
 - transaction rows must not be rewritten during quote refresh
 
 ### ADR-011: Freeze accounting policy before advanced analytics expansion

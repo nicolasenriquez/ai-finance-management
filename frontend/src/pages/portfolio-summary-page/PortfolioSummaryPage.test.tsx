@@ -40,6 +40,8 @@ const mockedUsePortfolioSummaryQuery = vi.mocked(usePortfolioSummaryQuery);
 
 const summaryWithRows: PortfolioSummaryResponse = {
   as_of_ledger_at: "2026-03-24T01:00:00Z",
+  pricing_snapshot_key: "yf|d1|1d|3mo|aa1rp1|2026-03-24|s2|a1b2c3d4e5f6",
+  pricing_snapshot_captured_at: "2026-03-24T00:55:00Z",
   rows: [
     {
       instrument_symbol: "AAPL",
@@ -52,6 +54,10 @@ const summaryWithRows: PortfolioSummaryResponse = {
       dividend_gross_usd: "18.00",
       dividend_taxes_usd: "3.00",
       dividend_net_usd: "15.00",
+      latest_close_price_usd: "530.00",
+      market_value_usd: "1060.00",
+      unrealized_gain_usd: "60.00",
+      unrealized_gain_pct: "6.00",
     },
   ],
 };
@@ -183,6 +189,11 @@ describe("PortfolioSummaryPage", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("AAPL")).toBeInTheDocument();
     expect(screen.getByText("Inspect lots")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Market-enriched valuation with explicit pricing snapshot provenance.",
+      ),
+    ).toBeInTheDocument();
   });
 
   it("keeps theme preference stable across summary state transitions", async () => {

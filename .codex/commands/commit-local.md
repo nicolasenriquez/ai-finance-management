@@ -111,8 +111,11 @@ Body format standard (when body is present):
 - <primary behavior/contract impact>
 
 ## Validation
-- <what was run>
-- <result>
+- <check name>: pass | fail | blocked
+```bash
+<exact command run>
+```
+- <optional evidence: key output/counts only>
 
 ## Notes
 - <scope caveat, follow-up, or migration note if any>
@@ -123,6 +126,7 @@ Formatting constraints:
 - use single-level bullets only
 - keep bullets short and factual
 - avoid free-form paragraph-only bodies unless the change is trivial
+- Validation may include fenced `bash` blocks for exact commands; command lines are exempt from bullet length guidance
 
 PR vs squash guidance:
 
@@ -149,6 +153,13 @@ git commit -m "<subject>" -m "<body-if-needed>"
 
 If a body is not needed, use a single `-m`.
 
+Commit safety rule (required):
+
+- If the commit includes a body, write the full message to a temporary file and use `git commit -F <message-file>`.
+- Do not pass Markdown bodies with backticks, `$`, command substitutions, or fenced blocks via `-m`.
+- Use `-m` only for simple single-line subject-only commits.
+- If the branch already has a published remote tip, do not rewrite published history to fix message text; create a small follow-up docs commit instead.
+
 ### 7. Stop before push
 
 Do not run any push command.
@@ -172,6 +183,8 @@ The command must end after reporting:
 - Do not run `git push`.
 - Do not ask for push approval because push is outside the scope of this command.
 - If the staged scope is mixed, explicitly say so in the commit summary/body instead of blocking.
+- Do not paste raw command output, stack traces, or shell-expanded content into the commit body.
+- Do not recommend `--force` or `--force-with-lease`; prefer linear follow-up commits on protected branches.
 
 ## Output Format
 

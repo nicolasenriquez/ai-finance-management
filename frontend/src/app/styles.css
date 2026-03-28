@@ -547,7 +547,7 @@ th,
 
 .data-table {
   width: 100%;
-  min-width: 820px;
+  min-width: 1200px;
   border-collapse: collapse;
 }
 
@@ -814,6 +814,6 @@ th,
   }
 
   .data-table {
-    min-width: 720px;
+    min-width: 980px;
   }
 }

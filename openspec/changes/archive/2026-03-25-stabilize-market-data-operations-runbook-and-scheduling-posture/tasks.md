@@ -41,7 +41,7 @@ Notes: Manual smoke outcomes were captured honestly in sequence: initial run blo
 
 - [x] 4.1 Update roadmap, backlog, decisions, validation baseline, runbook/operator docs, and provider standard for the stabilized operational posture
 Notes: Updated product docs `docs/product/{roadmap.md,backlog-sprints.md,decisions.md}` to mark runbook/schedule-ready stabilization delivered, freeze bounded temporal-key acceptance, and keep remaining scope focused on unresolved live-provider blockers plus deferred expansion non-goals.
-Notes: Updated operator/runbook and provider references `docs/guides/{validation-baseline.md,yfinance-integration-guide.md,local-workflow-justfile.md}` and `docs/standards/market-data-provider-standard.md` with explicit success/blocker evidence contract (`status`, `stage`, `status_code`, `error`) and approved temporal-key variant set.
+Notes: Updated operator/runbook and provider references `docs/guides/{validation-baseline.md,yfinance-integration-guide.md,local-workflow-justfile.md}` and `docs/standards/yfance-standard.md` with explicit success/blocker evidence contract (`status`, `stage`, `status_code`, `error`) and approved temporal-key variant set.
 - [x] 4.2 Update `CHANGELOG.md` with delivered behavior, evidence, and explicit remaining non-goals
 Notes: Added `2026-03-25` entry `fix(market-data-operations): stabilize yfinance temporal-key handling and formalize operator blocker evidence` with touched files, validation commands, manual smoke blocker evidence, and explicit non-goal posture.
 - [x] 4.3 Run final OpenSpec validation for the change and record any environment-dependent blockers explicitly

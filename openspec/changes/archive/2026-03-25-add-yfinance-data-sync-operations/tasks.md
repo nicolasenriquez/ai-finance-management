@@ -74,7 +74,7 @@ Notes: This is recorded as environment/provider blocker evidence, not masked as 
 Notes: Updated docs to reflect delivered command-level operations + hardening status:
 Notes: `docs/product/{roadmap.md,backlog-sprints.md,decisions.md}`
 Notes: `docs/guides/{local-workflow-justfile.md,validation-baseline.md,yfinance-integration-guide.md,portfolio-ledger-and-analytics-guide.md}`
-Notes: `docs/standards/market-data-provider-standard.md`
+Notes: `docs/standards/yfance-standard.md`
 - [x] 5.2 Update `CHANGELOG.md` with delivered behavior, validation evidence, and deferred non-goals
 Notes: Added `2026-03-25` changelog entry `feat(data-sync-operations): add local dataset bootstrap and yfinance refresh command workflows` with validation evidence and explicit deferred non-goals.
 - [x] 5.3 Run final OpenSpec validation for the change and record outcome evidence in task notes

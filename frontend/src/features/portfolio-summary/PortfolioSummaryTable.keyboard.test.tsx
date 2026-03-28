@@ -43,6 +43,10 @@ const summaryRows: PortfolioSummaryRow[] = [
     dividend_gross_usd: "18.00",
     dividend_taxes_usd: "3.00",
     dividend_net_usd: "15.00",
+    latest_close_price_usd: "530.00",
+    market_value_usd: "1060.00",
+    unrealized_gain_usd: "60.00",
+    unrealized_gain_pct: "6.00",
   },
 ];
 

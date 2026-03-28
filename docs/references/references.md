@@ -36,6 +36,32 @@ Current product truth for the extraction MVP:
 - ty docs: https://docs.astral.sh/ty/
 - ty repository: https://github.com/astral-sh/ty
 
+## Scientific Python Core References (Official)
+
+- NumPy user guide: https://numpy.org/devdocs/user/index.html
+- NumPy installation: https://numpy.org/install/
+- NumPy broadcasting: https://numpy.org/devdocs/user/basics.broadcasting.html
+- NumPy copies and views: https://numpy.org/devdocs/user/basics.copies.html
+- NumPy typing: https://numpy.org/devdocs/reference/typing.html
+- NumPy random `Generator`: https://numpy.org/devdocs/reference/random/generator.html
+- NumPy thread safety: https://numpy.org/devdocs/reference/thread_safety.html
+- pandas docs index: https://pandas.pydata.org/docs/
+- pandas installation: https://pandas.pydata.org/docs/getting_started/install.html
+- pandas user guide: https://pandas.pydata.org/docs/user_guide/index.html
+- pandas Copy-on-Write: https://pandas.pydata.org/docs/user_guide/copy_on_write.html
+- pandas missing data: https://pandas.pydata.org/docs/user_guide/missing_data.html
+- pandas scaling guide: https://pandas.pydata.org/docs/user_guide/scale.html
+- pandas options/settings: https://pandas.pydata.org/docs/user_guide/options.html
+- pandas performance guide: https://pandas.pydata.org/docs/user_guide/enhancingperf.html
+- SciPy docs index: https://docs.scipy.org/doc/scipy/
+- SciPy tutorial index: https://docs.scipy.org/doc/scipy/tutorial/index.html
+- SciPy installation: https://scipy.org/install/
+- SciPy API reference index: https://docs.scipy.org/doc/scipy/reference/index.html
+- SciPy import guidelines: https://docs.scipy.org/doc/scipy/reference/index.html#guidelines-for-importing-functions-from-scipy-subpackages
+- SciPy `optimize.minimize`: https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html
+- SciPy thread safety: https://docs.scipy.org/doc/scipy/tutorial/thread_safety.html
+- SciPy parallel execution: https://docs.scipy.org/doc/scipy/tutorial/parallel_execution.html
+
 ## Market Data Exploration References (Official)
 
 Validated on 2026-03-24 before documenting the ETF exploration note.

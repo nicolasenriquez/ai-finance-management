@@ -200,12 +200,10 @@ backend:
 frontend:
     cd frontend && npm run dev -- --port 3000
 
-# Run full local stack:
-# 1) DB readiness check
-# 2) DB migrations
-# 3) backend + frontend in parallel
+# Run backend + frontend in parallel after DB readiness and migrations.
+# Fast path for day-to-day local development when DB is already populated.
 # Stops both processes when either exits or on Ctrl+C.
-dev: db-runtime-guard db-check db-upgrade
+dev-local: db-runtime-guard db-check db-upgrade
     #!/usr/bin/env bash
     backend_pid=0
     frontend_pid=0
@@ -250,6 +248,63 @@ dev: db-runtime-guard db-check db-upgrade
     done
 
     exit "$command_status"
+
+# Run full local stack with enforced data population before app startup.
+# 1) DB readiness check
+# 2) DB migrations
+# 3) local data-sync population (bootstrap -> market refresh)
+# 4) backend + frontend in parallel
+# Stops both processes when either exits or on Ctrl+C.
+dev-local-sync: db-runtime-guard db-check db-upgrade
+    #!/usr/bin/env bash
+    uv run python -m scripts.data_sync_operations data-sync-local
+
+    backend_pid=0
+    frontend_pid=0
+
+    cleanup() {
+      local exit_code=$?
+      if [[ "$backend_pid" -ne 0 ]] && kill -0 "$backend_pid" 2>/dev/null; then
+        kill "$backend_pid" 2>/dev/null || true
+      fi
+      if [[ "$frontend_pid" -ne 0 ]] && kill -0 "$frontend_pid" 2>/dev/null; then
+        kill "$frontend_pid" 2>/dev/null || true
+      fi
+      wait "$backend_pid" 2>/dev/null || true
+      wait "$frontend_pid" 2>/dev/null || true
+      exit "$exit_code"
+    }
+
+    trap cleanup EXIT INT TERM
+
+    uv run uvicorn app.main:app --reload --port 8123 &
+    backend_pid=$!
+    (
+      cd frontend
+      npm run dev -- --port 3000
+    ) &
+    frontend_pid=$!
+
+    echo "Backend running on http://localhost:8123"
+    echo "Frontend running on http://localhost:3000"
+
+    command_status=0
+    while true; do
+      if ! kill -0 "$backend_pid" 2>/dev/null; then
+        wait "$backend_pid" || command_status=$?
+        break
+      fi
+      if ! kill -0 "$frontend_pid" 2>/dev/null; then
+        wait "$frontend_pid" || command_status=$?
+        break
+      fi
+      sleep 1
+    done
+
+    exit "$command_status"
+
+# Backward-compatible alias for local runtime.
+dev: dev-local
 
 # -----------------------------------------------------------------------------
 # Data Sync Operations
@@ -320,7 +375,7 @@ format:
 # Read-only style and format gate.
 lint:
     uv run ruff check .
-    uv run black . --check --diff
+    uv run black . --check --diff --workers 1
 
 # Strict typing gate (all three checkers must pass).
 type:
@@ -329,9 +384,10 @@ type:
     uv run ty check app
 
 # Security gate for source and dependencies.
+# Note: do not source `.env` in CI scripts; parse required vars explicitly or rely on tool loaders.
 security:
     uv run bandit -c pyproject.toml -r app --severity-level high --confidence-level high
-    uv run pip-audit --progress-spinner=off --ignore-vuln CVE-2026-4539
+    bash scripts/security/run-pip-audit.sh
 
 # Run gitleaks over PR-equivalent history range (merge-base(origin/main, HEAD)..HEAD).
 # Optional override: `just secret-scan-pr <base_ref>`.

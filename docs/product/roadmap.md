@@ -61,7 +61,9 @@
 
 - Implemented market-data ingestion boundary with dedicated `market_data_snapshot` and `price_history` persistence separated from canonical and ledger truth.
 - Implemented fail-fast market-data write rules: explicit source provenance, deterministic symbol/time-key uniqueness, and `dataset_1`-anchored symbol support (including dotted tickers such as `BRK.B`).
-- Implemented internal market-data read boundary for persisted symbol history while keeping current `/api/portfolio/*` analytics contract ledger-only.
+- Implemented internal market-data read boundary for persisted symbol history without adding public market-data routes.
+- Implemented market-enriched grouped summary (`GET /api/portfolio/summary`) with explicit pricing snapshot provenance and fail-fast open-position coverage checks.
+- Kept lot-detail analytics (`GET /api/portfolio/lots/{instrument_symbol}`) ledger-only in this slice.
 - Validated that market-data refresh remains idempotent and does not mutate canonical records, ledger events, lots, lot dispositions, dividends, or corporate actions.
 - Implemented first external provider adapter (`yfinance`) for day-level close ingestion through `ingest_yfinance_daily_close_snapshot` and the existing market-data persistence contract.
 - Froze first-slice provider semantics to deterministic day-level `Close` ingestion (`interval=1d`, `trading_date`, `auto_adjust=False`, `repair=False`) with bounded snapshot-key identity.
@@ -79,7 +81,7 @@
 - Stabilized live-provider blocker patterns (2026-03-26): refresh now applies a bounded empty-history fallback ladder (`5y -> 3y -> 1y -> 6mo`) and explicit default-currency fallback (`USD`) for missing metadata, while keeping strict fail-fast behavior for unsupported payloads/invalid currency and required-symbol exhaustion.
 - Current evidence snapshot (2026-03-26): refreshed smoke evidence captured for `core -> 100` plus one combined `data-sync-local --refresh-scope core` run (`docs/evidence/market-data/staged-live-smoke-2026-03-26.md`); `core` blocked (`502`, TSLA currency metadata access), `100` blocked (`408`, bounded timeout), combined sync completed.
 - Current verification posture: `core` is the required live gate, representative non-core PR smoke is the default broader-than-core safeguard, full-scope `100` is optional manual soak coverage, and routine `200` validation is excluded from the local-first readiness workflow.
-- Next in this phase: resolve operational blockers and refresh tuning posture from required `core` plus representative non-core evidence, then evaluate market-enriched KPI expansion while preserving non-goals (no ledger mutation, no public market-data router, no scheduler/queue infrastructure in this slice).
+- Next in this phase: continue operational blocker resolution and refresh tuning from required `core` plus representative non-core evidence, while preserving non-goals (no ledger mutation, no public market-data router, no scheduler/queue infrastructure in this slice).
 
 ## Phase 7: Database Hardening and Deployment Readiness
 

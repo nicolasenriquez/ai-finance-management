@@ -23,5 +23,5 @@ The repository now has a working `yfinance` adapter and a durable market-data in
 - Affected code: `app/market_data/` orchestration boundaries, configuration, operator entrypoints, and tests.
 - Affected runtime behavior: market-data refresh becomes a first-class operational workflow rather than an internal helper-only path.
 - Affected systems: current market-data population workflow, local operator validation flow, and documentation for Phase 6 planning.
-- Affected docs: `docs/product/{roadmap.md,backlog-sprints.md,decisions.md}`, `docs/guides/{validation-baseline.md,yfinance-integration-guide.md}`, `docs/standards/market-data-provider-standard.md`, and `CHANGELOG.md`.
+- Affected docs: `docs/product/{roadmap.md,backlog-sprints.md,decisions.md}`, `docs/guides/{validation-baseline.md,yfinance-integration-guide.md}`, `docs/standards/yfance-standard.md`, and `CHANGELOG.md`.
 - Non-goals for this change: no broker-authenticated provider integration, no transaction-import reconciliation, no public market-data API expansion, no portfolio valuation/unrealized KPI expansion, and no frontend market-value UI changes.

@@ -20,6 +20,10 @@ describe("buildPortfolioSummaryOverview", () => {
         dividend_gross_usd: "5.00",
         dividend_taxes_usd: "1.00",
         dividend_net_usd: "4.00",
+        latest_close_price_usd: "230.00",
+        market_value_usd: "575.00",
+        unrealized_gain_usd: "75.00",
+        unrealized_gain_pct: "15.00",
       },
       {
         instrument_symbol: "MSFT",
@@ -32,13 +36,20 @@ describe("buildPortfolioSummaryOverview", () => {
         dividend_gross_usd: "0.00",
         dividend_taxes_usd: "0.00",
         dividend_net_usd: "0.00",
+        latest_close_price_usd: null,
+        market_value_usd: null,
+        unrealized_gain_usd: null,
+        unrealized_gain_pct: null,
       },
     ]);
 
     expect(overview).toEqual({
       trackedSymbols: 2,
       activePositions: 1,
+      marketValuedSymbols: 1,
       openLots: 2,
+      marketValueUsd: "575.00",
+      unrealizedGainUsd: "75.00",
       realizedGainUsd: "5.00",
       dividendNetUsd: "4.00",
     });

@@ -1,6 +1,7 @@
 import { z } from "zod";
 
-const decimalFieldSchema = z.coerce.string();
+const decimalFieldSchema = z.string().min(1);
+const nullableDecimalFieldSchema = z.union([decimalFieldSchema, z.null()]);
 
 export const portfolioSummaryRowSchema = z.object({
   instrument_symbol: z.string().min(1),
@@ -13,10 +14,16 @@ export const portfolioSummaryRowSchema = z.object({
   dividend_gross_usd: decimalFieldSchema,
   dividend_taxes_usd: decimalFieldSchema,
   dividend_net_usd: decimalFieldSchema,
+  latest_close_price_usd: nullableDecimalFieldSchema,
+  market_value_usd: nullableDecimalFieldSchema,
+  unrealized_gain_usd: nullableDecimalFieldSchema,
+  unrealized_gain_pct: nullableDecimalFieldSchema,
 });
 
 export const portfolioSummaryResponseSchema = z.object({
   as_of_ledger_at: z.string().min(1),
+  pricing_snapshot_key: z.string().min(1).nullable(),
+  pricing_snapshot_captured_at: z.string().min(1).nullable(),
   rows: z.array(portfolioSummaryRowSchema),
 });
 
