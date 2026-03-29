@@ -61,6 +61,8 @@ const timeSeriesResponse: PortfolioTimeSeriesResponse = {
       captured_at: "2026-03-27T00:00:00Z",
       portfolio_value_usd: "100.00",
       pnl_usd: "0.00",
+      benchmark_sp500_value_usd: "100.00",
+      benchmark_nasdaq100_value_usd: null,
     },
   ],
 };
@@ -212,6 +214,9 @@ describe("PortfolioAnalyticsPage", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByRole("img", { name: "Contribution by symbol chart" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/preview metrics are supplemental/i),
     ).toBeInTheDocument();
   });
 

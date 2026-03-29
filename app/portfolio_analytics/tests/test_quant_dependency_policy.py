@@ -10,7 +10,7 @@ from typing import cast
 
 import pytest
 
-_APPROVED_QUANT_PACKAGES: tuple[str, ...] = ("numpy", "pandas", "scipy")
+_APPROVED_QUANT_PACKAGES: tuple[str, ...] = ("numpy", "pandas", "scipy", "quantstats")
 _REJECTED_QUANT_PACKAGES: tuple[str, ...] = (
     "zipline",
     "zipline-reloaded",

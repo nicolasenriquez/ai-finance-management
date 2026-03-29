@@ -57,7 +57,7 @@ export function PortfolioAnalyticsPage() {
     <PortfolioWorkspaceLayout
       eyebrow="Analytics route"
       title="Performance and contribution analytics"
-      description="Route-level analytics payloads with controlled period selection and explicit fallback behavior."
+      description="Route-level analytics payloads with controlled period selection and explicit fallback behavior. Preview metrics are supplemental to risk-context interpretation."
       actions={
         <>
           <PortfolioChartPeriodControl
@@ -107,7 +107,7 @@ export function PortfolioAnalyticsPage() {
               <header className="panel__header">
                 <h2 className="panel__title">Portfolio trend dataset</h2>
                 <p className="panel__subtitle">
-                  Recharts performance view generated directly from time-series payload.
+                  Recharts performance view with benchmark overlays sourced from persisted prices.
                 </p>
               </header>
               <div className="panel__body">

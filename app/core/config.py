@@ -71,6 +71,10 @@ class Settings(BaseSettings):
     market_data_yfinance_repair: bool = False
     market_data_symbol_universe_path: str = "app/market_data/symbol_universe.v1.json"
 
+    # QuantStats reporting
+    quant_report_storage_root: str = ".data/quant_reports"
+    quant_report_retention_minutes: int = Field(default=60, ge=1, le=1440)
+
 
 @lru_cache
 def get_settings() -> Settings:

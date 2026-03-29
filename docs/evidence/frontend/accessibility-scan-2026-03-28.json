@@ -1,52 +1,45 @@
 {
-  "measuredAt": "2026-03-28T04:34:40.686Z",
-  "baseUrl": "http://127.0.0.1:59206",
+  "measuredAt": "2026-03-28T08:30:28.014Z",
+  "baseUrl": "http://127.0.0.1:61547",
   "audits": [
     {
       "route": "/portfolio",
-      "passed": true,
-      "findings": [],
+      "passed": false,
+      "findings": [
+        "Expected at least one keyboard-focusable summary row."
+      ],
       "domChecks": {
         "h1Count": 1,
         "mainCount": 1,
         "unnamedButtons": [],
         "unnamedLinks": [],
         "ariaHiddenFocusable": [],
-        "interactiveRows": [
-          {
-            "label": "Open lot detail for VOO",
-            "role": "link",
-            "tabIndex": "0",
-            "keyShortcuts": "Enter Space"
-          },
-          {
-            "label": "Open lot detail for AAPL",
-            "role": "link",
-            "tabIndex": "0",
-            "keyShortcuts": "Enter Space"
-          }
-        ],
+        "interactiveRows": [],
         "statusBanners": [],
         "roleCounts": {
           "main": 1,
-          "link": 3,
-          "button": 1,
-          "heading": 2,
+          "link": 9,
+          "button": 11,
+          "heading": 5,
+          "img": 1,
+          "status": 1,
           "table": 1,
-          "row": 1,
-          "columnheader": 13,
-          "cell": 26
+          "row": 6,
+          "columnheader": 6,
+          "cell": 30
         }
       },
       "roleCounts": {
         "main": 1,
-        "link": 3,
-        "button": 1,
-        "heading": 2,
+        "link": 9,
+        "button": 11,
+        "heading": 5,
+        "img": 1,
+        "status": 1,
         "table": 1,
-        "row": 1,
-        "columnheader": 13,
-        "cell": 26
+        "row": 6,
+        "columnheader": 6,
+        "cell": 30
       }
     },
     {
@@ -65,7 +58,7 @@
           "main": 1,
           "link": 3,
           "button": 1,
-          "heading": 3,
+          "heading": 2,
           "table": 1,
           "row": 2,
           "columnheader": 5,
@@ -76,7 +69,7 @@
         "main": 1,
         "link": 3,
         "button": 1,
-        "heading": 3,
+        "heading": 2,
         "table": 1,
         "row": 2,
         "columnheader": 5,
@@ -164,19 +157,27 @@
         "roleCounts": {
           "main": 1,
           "link": 9,
-          "button": 1,
-          "heading": 4,
+          "button": 11,
+          "heading": 5,
           "img": 1,
-          "status": 1
+          "status": 1,
+          "table": 1,
+          "row": 6,
+          "columnheader": 6,
+          "cell": 30
         }
       },
       "roleCounts": {
         "main": 1,
         "link": 9,
-        "button": 1,
-        "heading": 4,
+        "button": 11,
+        "heading": 5,
         "img": 1,
-        "status": 1
+        "status": 1,
+        "table": 1,
+        "row": 6,
+        "columnheader": 6,
+        "cell": 30
       }
     },
     {
@@ -255,14 +256,22 @@
           "main": 1,
           "link": 6,
           "button": 1,
-          "heading": 2
+          "heading": 2,
+          "table": 1,
+          "row": 4,
+          "columnheader": 5,
+          "cell": 15
         }
       },
       "roleCounts": {
         "main": 1,
         "link": 6,
         "button": 1,
-        "heading": 2
+        "heading": 2,
+        "table": 1,
+        "row": 4,
+        "columnheader": 5,
+        "cell": 15
       }
     }
   ]

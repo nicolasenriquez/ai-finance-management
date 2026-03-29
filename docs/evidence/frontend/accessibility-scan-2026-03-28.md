@@ -10,7 +10,7 @@
 
 | Route | Verdict | Findings |
 | --- | --- | --- |
-| `/portfolio` | `PASS` | No blocking findings. |
+| `/portfolio` | `FAIL` | Expected at least one keyboard-focusable summary row. |
 | `/portfolio/VOO` | `PASS` | No blocking findings. |
 | `/portfolio/UNKNOWN` | `PASS` | No blocking findings. |
 | `/portfolio/ERR500` | `PASS` | No blocking findings. |

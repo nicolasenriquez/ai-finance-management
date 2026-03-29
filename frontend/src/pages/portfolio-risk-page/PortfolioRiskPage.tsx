@@ -77,7 +77,7 @@ export function PortfolioRiskPage() {
     <PortfolioWorkspaceLayout
       eyebrow="Risk route"
       title="Bounded estimator workspace"
-      description="Risk estimators with explicit methodology metadata and unsupported-scope visibility."
+      description="Risk estimators with explicit methodology metadata, unsupported-scope visibility, and risk-context interpretation boundaries."
       actions={
         <>
           <PortfolioChartPeriodControl

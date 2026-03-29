@@ -189,6 +189,9 @@ describe("PortfolioRiskPage", () => {
     expect(screen.getAllByText("beta").length).toBeGreaterThan(0);
     expect(screen.getByText(/window 90d/i)).toBeInTheDocument();
     expect(screen.getByRole("img", { name: "Risk metrics chart" })).toBeInTheDocument();
+    expect(
+      screen.getByText(/risk-context interpretation/i),
+    ).toBeInTheDocument();
   });
 
   it("maps chart period query to supported risk windows deterministically", () => {

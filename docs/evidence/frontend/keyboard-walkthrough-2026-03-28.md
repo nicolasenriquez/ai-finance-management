@@ -9,10 +9,10 @@
 
 ## Results
 
-- First interactive summary row found by keyboard tabbing: `PASS`
-- Enter on focused summary row navigates to lot detail: `PASS`
-- Lot-detail back link is keyboard-reachable: `PASS`
-- Keyboard activation on back link returns to summary: `PASS`
+- First interactive summary row found by keyboard tabbing: `FAIL`
+- Enter on focused summary row navigates to lot detail: `FAIL`
+- Lot-detail back link is keyboard-reachable: `FAIL`
+- Keyboard activation on back link returns to summary: `FAIL`
 - 404 screen retry button is keyboard-reachable: `PASS`
 - 404 screen back link is keyboard-reachable: `PASS`
 - 500 screen retry button is keyboard-reachable: `PASS`
@@ -28,7 +28,12 @@
 
 1. a.brand-mark | role=n/a | label=Open portfolio summary
 2. button.theme-toggle | role=n/a | label=Switch to dark theme
-3. tr.data-table__row.data-table__row--interactive | role=link | label=Open lot detail for VOO
+3. select.period-control__select | role=n/a | label=Select analytics period
+4. a.button-secondary | role=n/a | label=Open grouped summary
+5. a.workspace-nav__link.workspace-nav__link--active | role=n/a | label=Home
+6. a.workspace-nav__link | role=n/a | label=Analytics
+7. a.workspace-nav__link | role=n/a | label=Risk
+8. a.workspace-nav__link | role=n/a | label=Transactions
 
 ## Raw Evidence
 

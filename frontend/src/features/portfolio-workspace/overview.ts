@@ -2,6 +2,7 @@ import Decimal from "decimal.js";
 
 import type {
   PortfolioContributionRow,
+  PortfolioQuantMetric,
   PortfolioRiskEstimatorMetric,
   PortfolioSummaryRow,
   PortfolioTimeSeriesPoint,
@@ -73,6 +74,52 @@ export function buildHomeMetricCards(
   ];
 }
 
+function formatQuantMetricValue(metric: PortfolioQuantMetric): string {
+  const decimalValue = toDecimal(metric.value);
+  if (metric.display_as === "percent") {
+    const percentValue = decimalValue.times(100);
+    const signPrefix = percentValue.greaterThan(0) ? "+" : "";
+    return `${signPrefix}${percentValue.toFixed(2)}%`;
+  }
+  return decimalValue.toFixed(3);
+}
+
+function resolveQuantMetricTone(metric: PortfolioQuantMetric): ValueTone {
+  const decimalValue = toDecimal(metric.value);
+  if (decimalValue.greaterThan(0)) {
+    return "positive";
+  }
+  if (decimalValue.lessThan(0)) {
+    return "negative";
+  }
+  return "neutral";
+}
+
+export function buildQuantMetricCards(metrics: PortfolioQuantMetric[]): MetricCard[] {
+  const orderedMetricIds: string[] = [
+    "sharpe",
+    "sortino",
+    "calmar",
+    "volatility",
+    "max_drawdown",
+    "alpha",
+    "beta",
+    "win_rate",
+  ];
+  const metricById = new Map(metrics.map((metric) => [metric.metric_id, metric]));
+
+  return orderedMetricIds
+    .map((metricId) => metricById.get(metricId))
+    .filter((metric): metric is PortfolioQuantMetric => metric !== undefined)
+    .slice(0, 6)
+    .map((metric) => ({
+      label: metric.label,
+      value: formatQuantMetricValue(metric),
+      tone: resolveQuantMetricTone(metric),
+      hint: metric.description,
+    }));
+}
+
 export function topContributionRows(
   rows: PortfolioContributionRow[],
 ): PortfolioContributionRow[] {
@@ -97,6 +144,8 @@ export type TrendChartDatum = {
   capturedAt: string;
   portfolioValue: number;
   pnl: number;
+  benchmarkSp500: number | null;
+  benchmarkNasdaq100: number | null;
 };
 
 export type ContributionChartDatum = {
@@ -117,6 +166,14 @@ export function buildTrendChartData(
     capturedAt: point.captured_at,
     portfolioValue: Number(point.portfolio_value_usd),
     pnl: Number(point.pnl_usd),
+    benchmarkSp500:
+      point.benchmark_sp500_value_usd === null
+        ? null
+        : Number(point.benchmark_sp500_value_usd),
+    benchmarkNasdaq100:
+      point.benchmark_nasdaq100_value_usd === null
+        ? null
+        : Number(point.benchmark_nasdaq100_value_usd),
   }));
 }
 

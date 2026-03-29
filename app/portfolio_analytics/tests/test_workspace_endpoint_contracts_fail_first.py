@@ -431,3 +431,277 @@ def test_risk_estimators_endpoint_rejects_insufficient_history_explicitly(
 
     assert response.status_code == 409
     assert "Insufficient persisted history" in str(response.json().get("detail", ""))
+
+
+@pytest.mark.integration
+def test_hierarchy_endpoint_contract_includes_grouping_and_provenance_fields(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Hierarchy endpoint should expose group metadata and pricing provenance fields."""
+
+    routes_module = _load_portfolio_analytics_routes_module()
+    endpoint_path = _workspace_endpoint_path(suffix="hierarchy")
+    _assert_endpoint_registered(
+        path=endpoint_path,
+        guidance="Implement hierarchy route wiring before enabling this contract test.",
+    )
+    _assert_routes_callable_exists(
+        module=routes_module,
+        callable_name="get_portfolio_hierarchy_response",
+        guidance="Hierarchy route should dispatch to typed service response callable.",
+    )
+
+    async def _fake_hierarchy_response(**_: Any) -> dict[str, Any]:
+        return {
+            "as_of_ledger_at": "2026-03-28T00:00:00Z",
+            "group_by": "sector",
+            "pricing_snapshot_key": "snapshot-key",
+            "pricing_snapshot_captured_at": "2026-03-28T00:00:00Z",
+            "groups": [
+                {
+                    "group_key": "Technology",
+                    "group_label": "Technology",
+                    "asset_count": 1,
+                    "total_market_value_usd": "120.00",
+                    "total_profit_loss_usd": "20.00",
+                    "total_change_pct": "20.00",
+                    "assets": [
+                        {
+                            "instrument_symbol": "AAPL",
+                            "sector_label": "Technology",
+                            "open_quantity": "1.000000000",
+                            "open_cost_basis_usd": "100.00",
+                            "avg_price_usd": "100.00",
+                            "current_price_usd": "120.00",
+                            "market_value_usd": "120.00",
+                            "profit_loss_usd": "20.00",
+                            "change_pct": "20.00",
+                            "lot_count": 1,
+                            "lots": [
+                                {
+                                    "lot_id": 1,
+                                    "opened_on": "2026-03-20",
+                                    "original_qty": "1.000000000",
+                                    "remaining_qty": "1.000000000",
+                                    "unit_cost_basis_usd": "100.00",
+                                    "total_cost_basis_usd": "100.00",
+                                    "market_value_usd": "120.00",
+                                    "profit_loss_usd": "20.00",
+                                }
+                            ],
+                        }
+                    ],
+                }
+            ],
+        }
+
+    monkeypatch.setattr(
+        routes_module,
+        "get_portfolio_hierarchy_response",
+        _fake_hierarchy_response,
+    )
+
+    with TestClient(app) as client:
+        response = client.get(
+            endpoint_path,
+            params={"group_by": "sector"},
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["as_of_ledger_at"]
+    assert payload["group_by"] == "sector"
+    assert payload["pricing_snapshot_key"] == "snapshot-key"
+    assert payload["pricing_snapshot_captured_at"]
+    assert isinstance(payload["groups"], list)
+    assert payload["groups"][0]["group_key"] == "Technology"
+
+
+@pytest.mark.integration
+def test_hierarchy_endpoint_rejects_unsupported_group_by_values() -> None:
+    """Hierarchy endpoint should reject unsupported grouping values with 422."""
+
+    endpoint_path = _workspace_endpoint_path(suffix="hierarchy")
+    _assert_endpoint_registered(
+        path=endpoint_path,
+        guidance="Implement hierarchy route registration before enabling this test.",
+    )
+
+    with TestClient(app) as client:
+        response = client.get(
+            endpoint_path,
+            params={"group_by": "country"},
+        )
+
+    assert response.status_code == 422
+
+
+@pytest.mark.integration
+def test_hierarchy_endpoint_rejects_missing_open_positions_explicitly(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Hierarchy endpoint should surface insufficient-data failures as explicit 409 responses."""
+
+    routes_module = _load_portfolio_analytics_routes_module()
+    endpoint_path = _workspace_endpoint_path(suffix="hierarchy")
+    _assert_endpoint_registered(
+        path=endpoint_path,
+        guidance="Implement hierarchy route before enabling this insufficiency contract test.",
+    )
+    _assert_routes_callable_exists(
+        module=routes_module,
+        callable_name="get_portfolio_hierarchy_response",
+        guidance="Hierarchy route should dispatch explicit insufficiency failures.",
+    )
+
+    async def _raise_no_positions(**_: Any) -> dict[str, Any]:
+        raise PortfolioAnalyticsClientError(
+            "No open positions are available for hierarchy rendering.",
+            status_code=409,
+        )
+
+    monkeypatch.setattr(
+        routes_module,
+        "get_portfolio_hierarchy_response",
+        _raise_no_positions,
+    )
+
+    with TestClient(app) as client:
+        response = client.get(
+            endpoint_path,
+            params={"group_by": "sector"},
+        )
+
+    assert response.status_code == 409
+    assert "No open positions" in str(response.json().get("detail", ""))
+
+
+@pytest.mark.integration
+def test_quant_metrics_endpoint_contract_includes_period_benchmark_and_metrics(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Quant-metrics endpoint should expose period, benchmark symbol, and metric list."""
+
+    routes_module = _load_portfolio_analytics_routes_module()
+    endpoint_path = _workspace_endpoint_path(suffix="quant-metrics")
+    _assert_endpoint_registered(
+        path=endpoint_path,
+        guidance="Implement QuantStats route wiring before enabling this contract test.",
+    )
+    _assert_routes_callable_exists(
+        module=routes_module,
+        callable_name="get_portfolio_quant_metrics_response",
+        guidance="Quant metrics route should dispatch to typed service response callable.",
+    )
+
+    async def _fake_quant_metrics_response(**_: Any) -> dict[str, Any]:
+        return {
+            "as_of_ledger_at": "2026-03-28T00:00:00Z",
+            "period": "90D",
+            "benchmark_symbol": "SP500_PROXY",
+            "benchmark_context": {
+                "benchmark_symbol": "SP500_PROXY",
+                "omitted_metric_ids": [],
+                "omission_reason": None,
+            },
+            "metrics": [
+                {
+                    "metric_id": "sharpe",
+                    "label": "Sharpe Ratio",
+                    "description": "Risk-adjusted return ratio.",
+                    "value": "1.100000",
+                    "display_as": "number",
+                },
+                {
+                    "metric_id": "volatility",
+                    "label": "Volatility",
+                    "description": "Annualized return volatility estimate.",
+                    "value": "0.180000",
+                    "display_as": "percent",
+                },
+            ],
+        }
+
+    monkeypatch.setattr(
+        routes_module,
+        "get_portfolio_quant_metrics_response",
+        _fake_quant_metrics_response,
+    )
+
+    with TestClient(app) as client:
+        response = client.get(
+            endpoint_path,
+            params={"period": "90D"},
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["as_of_ledger_at"]
+    assert payload["period"] == "90D"
+    assert payload["benchmark_symbol"] == "SP500_PROXY"
+    assert payload["benchmark_context"]["benchmark_symbol"] == "SP500_PROXY"
+    assert payload["benchmark_context"]["omitted_metric_ids"] == []
+    assert payload["benchmark_context"]["omission_reason"] is None
+    assert isinstance(payload["metrics"], list)
+    assert payload["metrics"][0]["metric_id"] == "sharpe"
+    assert payload["metrics"][0]["display_as"] == "number"
+
+
+@pytest.mark.integration
+def test_quant_metrics_endpoint_rejects_insufficient_history_explicitly(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Quant-metrics endpoint should reject insufficient history with explicit 409 response."""
+
+    routes_module = _load_portfolio_analytics_routes_module()
+    endpoint_path = _workspace_endpoint_path(suffix="quant-metrics")
+    _assert_endpoint_registered(
+        path=endpoint_path,
+        guidance="Implement QuantStats route before enabling this insufficiency contract test.",
+    )
+    _assert_routes_callable_exists(
+        module=routes_module,
+        callable_name="get_portfolio_quant_metrics_response",
+        guidance="Quant metrics route should dispatch explicit insufficiency failures.",
+    )
+
+    async def _raise_insufficient_history(**_: Any) -> dict[str, Any]:
+        raise PortfolioAnalyticsClientError(
+            "Insufficient persisted history for quant metrics period 90D.",
+            status_code=409,
+        )
+
+    monkeypatch.setattr(
+        routes_module,
+        "get_portfolio_quant_metrics_response",
+        _raise_insufficient_history,
+    )
+
+    with TestClient(app) as client:
+        response = client.get(
+            endpoint_path,
+            params={"period": "90D"},
+        )
+
+    assert response.status_code == 409
+    assert "Insufficient persisted history" in str(response.json().get("detail", ""))
+
+
+@pytest.mark.integration
+def test_quant_metrics_endpoint_rejects_unsupported_period_values() -> None:
+    """Quant-metrics endpoint should reject unsupported chart period values with 422."""
+
+    endpoint_path = _workspace_endpoint_path(suffix="quant-metrics")
+    _assert_endpoint_registered(
+        path=endpoint_path,
+        guidance="Implement QuantStats period normalization before enabling this test.",
+    )
+
+    with TestClient(app) as client:
+        response = client.get(
+            endpoint_path,
+            params={"period": "13D"},
+        )
+
+    assert response.status_code == 422
+    assert "supported periods" in str(response.json()).lower()

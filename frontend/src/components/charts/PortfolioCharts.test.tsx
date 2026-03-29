@@ -25,11 +25,15 @@ const trendPoints: PortfolioTimeSeriesPoint[] = [
     captured_at: "2026-03-27T00:00:00Z",
     portfolio_value_usd: "100.00",
     pnl_usd: "0.00",
+    benchmark_sp500_value_usd: "100.00",
+    benchmark_nasdaq100_value_usd: null,
   },
   {
     captured_at: "2026-03-28T00:00:00Z",
     portfolio_value_usd: "120.00",
     pnl_usd: "20.00",
+    benchmark_sp500_value_usd: "110.00",
+    benchmark_nasdaq100_value_usd: null,
   },
 ];
 
@@ -77,7 +81,13 @@ describe("portfolio workspace chart foundation", () => {
     expect(
       screen.getByRole("img", { name: "Portfolio trend chart" }),
     ).toBeInTheDocument();
-    expect(container.querySelector("svg")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "S&P 500" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "NASDAQ-100" }),
+    ).toBeInTheDocument();
+    expect(container.querySelector(".recharts-responsive-container")).toBeInTheDocument();
   });
 
   it("renders Recharts contribution visual", () => {

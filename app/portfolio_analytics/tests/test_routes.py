@@ -7,8 +7,9 @@ from collections.abc import Iterator, Mapping
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from importlib import import_module
+from pathlib import Path
 from types import ModuleType
-from typing import cast
+from typing import Any, cast
 
 import pytest
 from fastapi.testclient import TestClient
@@ -183,6 +184,46 @@ def _patch_forbidden_upstream_calls(monkeypatch: pytest.MonkeyPatch) -> None:
         portfolio_ledger_service,
         "rebuild_portfolio_ledger_from_canonical_records",
         _forbidden_call,
+    )
+
+
+def _patch_fake_quantstats_report_module(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Patch QuantStats loader with deterministic local HTML writer for report tests."""
+
+    service_module = import_module("app.portfolio_analytics.service")
+    report_registry = getattr(service_module, "_QUANT_REPORT_ARTIFACTS_BY_ID", None)
+    if isinstance(report_registry, dict):
+        report_registry.clear()
+
+    fake_reports_module = ModuleType("fake_quantstats_reports")
+
+    def _fake_html(
+        returns: object,
+        benchmark: object | None = None,
+        output: str | None = None,
+        **_: Any,
+    ) -> None:
+        if output is None:
+            raise ValueError("output path is required for backend report generation tests")
+        report_path = Path(output)
+        report_path.parent.mkdir(parents=True, exist_ok=True)
+        report_path.write_text(
+            (
+                "<html><body>"
+                f"<h1>Quant Report</h1><p>returns={type(returns).__name__}</p>"
+                f"<p>benchmark={type(benchmark).__name__ if benchmark is not None else 'None'}</p>"
+                "</body></html>"
+            ),
+            encoding="utf-8",
+        )
+
+    fake_reports_module.html = _fake_html  # type: ignore[attr-defined]
+    fake_quantstats_module = ModuleType("fake_quantstats_root")
+    fake_quantstats_module.reports = fake_reports_module  # type: ignore[attr-defined]
+    monkeypatch.setattr(
+        service_module,
+        "_load_quantstats_module",
+        lambda: fake_quantstats_module,
     )
 
 
@@ -808,6 +849,22 @@ def test_time_series_endpoint_returns_max_period_points_from_persisted_history(
             point, "portfolio_value_usd", str(Decimal(str(point["portfolio_value_usd"])))
         )
         _assert_decimal_field(point, "pnl_usd", str(Decimal(str(point["pnl_usd"]))))
+        assert "benchmark_sp500_value_usd" in point
+        assert "benchmark_nasdaq100_value_usd" in point
+        benchmark_sp500_value = point["benchmark_sp500_value_usd"]
+        if benchmark_sp500_value is not None:
+            _assert_decimal_field(
+                point,
+                "benchmark_sp500_value_usd",
+                str(Decimal(str(benchmark_sp500_value))),
+            )
+        benchmark_nasdaq100_value = point["benchmark_nasdaq100_value_usd"]
+        if benchmark_nasdaq100_value is not None:
+            _assert_decimal_field(
+                point,
+                "benchmark_nasdaq100_value_usd",
+                str(Decimal(str(benchmark_nasdaq100_value))),
+            )
 
     assert captured_at_values == sorted(captured_at_values)
 
@@ -1059,6 +1116,124 @@ def test_risk_estimators_endpoint_rejects_insufficient_history_explicitly(
     if not isinstance(detail, str):
         pytest.fail("Insufficiency response must include string 'detail'.")
     assert "insufficient persisted history" in detail.lower()
+
+
+@pytest.mark.integration
+def test_quant_report_generation_returns_retrievable_html_artifact(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    test_db_engine: AsyncEngine,
+) -> None:
+    """Quant-report generation should return metadata and a retrievable HTML artifact."""
+
+    report_path = _portfolio_workspace_endpoint_path(suffix="quant-reports")
+    _patch_forbidden_upstream_calls(monkeypatch)
+    _patch_fake_quantstats_report_module(monkeypatch)
+    asyncio.run(_seed_persisted_ledger_state(test_db_engine, price_history_points=35))
+
+    response = client.post(
+        report_path,
+        json={
+            "scope": "portfolio",
+            "period": "30D",
+        },
+    )
+    assert response.status_code == 201
+    payload_raw = response.json()
+    if not isinstance(payload_raw, dict):
+        pytest.fail("Quant-report generation response must be a JSON object.")
+    payload = cast(dict[str, object], payload_raw)
+    report_id = payload.get("report_id")
+    assert isinstance(report_id, str)
+    assert report_id
+    report_url_path = payload.get("report_url_path")
+    assert isinstance(report_url_path, str)
+    assert report_url_path
+    assert payload.get("scope") == "portfolio"
+    assert payload.get("period") == "30D"
+    assert isinstance(payload.get("generated_at"), str)
+    assert isinstance(payload.get("expires_at"), str)
+
+    artifact_response = client.get(report_url_path)
+    assert artifact_response.status_code == 200
+    assert "text/html" in artifact_response.headers.get("content-type", "")
+    assert "<html>" in artifact_response.text.lower()
+    assert "quant report" in artifact_response.text.lower()
+
+
+@pytest.mark.integration
+def test_quant_report_generation_rejects_invalid_scope_parameters_explicitly(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Quant-report generation should reject invalid scope/parameter combinations."""
+
+    report_path = _portfolio_workspace_endpoint_path(suffix="quant-reports")
+    _patch_forbidden_upstream_calls(monkeypatch)
+
+    response = client.post(
+        report_path,
+        json={
+            "scope": "portfolio",
+            "instrument_symbol": "AAPL",
+            "period": "30D",
+        },
+    )
+    assert response.status_code == 422
+    payload_raw = response.json()
+    if not isinstance(payload_raw, dict):
+        pytest.fail("Invalid-scope response must be a JSON object.")
+    payload = cast(dict[str, object], payload_raw)
+    detail = payload.get("detail")
+    assert isinstance(detail, str)
+    assert "instrument_symbol" in detail
+
+
+@pytest.mark.integration
+def test_quant_report_artifact_retrieval_rejects_unavailable_report_id(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Quant-report artifact endpoint should reject unavailable report ids explicitly."""
+
+    report_artifact_path = (
+        _portfolio_workspace_endpoint_path(suffix="quant-reports") + "/non-existent-report"
+    )
+    _patch_forbidden_upstream_calls(monkeypatch)
+
+    response = client.get(report_artifact_path)
+    assert response.status_code == 404
+    payload_raw = response.json()
+    if not isinstance(payload_raw, dict):
+        pytest.fail("Unavailable-artifact response must be a JSON object.")
+    payload = cast(dict[str, object], payload_raw)
+    detail = payload.get("detail")
+    assert isinstance(detail, str)
+    assert "unavailable" in detail.lower()
+
+
+@pytest.mark.integration
+def test_quant_report_generation_keeps_read_only_side_effect_boundaries(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    test_db_engine: AsyncEngine,
+) -> None:
+    """Quant-report generation should not trigger PDF/rebuild side-effect call paths."""
+
+    report_path = _portfolio_workspace_endpoint_path(suffix="quant-reports")
+    _patch_forbidden_upstream_calls(monkeypatch)
+    _patch_fake_quantstats_report_module(monkeypatch)
+    asyncio.run(_seed_persisted_ledger_state(test_db_engine, price_history_points=35))
+
+    response = client.post(
+        report_path,
+        json={
+            "scope": "instrument_symbol",
+            "instrument_symbol": "AMD",
+            "period": "30D",
+        },
+    )
+    assert response.status_code == 201
 
 
 @pytest.mark.integration

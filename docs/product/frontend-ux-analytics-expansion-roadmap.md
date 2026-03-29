@@ -167,6 +167,17 @@ Stay on the current `React + Vite` stack for the next delivery phases.
 - Risk tab provides actionable insights with transparent formulas/provenance.
 - Metrics are validated by tests and documented with scope limitations.
 
+### QuantStats phase alignment (2026-03-29)
+
+- QuantStats usage is governed by `docs/standards/quantstats-standard.md`.
+- Report capability scope is explicitly bounded:
+  - `POST /api/portfolio/quant-reports` with `portfolio` or `instrument_symbol` scope only
+  - `GET /api/portfolio/quant-reports/{report_id}` for artifact retrieval with lifecycle controls
+- Placement matrix is frozen for this phase:
+  - Home: supplemental quant preview + report actions (section-scoped failure boundaries)
+  - Risk: interpretation-sensitive risk context
+  - Quant reporting: explicit generation/retrieval lifecycle states and benchmark omission visibility
+
 ## Phase E: Optional Next.js Spike (conditional)
 
 ### Objective
@@ -183,6 +194,48 @@ Run a bounded spike only if migration gates are satisfied.
 
 - explicit go/no-go decision with evidence
 - no full migration without approved decision artifact
+
+## Phase F: Analyst-Led Dashboard and Quant UX Hardening
+
+### Objectives
+
+- Add a formal data-analyst workflow to define KPI taxonomy, metric narratives, and dashboard hierarchy.
+- Remove chart duplication patterns and unify chart spacing/layout behavior across routes.
+- Move Quant report actions to a more appropriate analytical surface and improve report readability.
+- Promote a more professional analytical dashboard language while preserving fail-fast and deterministic behavior.
+
+### Scope (review + design + implementation)
+
+- Perform a frontend analytics audit covering:
+  - duplicated chart modules across Home/Analytics/Risk
+  - inconsistent chart container sizing and spacing
+  - report-generation placement and UX friction
+  - KPI signal quality and metric grouping by analyst intent
+- Define a KPI matrix with explicit ownership:
+  - `Home`: executive snapshot KPIs only
+  - `Analytics`: performance and attribution exploration
+  - `Risk`: interpretation-sensitive risk diagnostics
+  - `Quant/Reports`: report generation, advanced quant diagnostics, benchmark context
+- Introduce a dedicated Quant/Reports surface (or equivalent promoted module) so HTML report workflows are not buried in Home.
+- Standardize chart composition:
+  - responsive container contracts for all charts
+  - consistent panel/body spacing tokens
+  - shared chart header, controls, and summary patterns
+
+### Deliverables
+
+- Analyst-approved KPI catalog (metric definitions, formulas, audience, route placement).
+- Dashboard IA update (route-level module map and interaction flow).
+- UI consistency audit report with prioritized fix list (spacing, chart sizing, duplication).
+- Quant report UX redesign proposal (location, states, and preview/full-view behavior).
+- Implementation-ready OpenSpec change for Phase F execution.
+
+### Exit Criteria
+
+- KPI placement is analyst-reviewed and documented.
+- Chart spacing and sizing are consistent across workspace routes.
+- Quant HTML report workflow is accessible from a dedicated analytical context and validated with route tests.
+- Preview/interpretation labels align with the promoted UX model and standards.
 
 ## Standards and Quality Gates (Non-Negotiable)
 

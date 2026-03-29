@@ -33,6 +33,7 @@ This repository organizes documentation by function so standards, product artifa
 - NumPy standard: `docs/standards/numpy-standard.md`
 - pandas standard: `docs/standards/pandas-standard.md`
 - SciPy standard: `docs/standards/scipy-standard.md`
+- QuantStats standard: `docs/standards/quantstats-standard.md`
 - Yfance standard: `docs/standards/yfance-standard.md`
 - PostgreSQL standard: `docs/standards/postgres-standard.md`
 - PostgreSQL local setup guide: `docs/guides/postgres-local-setup.md`

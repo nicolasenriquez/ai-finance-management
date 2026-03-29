@@ -98,11 +98,11 @@ describe("PortfolioWorkspaceLayout", () => {
       path: "/portfolio/home",
     },
     {
-      activeLabel: "Analytics",
+      activeLabel: "Analytics (Preview)",
       path: "/portfolio/analytics",
     },
     {
-      activeLabel: "Risk",
+      activeLabel: "Risk (Interpretation)",
       path: "/portfolio/risk",
     },
     {
@@ -112,7 +112,7 @@ describe("PortfolioWorkspaceLayout", () => {
   ])("maps route state to active navigation link for $path", ({ activeLabel, path }) => {
     renderWorkspaceRoute(path);
 
-    const links = ["Home", "Analytics", "Risk", "Transactions"].map((label) =>
+    const links = ["Home", "Analytics (Preview)", "Risk (Interpretation)", "Transactions"].map((label) =>
       screen.getByRole("link", { name: label }),
     );
 
@@ -130,8 +130,8 @@ describe("PortfolioWorkspaceLayout", () => {
     renderWorkspaceRoute("/portfolio/home");
 
     const homeLink = screen.getByRole("link", { name: "Home" });
-    const analyticsLink = screen.getByRole("link", { name: "Analytics" });
-    const riskLink = screen.getByRole("link", { name: "Risk" });
+    const analyticsLink = screen.getByRole("link", { name: "Analytics (Preview)" });
+    const riskLink = screen.getByRole("link", { name: "Risk (Interpretation)" });
 
     for (let index = 0; index < 8; index += 1) {
       await user.tab();
@@ -162,7 +162,7 @@ describe("PortfolioWorkspaceLayout", () => {
     expect(screen.getByTestId("workspace-current-path")).toHaveTextContent(
       "/portfolio/risk",
     );
-    expect(screen.getByRole("link", { name: "Risk" })).toHaveClass(
+    expect(screen.getByRole("link", { name: "Risk (Interpretation)" })).toHaveClass(
       "workspace-nav__link--active",
     );
   });

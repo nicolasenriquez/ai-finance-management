@@ -24,8 +24,8 @@ type WorkspaceRoute = {
 
 const WORKSPACE_ROUTES: WorkspaceRoute[] = [
   { label: "Home", path: "/portfolio/home" },
-  { label: "Analytics", path: "/portfolio/analytics" },
-  { label: "Risk", path: "/portfolio/risk" },
+  { label: "Analytics (Preview)", path: "/portfolio/analytics" },
+  { label: "Risk (Interpretation)", path: "/portfolio/risk" },
   { label: "Transactions", path: "/portfolio/transactions" },
 ];
 

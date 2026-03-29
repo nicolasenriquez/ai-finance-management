@@ -12,6 +12,9 @@ It documents the current workspace-first IA, state mapping rules, and methodolog
 - Time series: `GET /api/portfolio/time-series?period={30D|90D|252D|MAX}`
 - Contribution: `GET /api/portfolio/contribution?period={30D|90D|252D|MAX}`
 - Risk estimators: `GET /api/portfolio/risk-estimators?window_days={30|90|252}`
+- Quant metrics: `GET /api/portfolio/quant-metrics?period={30D|90D|252D|MAX}`
+- Quant report generate: `POST /api/portfolio/quant-reports`
+- Quant report artifact: `GET /api/portfolio/quant-reports/{report_id}`
 
 ## Route Information Architecture
 
@@ -22,10 +25,11 @@ It documents the current workspace-first IA, state mapping rules, and methodolog
   - lot-level ledger detail + dispositions
 - `/portfolio/home`
   - KPI cards + trend chart + deterministic drill-down links
+  - supplemental quant preview + report actions (section-scoped state)
 - `/portfolio/analytics`
-  - trend + contribution modules
+  - trend + contribution modules (`Preview` framing in navigation)
 - `/portfolio/risk`
-  - estimator cards/charts + methodology metadata
+  - estimator cards/charts + methodology metadata (`Interpretation` framing in navigation)
 - `/portfolio/transactions`
   - ledger-event-only table and filters (v1 scope)
 
@@ -100,6 +104,36 @@ Required per-metric methodology metadata:
 - `annualization_basis.value` (default v1 basis `252`)
 - `as_of_timestamp`
 
+### Quant Metrics Response
+
+- `as_of_ledger_at: datetime`
+- `period: 30D | 90D | 252D | MAX`
+- `benchmark_symbol: str | null`
+- `metrics: PortfolioQuantMetric[]`
+- `benchmark_context: { benchmark_symbol, omitted_metric_ids, omission_reason }`
+
+Behavior notes:
+
+- Benchmark-relative metrics (for example alpha/beta) are optional and may be omitted explicitly.
+- Frontend must render `benchmark_context.omission_reason` and `omitted_metric_ids` when provided.
+- Omission is explicit and is not equivalent to successful metric computation.
+
+### Quant Report Generation Response
+
+- `report_id: str`
+- `scope: portfolio | instrument_symbol`
+- `instrument_symbol: str | null`
+- `period: 30D | 90D | 252D | MAX`
+- `benchmark_symbol: str | null`
+- `generated_at: datetime`
+- `expires_at: datetime`
+- `report_url_path: str`
+
+Behavior notes:
+
+- Report controls must expose explicit action lifecycle states (`loading`, `error`, `ready`).
+- Report action failures are section-scoped and must not replace Home core context.
+
 ## Normalization And Validation Rules
 
 - Supported chart period enum is fixed to `30D`, `90D`, `252D`, `MAX`.
@@ -126,6 +160,7 @@ Each route must render explicit `loading`, `empty`, and `error` states:
 
 - `/portfolio/home`
   - empty when summary rows or trend points are empty
+  - quant/report modules use section-scoped loading/empty/error states
 - `/portfolio/analytics`
   - empty when trend points or contribution rows are empty
 - `/portfolio/risk`
@@ -145,6 +180,12 @@ Each route must render explicit `loading`, `empty`, and `error` states:
 
 - `Transactions` route remains ledger-event-only.
 - Market-refresh diagnostics are intentionally deferred to an operator-facing follow-up and are out of v1 UX/API scope.
+
+## Quant Placement Matrix
+
+- Home: KPI + supplemental quant preview + report actions; optional quant/report failures remain section-scoped.
+- Risk: interpretation-sensitive risk metrics with methodology context as primary surface.
+- Quant reports: generated artifacts remain explicit actions with typed scope and lifecycle states.
 
 ## Accessibility And Performance Evidence Requirements
 

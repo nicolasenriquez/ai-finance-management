@@ -6,6 +6,7 @@ from collections.abc import Mapping
 from typing import Annotated, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import HTMLResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
@@ -14,7 +15,12 @@ from app.core.logging import get_logger
 from app.portfolio_analytics.schemas import (
     PortfolioChartPeriod,
     PortfolioContributionResponse,
+    PortfolioHierarchyGroupBy,
+    PortfolioHierarchyResponse,
     PortfolioLotDetailResponse,
+    PortfolioQuantMetricsResponse,
+    PortfolioQuantReportGenerateRequest,
+    PortfolioQuantReportGenerateResponse,
     PortfolioRiskEstimatorsResponse,
     PortfolioSummaryResponse,
     PortfolioTimeSeriesResponse,
@@ -22,8 +28,12 @@ from app.portfolio_analytics.schemas import (
 )
 from app.portfolio_analytics.service import (
     PortfolioAnalyticsClientError,
+    generate_portfolio_quant_report_response,
     get_portfolio_contribution_response,
+    get_portfolio_hierarchy_response,
     get_portfolio_lot_detail_response,
+    get_portfolio_quant_metrics_response,
+    get_portfolio_quant_report_html_content,
     get_portfolio_risk_estimators_response,
     get_portfolio_summary_response,
     get_portfolio_time_series_response,
@@ -266,6 +276,179 @@ async def get_portfolio_risk_estimators(
         "portfolio_analytics.risk_estimators_request_completed",
         window_days=window_days,
         metric_count=_response_list_len(response, "metrics"),
+        as_of_ledger_at=_response_isoformat(response, "as_of_ledger_at"),
+    )
+    return response
+
+
+@router.get(
+    "/quant-metrics",
+    response_model=PortfolioQuantMetricsResponse,
+)
+async def get_portfolio_quant_metrics(
+    db: DbSession,
+    period: Annotated[
+        str,
+        Query(description="Supported chart period enum: 30D, 90D, 252D, MAX."),
+    ] = PortfolioChartPeriod.D90.value,
+) -> PortfolioQuantMetricsResponse:
+    """Return QuantStats-derived metrics for the selected portfolio chart period."""
+
+    try:
+        normalized_period = normalize_chart_period(period_value=period)
+        logger.info(
+            "portfolio_analytics.quant_metrics_request_started",
+            period=normalized_period.value,
+        )
+        response = await get_portfolio_quant_metrics_response(
+            db=db,
+            period=normalized_period,
+        )
+    except PortfolioAnalyticsClientError as exc:
+        logger.info(
+            "portfolio_analytics.quant_metrics_request_rejected",
+            period=period,
+            status_code=exc.status_code,
+            error=str(exc),
+        )
+        raise HTTPException(
+            status_code=exc.status_code,
+            detail=str(exc),
+        ) from exc
+
+    logger.info(
+        "portfolio_analytics.quant_metrics_request_completed",
+        period=normalized_period.value,
+        metric_count=_response_list_len(response, "metrics"),
+        benchmark_symbol=_response_field(response, "benchmark_symbol"),
+        as_of_ledger_at=_response_isoformat(response, "as_of_ledger_at"),
+    )
+    return response
+
+
+@router.post(
+    "/quant-reports",
+    response_model=PortfolioQuantReportGenerateResponse,
+    status_code=201,
+)
+async def generate_portfolio_quant_report(
+    request: PortfolioQuantReportGenerateRequest,
+    db: DbSession,
+) -> PortfolioQuantReportGenerateResponse:
+    """Generate one bounded QuantStats HTML tearsheet and return retrieval metadata."""
+
+    logger.info(
+        "portfolio_analytics.quant_report_request_started",
+        scope=request.scope.value,
+        period=request.period.value,
+        instrument_symbol=request.instrument_symbol,
+    )
+    try:
+        response = await generate_portfolio_quant_report_response(
+            db=db,
+            request=request,
+            api_prefix=settings.api_prefix,
+        )
+    except PortfolioAnalyticsClientError as exc:
+        logger.info(
+            "portfolio_analytics.quant_report_request_rejected",
+            scope=request.scope.value,
+            period=request.period.value,
+            instrument_symbol=request.instrument_symbol,
+            status_code=exc.status_code,
+            error=str(exc),
+        )
+        raise HTTPException(
+            status_code=exc.status_code,
+            detail=str(exc),
+        ) from exc
+
+    logger.info(
+        "portfolio_analytics.quant_report_request_completed",
+        report_id=response.report_id,
+        scope=response.scope.value,
+        period=response.period.value,
+        instrument_symbol=response.instrument_symbol,
+        benchmark_symbol=response.benchmark_symbol,
+    )
+    return response
+
+
+@router.get(
+    "/quant-reports/{report_id}",
+    response_class=HTMLResponse,
+)
+async def get_portfolio_quant_report_html(
+    report_id: str,
+) -> HTMLResponse:
+    """Return one generated QuantStats tearsheet HTML artifact by report id."""
+
+    logger.info(
+        "portfolio_analytics.quant_report_artifact_request_started",
+        report_id=report_id,
+    )
+    try:
+        html_content = get_portfolio_quant_report_html_content(
+            report_id=report_id,
+        )
+    except PortfolioAnalyticsClientError as exc:
+        logger.info(
+            "portfolio_analytics.quant_report_artifact_request_rejected",
+            report_id=report_id,
+            status_code=exc.status_code,
+            error=str(exc),
+        )
+        raise HTTPException(
+            status_code=exc.status_code,
+            detail=str(exc),
+        ) from exc
+
+    logger.info(
+        "portfolio_analytics.quant_report_artifact_request_completed",
+        report_id=report_id,
+        content_length=len(html_content),
+    )
+    return HTMLResponse(content=html_content, status_code=200)
+
+
+@router.get(
+    "/hierarchy",
+    response_model=PortfolioHierarchyResponse,
+)
+async def get_portfolio_hierarchy(
+    db: DbSession,
+    group_by: Annotated[
+        PortfolioHierarchyGroupBy,
+        Query(description="Hierarchy grouping: sector or symbol."),
+    ] = PortfolioHierarchyGroupBy.SECTOR,
+) -> PortfolioHierarchyResponse:
+    """Return home-view portfolio hierarchy rows grouped by sector or symbol."""
+
+    logger.info(
+        "portfolio_analytics.hierarchy_request_started",
+        group_by=group_by.value,
+    )
+    try:
+        response = await get_portfolio_hierarchy_response(
+            db=db,
+            group_by=group_by,
+        )
+    except PortfolioAnalyticsClientError as exc:
+        logger.info(
+            "portfolio_analytics.hierarchy_request_rejected",
+            group_by=group_by.value,
+            status_code=exc.status_code,
+            error=str(exc),
+        )
+        raise HTTPException(
+            status_code=exc.status_code,
+            detail=str(exc),
+        ) from exc
+
+    logger.info(
+        "portfolio_analytics.hierarchy_request_completed",
+        group_by=group_by.value,
+        group_count=_response_list_len(response, "groups"),
         as_of_ledger_at=_response_isoformat(response, "as_of_ledger_at"),
     )
     return response

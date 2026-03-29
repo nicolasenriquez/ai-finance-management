@@ -70,14 +70,17 @@ export function PortfolioLotTable({ lots }: PortfolioLotTableProps) {
               </div>
 
               {lot.dispositions.length > 0 ? (
-                <section className="lot-dispositions">
+                <details className="lot-dispositions" open={lot.dispositions.length === 1}>
+                  <summary className="lot-dispositions__summary">
+                    <span className="lot-dispositions__title">Disposition history</span>
+                    <span className="metric-hint">
+                      Expand to inspect matched basis lineage.
+                    </span>
+                  </summary>
                   <div className="lot-dispositions__header">
-                    <div>
-                      <h3 className="lot-dispositions__title">Disposition history</h3>
-                      <p className="definition-copy">
-                        Each row links a sell transaction back to the matched cost basis.
-                      </p>
-                    </div>
+                    <p className="definition-copy">
+                      Each row links a sell transaction back to the matched cost basis.
+                    </p>
                   </div>
                   <div className="table-shell">
                     <table className="data-table">
@@ -113,7 +116,7 @@ export function PortfolioLotTable({ lots }: PortfolioLotTableProps) {
                       </tbody>
                     </table>
                   </div>
-                </section>
+                </details>
               ) : (
                 <div className="empty-state empty-state--compact">
                   <h3 className="empty-state__title">No sell-side dispositions</h3>
