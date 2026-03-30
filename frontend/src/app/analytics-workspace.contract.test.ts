@@ -34,6 +34,12 @@ const workspaceContracts: WorkspaceRouteContract[] = [
     testFile: "src/pages/portfolio-risk-page/PortfolioRiskPage.test.tsx",
   },
   {
+    routeName: "Quant/Reports",
+    path: "/portfolio/reports",
+    pageFile: "src/pages/portfolio-reports-page/PortfolioReportsPage.tsx",
+    testFile: "src/pages/portfolio-reports-page/PortfolioReportsPage.test.tsx",
+  },
+  {
     routeName: "Transactions",
     path: "/portfolio/transactions",
     pageFile: "src/pages/portfolio-transactions-page/PortfolioTransactionsPage.tsx",

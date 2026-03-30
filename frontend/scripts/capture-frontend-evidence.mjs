@@ -112,7 +112,128 @@ const transactionsPayload = {
 };
 
 const supportedChartPeriods = ["30D", "90D", "252D", "MAX"];
+const supportedHierarchyGroups = ["sector", "symbol"];
 const supportedRiskWindows = [30, 90, 252];
+
+const hierarchyPayloadByGroup = {
+  sector: {
+    as_of_ledger_at: "2026-03-24T01:00:00Z",
+    group_by: "sector",
+    pricing_snapshot_key: "yf|d1|1d|3mo|aa1rp1|2026-03-24|s2|a1b2c3d4e5f6",
+    pricing_snapshot_captured_at: "2026-03-24T00:55:00Z",
+    groups: [
+      {
+        group_key: "Technology",
+        group_label: "Technology",
+        asset_count: 2,
+        total_market_value_usd: "1475.00",
+        total_profit_loss_usd: "255.00",
+        total_change_pct: "20.90",
+        assets: [
+          {
+            instrument_symbol: "AAPL",
+            sector_label: "Technology",
+            open_quantity: "2.000000000",
+            open_cost_basis_usd: "1000.00",
+            avg_price_usd: "500.00",
+            current_price_usd: "530.00",
+            market_value_usd: "1060.00",
+            profit_loss_usd: "60.00",
+            change_pct: "6.00",
+            lot_count: 2,
+            lots: [
+              {
+                lot_id: 21,
+                opened_on: "2025-12-20",
+                original_qty: "1.000000000",
+                remaining_qty: "1.000000000",
+                unit_cost_basis_usd: "480.00",
+                total_cost_basis_usd: "480.00",
+                market_value_usd: "530.00",
+                profit_loss_usd: "50.00",
+              },
+              {
+                lot_id: 22,
+                opened_on: "2026-01-05",
+                original_qty: "1.000000000",
+                remaining_qty: "1.000000000",
+                unit_cost_basis_usd: "520.00",
+                total_cost_basis_usd: "520.00",
+                market_value_usd: "530.00",
+                profit_loss_usd: "10.00",
+              },
+            ],
+          },
+          {
+            instrument_symbol: "MSFT",
+            sector_label: "Technology",
+            open_quantity: "1.000000000",
+            open_cost_basis_usd: "220.00",
+            avg_price_usd: "220.00",
+            current_price_usd: "415.00",
+            market_value_usd: "415.00",
+            profit_loss_usd: "195.00",
+            change_pct: "88.64",
+            lot_count: 1,
+            lots: [
+              {
+                lot_id: 31,
+                opened_on: "2025-11-01",
+                original_qty: "1.000000000",
+                remaining_qty: "1.000000000",
+                unit_cost_basis_usd: "220.00",
+                total_cost_basis_usd: "220.00",
+                market_value_usd: "415.00",
+                profit_loss_usd: "195.00",
+              },
+            ],
+          },
+        ],
+      },
+      {
+        group_key: "Index",
+        group_label: "Index",
+        asset_count: 1,
+        total_market_value_usd: "960.00",
+        total_profit_loss_usd: "60.00",
+        total_change_pct: "6.67",
+        assets: [
+          {
+            instrument_symbol: "VOO",
+            sector_label: "Index",
+            open_quantity: "4.000000000",
+            open_cost_basis_usd: "900.00",
+            avg_price_usd: "225.00",
+            current_price_usd: "240.00",
+            market_value_usd: "960.00",
+            profit_loss_usd: "60.00",
+            change_pct: "6.67",
+            lot_count: 1,
+            lots: [
+              {
+                lot_id: 15,
+                opened_on: "2025-12-01",
+                original_qty: "4.000000000",
+                remaining_qty: "4.000000000",
+                unit_cost_basis_usd: "225.00",
+                total_cost_basis_usd: "900.00",
+                market_value_usd: "960.00",
+                profit_loss_usd: "60.00",
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  symbol: {
+    as_of_ledger_at: "2026-03-24T01:00:00Z",
+    group_by: "symbol",
+    pricing_snapshot_key: "yf|d1|1d|3mo|aa1rp1|2026-03-24|s2|a1b2c3d4e5f6",
+    pricing_snapshot_captured_at: "2026-03-24T00:55:00Z",
+    groups: [],
+  },
+};
 
 const timeSeriesPayloadByPeriod = {
   "30D": {
@@ -409,7 +530,17 @@ async function serveRequest(request, response) {
       "Content-Type": mimeByExtension[".json"],
       "Cache-Control": "no-store",
     });
-    response.end(JSON.stringify(timeSeriesPayloadByPeriod[requestedPeriod]));
+    const selectedPayload = timeSeriesPayloadByPeriod[requestedPeriod];
+    response.end(
+      JSON.stringify({
+        ...selectedPayload,
+        points: selectedPayload.points.map((point) => ({
+          benchmark_nasdaq100_value_usd: point.benchmark_nasdaq100_value_usd ?? null,
+          benchmark_sp500_value_usd: point.benchmark_sp500_value_usd ?? null,
+          ...point,
+        })),
+      }),
+    );
     return;
   }
 
@@ -453,6 +584,42 @@ async function serveRequest(request, response) {
       "Cache-Control": "no-store",
     });
     response.end(JSON.stringify(riskPayloadByWindowDays[requestedWindow]));
+    return;
+  }
+
+  if (pathname === "/api/portfolio/hierarchy") {
+    const requestedGroup = (requestUrl.searchParams.get("group_by") || "sector").toLowerCase();
+    if (!supportedHierarchyGroups.includes(requestedGroup)) {
+      response.writeHead(422, {
+        "Content-Type": mimeByExtension[".json"],
+        "Cache-Control": "no-store",
+      });
+      response.end(JSON.stringify({ detail: `Unsupported hierarchy group '${requestedGroup}'.` }));
+      return;
+    }
+
+    response.writeHead(200, {
+      "Content-Type": mimeByExtension[".json"],
+      "Cache-Control": "no-store",
+    });
+    const payload =
+      requestedGroup === "symbol"
+        ? {
+            ...hierarchyPayloadByGroup.symbol,
+            groups: hierarchyPayloadByGroup.sector.groups.flatMap((group) =>
+              group.assets.map((asset) => ({
+                group_key: asset.instrument_symbol,
+                group_label: asset.instrument_symbol,
+                asset_count: 1,
+                total_market_value_usd: asset.market_value_usd,
+                total_profit_loss_usd: asset.profit_loss_usd,
+                total_change_pct: asset.change_pct,
+                assets: [asset],
+              })),
+            ),
+          }
+        : hierarchyPayloadByGroup.sector;
+    response.end(JSON.stringify(payload));
     return;
   }
 
@@ -843,7 +1010,7 @@ async function runKeyboardWalkthrough(browser, baseUrl) {
   };
 
   await page.goto(`${baseUrl}/portfolio`, { waitUntil: "networkidle" });
-  await page.waitForSelector("text=Portfolio summary");
+  await page.waitForSelector("text=Portfolio command home");
 
   const rowSequence = await tabUntil(
     page,
@@ -1082,7 +1249,7 @@ async function main() {
         fileName: "desktop-summary-ledger-timestamp.png",
         routePath: "/portfolio",
         viewport: { width: 1440, height: 900 },
-        waitForSelector: "text=Ledger as of",
+        waitForSelector: "text=Portfolio command home",
         theme: "dark",
         fullPage: true,
       },
@@ -1090,7 +1257,7 @@ async function main() {
         fileName: "desktop-summary-first-viewport.png",
         routePath: "/portfolio",
         viewport: { width: 1440, height: 900 },
-        waitForSelector: "text=Ledger as of",
+        waitForSelector: "text=Portfolio command home",
         theme: "dark",
         fullPage: false,
       },
@@ -1098,7 +1265,7 @@ async function main() {
         fileName: "desktop-summary-dark-theme.png",
         routePath: "/portfolio",
         viewport: { width: 1440, height: 900 },
-        waitForSelector: "text=Ledger as of",
+        waitForSelector: "text=Portfolio command home",
         theme: "dark",
         fullPage: true,
       },
@@ -1106,7 +1273,7 @@ async function main() {
         fileName: "mobile-summary-responsive.png",
         routePath: "/portfolio",
         viewport: { width: 390, height: 844 },
-        waitForSelector: "text=Ledger as of",
+        waitForSelector: "text=Portfolio command home",
         theme: "dark",
         fullPage: true,
       },
@@ -1193,7 +1360,7 @@ async function main() {
       "/portfolio/transactions",
     ];
     const routeSelectorByPath = {
-      "/portfolio": "text=Portfolio summary",
+      "/portfolio": "text=Portfolio command home",
       "/portfolio/VOO": "text=Disposition history",
       "/portfolio/UNKNOWN": "text=Instrument not found",
       "/portfolio/ERR500": "text=Lot detail unavailable",

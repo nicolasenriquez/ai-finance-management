@@ -52,7 +52,7 @@ export function PortfolioTransactionsPage() {
       }
       freshnessTimestamp={transactionsQuery.data?.as_of_ledger_at}
       scopeLabel="Ledger events only (v1)"
-      provenanceLabel="Transactions route placeholder feed"
+      provenanceLabel="Persisted portfolio transactions API"
     >
       {isLoading ? <LoadingTableSkeleton rows={5} /> : null}
 

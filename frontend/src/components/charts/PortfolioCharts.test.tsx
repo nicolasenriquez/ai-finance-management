@@ -25,11 +25,15 @@ const trendPoints: PortfolioTimeSeriesPoint[] = [
     captured_at: "2026-03-27T00:00:00Z",
     portfolio_value_usd: "100.00",
     pnl_usd: "0.00",
+    benchmark_sp500_value_usd: "100.00",
+    benchmark_nasdaq100_value_usd: null,
   },
   {
     captured_at: "2026-03-28T00:00:00Z",
     portfolio_value_usd: "120.00",
     pnl_usd: "20.00",
+    benchmark_sp500_value_usd: "110.00",
+    benchmark_nasdaq100_value_usd: null,
   },
 ];
 
@@ -57,6 +61,9 @@ const riskMetrics: PortfolioRiskEstimatorMetric[] = [
       value: 252,
     },
     as_of_timestamp: "2026-03-28T00:00:00Z",
+    unit: "ratio",
+    interpretation_band: "favorable",
+    timeline_series_id: "beta",
   },
   {
     estimator_id: "volatility_annualized",
@@ -68,6 +75,9 @@ const riskMetrics: PortfolioRiskEstimatorMetric[] = [
       value: 252,
     },
     as_of_timestamp: "2026-03-28T00:00:00Z",
+    unit: "percent",
+    interpretation_band: "favorable",
+    timeline_series_id: "volatility_annualized",
   },
 ];
 
@@ -77,7 +87,13 @@ describe("portfolio workspace chart foundation", () => {
     expect(
       screen.getByRole("img", { name: "Portfolio trend chart" }),
     ).toBeInTheDocument();
-    expect(container.querySelector("svg")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "S&P 500" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "NASDAQ-100" }),
+    ).toBeInTheDocument();
+    expect(container.querySelector(".recharts-responsive-container")).toBeInTheDocument();
   });
 
   it("renders Recharts contribution visual", () => {
@@ -87,12 +103,15 @@ describe("portfolio workspace chart foundation", () => {
     expect(
       screen.getByRole("img", { name: "Contribution by symbol chart" }),
     ).toBeInTheDocument();
-    expect(container.querySelector("svg")).toBeInTheDocument();
+    expect(
+      container.querySelector(".recharts-responsive-container"),
+    ).toBeInTheDocument();
   });
 
   it("renders Recharts risk visual", () => {
-    const { container } = render(<PortfolioRiskChart metrics={riskMetrics} />);
+    render(<PortfolioRiskChart metrics={riskMetrics} />);
     expect(screen.getByRole("img", { name: "Risk metrics chart" })).toBeInTheDocument();
-    expect(container.querySelector("svg")).toBeInTheDocument();
+    expect(screen.getByText("Beta")).toBeInTheDocument();
+    expect(screen.getByText("Volatility Annualized")).toBeInTheDocument();
   });
 });

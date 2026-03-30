@@ -12,6 +12,7 @@ type PortfolioWorkspaceLayoutProps = PropsWithChildren<{
   freshnessTimestamp?: string;
   scopeLabel: string;
   provenanceLabel: string;
+  provenanceTooltip?: string;
   periodLabel?: string;
   frequencyLabel?: string;
   timezoneLabel?: string;
@@ -24,8 +25,9 @@ type WorkspaceRoute = {
 
 const WORKSPACE_ROUTES: WorkspaceRoute[] = [
   { label: "Home", path: "/portfolio/home" },
-  { label: "Analytics", path: "/portfolio/analytics" },
-  { label: "Risk", path: "/portfolio/risk" },
+  { label: "Analytics (Preview)", path: "/portfolio/analytics" },
+  { label: "Risk (Interpretation)", path: "/portfolio/risk" },
+  { label: "Quant/Reports", path: "/portfolio/reports" },
   { label: "Transactions", path: "/portfolio/transactions" },
 ];
 
@@ -37,6 +39,7 @@ export function PortfolioWorkspaceLayout({
   freshnessTimestamp,
   scopeLabel,
   provenanceLabel,
+  provenanceTooltip,
   periodLabel,
   frequencyLabel,
   timezoneLabel,
@@ -72,29 +75,53 @@ export function PortfolioWorkspaceLayout({
       </nav>
 
       <section className="panel workspace-trust" aria-label="Data trust context">
-        <div className="workspace-trust__items">
+        <div className="workspace-trust__row workspace-trust__row--primary">
           {freshnessTimestamp ? (
             <TimestampBadge value={freshnessTimestamp} />
           ) : (
-            <span className="status-pill status-pill--neutral">
+            <span className="workspace-trust__token workspace-trust__token--neutral">
               Freshness: awaiting response
             </span>
           )}
-          <span className="status-pill status-pill--neutral">Scope: {scopeLabel}</span>
-          <span className="status-pill status-pill--neutral">
-            Provenance: {provenanceLabel}
-          </span>
+
           {periodLabel ? (
-            <span className="status-pill status-pill--neutral">Period: {periodLabel}</span>
+            <span className="workspace-trust__token">
+              <span className="workspace-trust__key">Period</span>
+              <span className="workspace-trust__value">{periodLabel}</span>
+            </span>
           ) : null}
           {frequencyLabel ? (
-            <span className="status-pill status-pill--neutral">
-              Frequency: {frequencyLabel}
+            <span className="workspace-trust__token">
+              <span className="workspace-trust__key">Frequency</span>
+              <span className="workspace-trust__value">{frequencyLabel}</span>
             </span>
           ) : null}
           {timezoneLabel ? (
-            <span className="status-pill status-pill--neutral">Timezone: {timezoneLabel}</span>
+            <span className="workspace-trust__token">
+              <span className="workspace-trust__key">Timezone</span>
+              <span className="workspace-trust__value">{timezoneLabel}</span>
+            </span>
           ) : null}
+        </div>
+
+        <div className="workspace-trust__row workspace-trust__row--secondary">
+          <span className="workspace-trust__token workspace-trust__token--scope">
+            <span className="workspace-trust__key">Scope</span>
+            <span className="workspace-trust__value">{scopeLabel}</span>
+          </span>
+
+          <span
+            aria-label="Data provenance"
+            className="workspace-trust__token workspace-trust__token--provenance"
+          >
+            <span className="workspace-trust__key">Provenance</span>
+            <span
+              className="workspace-trust__value workspace-trust__value--truncate"
+              title={provenanceTooltip || provenanceLabel}
+            >
+              {provenanceLabel}
+            </span>
+          </span>
         </div>
       </section>
 

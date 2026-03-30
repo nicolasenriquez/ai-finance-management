@@ -14,9 +14,6 @@ export function ThemeToggle() {
       <span className="theme-toggle__icon" aria-hidden="true">
         {theme === "light" ? "◐" : "◑"}
       </span>
-      <span className="theme-toggle__label">
-        {theme === "light" ? "Dark theme" : "Light theme"}
-      </span>
     </button>
   );
 }

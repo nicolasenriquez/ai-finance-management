@@ -61,6 +61,8 @@ const timeSeriesResponse: PortfolioTimeSeriesResponse = {
       captured_at: "2026-03-27T00:00:00Z",
       portfolio_value_usd: "100.00",
       pnl_usd: "0.00",
+      benchmark_sp500_value_usd: "100.00",
+      benchmark_nasdaq100_value_usd: null,
     },
   ],
 };
@@ -213,6 +215,19 @@ describe("PortfolioAnalyticsPage", () => {
     expect(
       screen.getByRole("img", { name: "Contribution by symbol chart" }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByText(/preview metrics are supplemental/i),
+    ).toBeInTheDocument();
+  });
+
+  it("renders contribution leaders table with explicit directional semantics labels (fail-first)", () => {
+    setTimeSeriesState({ isSuccess: true, data: timeSeriesResponse });
+    setContributionState({ isSuccess: true, data: contributionResponse });
+
+    renderAnalyticsPage();
+
+    expect(screen.getByRole("columnheader", { name: "Net share (vs net period)" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Absolute share" })).toBeInTheDocument();
   });
 
   it("limits period selector values to backend-supported enum options", () => {

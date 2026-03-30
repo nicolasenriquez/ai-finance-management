@@ -55,6 +55,7 @@ function renderWorkspaceRoute(path: string) {
           <Route path="/portfolio/home" element={<WorkspaceHarness />} />
           <Route path="/portfolio/analytics" element={<WorkspaceHarness />} />
           <Route path="/portfolio/risk" element={<WorkspaceHarness />} />
+          <Route path="/portfolio/reports" element={<WorkspaceHarness />} />
           <Route path="/portfolio/transactions" element={<WorkspaceHarness />} />
         </Routes>
       </MemoryRouter>
@@ -98,12 +99,16 @@ describe("PortfolioWorkspaceLayout", () => {
       path: "/portfolio/home",
     },
     {
-      activeLabel: "Analytics",
+      activeLabel: "Analytics (Preview)",
       path: "/portfolio/analytics",
     },
     {
-      activeLabel: "Risk",
+      activeLabel: "Risk (Interpretation)",
       path: "/portfolio/risk",
+    },
+    {
+      activeLabel: "Quant/Reports",
+      path: "/portfolio/reports",
     },
     {
       activeLabel: "Transactions",
@@ -112,9 +117,13 @@ describe("PortfolioWorkspaceLayout", () => {
   ])("maps route state to active navigation link for $path", ({ activeLabel, path }) => {
     renderWorkspaceRoute(path);
 
-    const links = ["Home", "Analytics", "Risk", "Transactions"].map((label) =>
-      screen.getByRole("link", { name: label }),
-    );
+    const links = [
+      "Home",
+      "Analytics (Preview)",
+      "Risk (Interpretation)",
+      "Quant/Reports",
+      "Transactions",
+    ].map((label) => screen.getByRole("link", { name: label }));
 
     for (const link of links) {
       if (link.textContent === activeLabel) {
@@ -130,8 +139,8 @@ describe("PortfolioWorkspaceLayout", () => {
     renderWorkspaceRoute("/portfolio/home");
 
     const homeLink = screen.getByRole("link", { name: "Home" });
-    const analyticsLink = screen.getByRole("link", { name: "Analytics" });
-    const riskLink = screen.getByRole("link", { name: "Risk" });
+    const analyticsLink = screen.getByRole("link", { name: "Analytics (Preview)" });
+    const riskLink = screen.getByRole("link", { name: "Risk (Interpretation)" });
 
     for (let index = 0; index < 8; index += 1) {
       await user.tab();
@@ -162,8 +171,16 @@ describe("PortfolioWorkspaceLayout", () => {
     expect(screen.getByTestId("workspace-current-path")).toHaveTextContent(
       "/portfolio/risk",
     );
-    expect(screen.getByRole("link", { name: "Risk" })).toHaveClass(
+    expect(screen.getByRole("link", { name: "Risk (Interpretation)" })).toHaveClass(
       "workspace-nav__link--active",
     );
+  });
+
+  it("renders compact trust metadata with dedicated provenance row", () => {
+    renderWorkspaceRoute("/portfolio/home");
+
+    expect(screen.getAllByText("Scope").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Provenance").length).toBeGreaterThan(0);
+    expect(screen.getByLabelText("Data provenance")).toBeInTheDocument();
   });
 });

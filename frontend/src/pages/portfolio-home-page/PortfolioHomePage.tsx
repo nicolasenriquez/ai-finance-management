@@ -1,36 +1,83 @@
 import { Link, useSearchParams } from "react-router-dom";
+import { useState } from "react";
 
+import { PortfolioPeriodChangeWaterfall } from "../../components/charts/AnalystVisualModules";
 import { PortfolioTrendChart } from "../../components/charts/PortfolioTrendChart";
+import { WorkspaceChartPanel } from "../../components/charts/WorkspaceChartPanel";
 import { EmptyState } from "../../components/empty-state/EmptyState";
 import { ErrorBanner } from "../../components/error-banner/ErrorBanner";
+import { MetricExplainabilityPopover } from "../../components/metric-explainability/MetricExplainabilityPopover";
 import { LoadingTableSkeleton } from "../../components/skeletons/LoadingTableSkeleton";
 import { PortfolioWorkspaceLayout } from "../../components/workspace-layout/PortfolioWorkspaceLayout";
+import { PortfolioHierarchyTable } from "../../features/portfolio-hierarchy/PortfolioHierarchyTable";
+import type {
+  PortfolioHealthProfilePosture,
+  PortfolioHierarchyGroupBy,
+} from "../../core/api/schemas";
+import { formatPricingSnapshotProvenanceLabel } from "../../core/lib/provenance";
 import { buildHomeMetricCards } from "../../features/portfolio-workspace/overview";
 import { PortfolioChartPeriodControl } from "../../features/portfolio-workspace/PortfolioChartPeriodControl";
 import { resolvePortfolioChartPeriod } from "../../features/portfolio-workspace/period";
 import { resolveWorkspaceError } from "../../features/portfolio-workspace/errors";
 import { usePortfolioSummaryQuery } from "../../features/portfolio-summary/hooks";
-import { usePortfolioTimeSeriesQuery } from "../../features/portfolio-workspace/hooks";
+import {
+  usePortfolioHealthSynthesisQuery,
+  usePortfolioHierarchyQuery,
+  usePortfolioTimeSeriesQuery,
+} from "../../features/portfolio-workspace/hooks";
 
 function resolvePeriodFromSearchParams(searchParams: URLSearchParams) {
   return resolvePortfolioChartPeriod(searchParams.get("period"));
 }
 
+type DrilldownRouteCard = {
+  label: string;
+  to: string;
+  useCase: string;
+  outcome: string;
+  routeTag: string;
+};
+
 export function PortfolioHomePage() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const [hierarchyGroupBy, setHierarchyGroupBy] =
+    useState<PortfolioHierarchyGroupBy>("sector");
+  const [healthProfilePosture, setHealthProfilePosture] =
+    useState<PortfolioHealthProfilePosture>("balanced");
+
   const selectedPeriod = resolvePeriodFromSearchParams(searchParams);
   const summaryQuery = usePortfolioSummaryQuery();
   const timeSeriesQuery = usePortfolioTimeSeriesQuery(selectedPeriod);
+  const hierarchyQuery = usePortfolioHierarchyQuery(hierarchyGroupBy);
+  const healthQuery = usePortfolioHealthSynthesisQuery(selectedPeriod, {
+    scope: "portfolio",
+    profilePosture: healthProfilePosture,
+  });
 
-  const isLoading = summaryQuery.isLoading || timeSeriesQuery.isLoading;
-  const isError = summaryQuery.isError || timeSeriesQuery.isError;
-  const isSuccess = summaryQuery.isSuccess && timeSeriesQuery.isSuccess;
-  const isEmpty =
-    isSuccess &&
-    (summaryQuery.data.rows.length === 0 || timeSeriesQuery.data.points.length === 0);
+  const isCoreLoading =
+    summaryQuery.isLoading ||
+    timeSeriesQuery.isLoading ||
+    hierarchyQuery.isLoading;
+  const isCoreError =
+    summaryQuery.isError ||
+    timeSeriesQuery.isError ||
+    hierarchyQuery.isError;
+  const isCoreSuccess =
+    summaryQuery.isSuccess &&
+    timeSeriesQuery.isSuccess &&
+    hierarchyQuery.isSuccess;
+  const isCoreEmpty =
+    isCoreSuccess &&
+    (
+      summaryQuery.data.rows.length === 0 ||
+      timeSeriesQuery.data.points.length === 0 ||
+      hierarchyQuery.data.groups.length === 0
+    );
 
-  const errorCopy = resolveWorkspaceError(
-    summaryQuery.error || timeSeriesQuery.error,
+  const coreErrorCopy = resolveWorkspaceError(
+    summaryQuery.error ||
+      timeSeriesQuery.error ||
+      hierarchyQuery.error,
     "Home analytics unavailable",
     "Home analytics could not be loaded from persisted workspace data.",
   );
@@ -44,18 +91,52 @@ export function PortfolioHomePage() {
   }
 
   async function retryHomeAnalytics(): Promise<void> {
-    await Promise.all([summaryQuery.refetch(), timeSeriesQuery.refetch()]);
+    await Promise.all([
+      summaryQuery.refetch(),
+      timeSeriesQuery.refetch(),
+      hierarchyQuery.refetch(),
+    ]);
   }
 
-  const metricCards = isSuccess
+  const metricCards = isCoreSuccess
     ? buildHomeMetricCards(summaryQuery.data.rows, timeSeriesQuery.data.points)
     : [];
+  const drilldownCards: DrilldownRouteCard[] = [
+    {
+      label: "Analytics route",
+      to: `/portfolio/analytics?period=${selectedPeriod}`,
+      routeTag: "Attribution",
+      useCase: "When you need to identify concentration and contribution drivers.",
+      outcome: "Trend + contribution diagnostics for period interpretation.",
+    },
+    {
+      label: "Risk interpretation route",
+      to: `/portfolio/risk?period=${selectedPeriod}`,
+      routeTag: "Risk",
+      useCase: "When drawdown, volatility, or benchmark sensitivity need validation.",
+      outcome: "Estimator-led risk context with methodology metadata.",
+    },
+    {
+      label: "Quant/Reports route",
+      to: `/portfolio/reports?period=${selectedPeriod}`,
+      routeTag: "Reporting",
+      useCase: "When you need reusable report artifacts and scorecards.",
+      outcome: "Quant diagnostics, report lifecycle, and preview artifacts.",
+    },
+    {
+      label: "Transactions route",
+      to: "/portfolio/transactions",
+      routeTag: "Ledger",
+      useCase: "When you need event-level ledger traceability.",
+      outcome: "Deterministic transaction history without estimator overlays.",
+    },
+  ];
 
   return (
     <PortfolioWorkspaceLayout
       eyebrow="Workspace home"
       title="Portfolio command home"
-      description="High-signal portfolio context with explicit freshness, scope, and provenance."
+      description="Executive snapshot route: KPI health, period bridge, trend context, and deterministic drill-down routes."
       actions={
         <>
           <PortfolioChartPeriodControl
@@ -70,19 +151,22 @@ export function PortfolioHomePage() {
       freshnessTimestamp={summaryQuery.data?.as_of_ledger_at}
       scopeLabel="Ledger truth + persisted market snapshots"
       provenanceLabel={
-        summaryQuery.data?.pricing_snapshot_key || "Persisted portfolio analytics APIs"
+        summaryQuery.data?.pricing_snapshot_key
+          ? formatPricingSnapshotProvenanceLabel(summaryQuery.data.pricing_snapshot_key)
+          : "Persisted portfolio analytics APIs"
       }
+      provenanceTooltip={summaryQuery.data?.pricing_snapshot_key || undefined}
       periodLabel={selectedPeriod}
       frequencyLabel={timeSeriesQuery.data?.frequency}
       timezoneLabel={timeSeriesQuery.data?.timezone}
     >
-      {isLoading ? <LoadingTableSkeleton rows={5} /> : null}
+      {isCoreLoading ? <LoadingTableSkeleton rows={5} /> : null}
 
-      {isError ? (
+      {isCoreError ? (
         <ErrorBanner
-          title={errorCopy.title}
-          message={errorCopy.message}
-          variant={errorCopy.variant}
+          title={coreErrorCopy.title}
+          message={coreErrorCopy.message}
+          variant={coreErrorCopy.variant}
           actions={
             <button
               className="button-primary"
@@ -95,8 +179,8 @@ export function PortfolioHomePage() {
         />
       ) : null}
 
-      {isSuccess ? (
-        isEmpty ? (
+      {isCoreSuccess ? (
+        isCoreEmpty ? (
           <EmptyState
             title="Home view has no portfolio context yet"
             message="The workspace APIs returned no summary rows or trend points for the selected period."
@@ -105,16 +189,145 @@ export function PortfolioHomePage() {
           <>
             <section className="panel">
               <header className="panel__header">
+                <h2 className="panel__title">Portfolio health synthesis</h2>
+                <p className="panel__subtitle">
+                  Core 10 prioritized interpretation layer with profile-aware weighting.
+                </p>
+              </header>
+              <div className="panel__body">
+                <div className="transactions-filters">
+                  <label className="transactions-filters__field">
+                    <span>Health profile</span>
+                    <select
+                      aria-label="Health profile posture"
+                      className="transactions-filters__select"
+                      onChange={(event) => {
+                        setHealthProfilePosture(
+                          event.target.value as PortfolioHealthProfilePosture,
+                        );
+                      }}
+                      value={healthProfilePosture}
+                    >
+                      <option value="conservative">Conservative</option>
+                      <option value="balanced">Balanced</option>
+                      <option value="aggressive">Aggressive</option>
+                    </select>
+                  </label>
+                </div>
+
+                {healthQuery.isLoading ? <LoadingTableSkeleton rows={2} /> : null}
+                {healthQuery.isError ? (
+                  <ErrorBanner
+                    title="Health synthesis unavailable"
+                    message="Portfolio health synthesis could not be loaded for the selected profile."
+                    variant="warning"
+                    actions={
+                      <button
+                        className="button-primary"
+                        onClick={() => void healthQuery.refetch()}
+                        type="button"
+                      >
+                        Retry health synthesis
+                      </button>
+                    }
+                  />
+                ) : null}
+                {healthQuery.isSuccess ? (
+                  <>
+                    <div className="chart-summary-grid">
+                      <article className="chart-summary-card chart-summary-card--signal">
+                        <span className="chart-summary-card__label">Health label</span>
+                        <strong className="chart-summary-card__headline">
+                          {healthQuery.data.health_label}
+                        </strong>
+                        <p className="chart-summary-card__copy">
+                          Profile posture: {healthQuery.data.profile_posture}.
+                        </p>
+                      </article>
+                      <article className="chart-summary-card chart-summary-card--accent">
+                        <span className="chart-summary-card__label">Health score</span>
+                        <strong className="chart-summary-card__headline">
+                          {healthQuery.data.health_score}/100
+                        </strong>
+                        <p className="chart-summary-card__copy">
+                          Threshold policy {healthQuery.data.threshold_policy_version}.
+                        </p>
+                      </article>
+                      <article className="chart-summary-card">
+                        <span className="chart-summary-card__label">KPI priority model</span>
+                        <strong className="chart-summary-card__headline">
+                          Core 10 first
+                        </strong>
+                        <p className="chart-summary-card__copy">
+                          Advanced metrics remain available for drill-down diagnostics.
+                        </p>
+                      </article>
+                    </div>
+
+                    <div className="quant-lens-table" role="table" aria-label="Health pillar scores">
+                      <div className="quant-lens-table__header" role="row">
+                        <span role="columnheader">Pillar</span>
+                        <span role="columnheader">Score</span>
+                        <span role="columnheader">Status</span>
+                        <span role="columnheader">Top metric</span>
+                      </div>
+                      {healthQuery.data.pillars.map((pillar) => (
+                        <div className="quant-lens-table__row" key={pillar.pillar_id} role="row">
+                          <span role="cell">{pillar.label}</span>
+                          <span role="cell">{pillar.score}/100</span>
+                          <span role="cell">{pillar.status}</span>
+                          <span role="cell">
+                            {pillar.metrics[0]
+                              ? `${pillar.metrics[0].label} (${pillar.metrics[0].value_display})`
+                              : "—"}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+
+                    {healthQuery.data.key_drivers.length > 0 ? (
+                      <section className="context-banner context-banner--info" aria-live="polite">
+                        <h3 className="context-banner__title">Top health drivers</h3>
+                        <p className="context-banner__copy">
+                          {healthQuery.data.key_drivers
+                            .slice(0, 3)
+                            .map(
+                              (driver) =>
+                                `${driver.label}: ${driver.value_display} (${driver.direction})`,
+                            )
+                            .join(" · ")}
+                        </p>
+                      </section>
+                    ) : null}
+                  </>
+                ) : null}
+              </div>
+            </section>
+
+            <section className="panel">
+              <header className="panel__header">
                 <h2 className="panel__title">Portfolio KPIs</h2>
                 <p className="panel__subtitle">
-                  Aggregate valuation, unrealized drift, and period movement.
+                  Executive P&amp;L snapshot: market value, unrealized/realized context, and period movement.
                 </p>
               </header>
               <div className="panel__body">
                 <div className="overview-grid">
                   {metricCards.map((metric) => (
                     <article className="overview-card" key={metric.label}>
-                      <span className="overview-card__label">{metric.label}</span>
+                      <div className="overview-card__meta">
+                        <span className="overview-card__label">{metric.label}</span>
+                        <MetricExplainabilityPopover
+                          label={metric.label}
+                          shortDefinition={metric.explainability.shortDefinition}
+                          whyItMatters={metric.explainability.whyItMatters}
+                          interpretation={metric.explainability.interpretation}
+                          formulaOrBasis={metric.explainability.formulaOrBasis}
+                          comparisonContext={metric.explainability.comparisonContext}
+                          caveats={metric.explainability.caveats}
+                          currentContextNote={metric.explainability.currentContextNote}
+                        />
+                      </div>
                       <strong className={`overview-card__value tone-${metric.tone}`}>
                         {metric.value}
                       </strong>
@@ -125,51 +338,60 @@ export function PortfolioHomePage() {
               </div>
             </section>
 
-            <section className="panel">
-              <header className="panel__header">
-                <h2 className="panel__title">Trend preview</h2>
-                <p className="panel__subtitle">
-                  Latest points from portfolio time-series for rapid signal checks.
-                </p>
-              </header>
-              <div className="panel__body">
-                <PortfolioTrendChart points={timeSeriesQuery.data.points} />
-              </div>
-            </section>
+            <WorkspaceChartPanel
+              title="Period change waterfall"
+              subtitle="Bridge from start value to current value with explicit contribution components."
+              shortDescription="Waterfall-style module for period movement decomposition."
+              longDescription="Use this bridge to separate valuation drift from realized/dividend components and reconciliation adjustments."
+            >
+              <PortfolioPeriodChangeWaterfall
+                points={timeSeriesQuery.data.points}
+                summaryRows={summaryQuery.data.rows}
+              />
+            </WorkspaceChartPanel>
+
+            <WorkspaceChartPanel
+              title="Trend preview"
+              subtitle="Latest points from portfolio time-series with benchmark overlays and spread context."
+              shortDescription="Time-trend comparison against rebased benchmark trajectories."
+              longDescription="This preview guides drill-down decisions; final report workflows belong to the Quant/Reports route."
+            >
+              <PortfolioTrendChart
+                analysisActions={
+                  <Link
+                    className="button-secondary chart-action-link"
+                    to={`/portfolio/risk?period=${selectedPeriod}`}
+                  >
+                    Analyze risk route
+                  </Link>
+                }
+                points={timeSeriesQuery.data.points}
+              />
+            </WorkspaceChartPanel>
+
+            <PortfolioHierarchyTable
+              groupBy={hierarchyGroupBy}
+              groups={hierarchyQuery.data.groups}
+              onGroupByChange={setHierarchyGroupBy}
+            />
 
             <section className="panel">
               <header className="panel__header">
                 <h2 className="panel__title">Drill-down routes</h2>
                 <p className="panel__subtitle">
-                  Deterministic entry points into analytics, risk, and transactions views.
+                  Deterministic route selection with explicit “when to use” guidance.
                 </p>
               </header>
               <div className="panel__body">
                 <div className="drilldown-grid">
-                  <Link
-                    className="drilldown-link"
-                    to={`/portfolio/analytics?period=${selectedPeriod}`}
-                  >
-                    <span className="drilldown-link__label">Analytics route</span>
-                    <span className="drilldown-link__copy">
-                      Open performance and contribution charts for {selectedPeriod}.
-                    </span>
-                  </Link>
-                  <Link
-                    className="drilldown-link"
-                    to={`/portfolio/risk?period=${selectedPeriod}`}
-                  >
-                    <span className="drilldown-link__label">Risk route</span>
-                    <span className="drilldown-link__copy">
-                      Inspect estimator cards and metadata for {selectedPeriod}.
-                    </span>
-                  </Link>
-                  <Link className="drilldown-link" to="/portfolio/transactions">
-                    <span className="drilldown-link__label">Transactions route</span>
-                    <span className="drilldown-link__copy">
-                      Review ledger-history events without diagnostics scope.
-                    </span>
-                  </Link>
+                  {drilldownCards.map((card) => (
+                    <Link className="drilldown-link" key={card.label} to={card.to}>
+                      <span className="drilldown-link__eyebrow">{card.routeTag}</span>
+                      <span className="drilldown-link__label">{card.label}</span>
+                      <span className="drilldown-link__intent">{card.useCase}</span>
+                      <span className="drilldown-link__copy">{card.outcome}</span>
+                    </Link>
+                  ))}
                 </div>
               </div>
             </section>

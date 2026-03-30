@@ -285,7 +285,15 @@ async def test_risk_estimator_response_remains_read_only_and_no_mutation_sql(
         window_days=30,
     )
 
-    assert len(response.metrics) == 3
+    assert len(response.metrics) == 6
+    assert {metric.estimator_id for metric in response.metrics} == {
+        "volatility_annualized",
+        "max_drawdown",
+        "beta",
+        "downside_deviation_annualized",
+        "value_at_risk_95",
+        "expected_shortfall_95",
+    }
     assert fake_session.executed_sql
     assert fake_session.executed_sql[0].strip().upper() == (
         "SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY"

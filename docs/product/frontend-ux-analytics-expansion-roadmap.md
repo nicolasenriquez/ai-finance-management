@@ -16,11 +16,14 @@ It integrates:
   - `/portfolio/home`
   - `/portfolio/analytics`
   - `/portfolio/risk`
+  - `/portfolio/reports`
   - `/portfolio/transactions`
 - Backend contracts implemented for workspace analytics:
   - `/api/portfolio/time-series`
   - `/api/portfolio/contribution`
   - `/api/portfolio/risk-estimators`
+  - `/api/portfolio/quant-metrics`
+  - `/api/portfolio/quant-reports` (`POST` generate + `GET` artifact)
 - Period enum is locked and enforced end-to-end (`30D`, `90D`, `252D`, `MAX`).
 - Risk methodology metadata is surfaced in UI from API payload (`window_days`, `return_basis`, `annualization_basis`, `as_of_timestamp`).
 - Transactions v1 scope remains ledger-history-only; market-refresh diagnostics are deferred.
@@ -167,6 +170,17 @@ Stay on the current `React + Vite` stack for the next delivery phases.
 - Risk tab provides actionable insights with transparent formulas/provenance.
 - Metrics are validated by tests and documented with scope limitations.
 
+### QuantStats phase alignment (2026-03-29)
+
+- QuantStats usage is governed by `docs/standards/quantstats-standard.md`.
+- Report capability scope is explicitly bounded:
+  - `POST /api/portfolio/quant-reports` with `portfolio` or `instrument_symbol` scope only
+  - `GET /api/portfolio/quant-reports/{report_id}` for artifact retrieval with lifecycle controls
+- Placement matrix is frozen for this phase:
+  - Home: executive snapshot only (KPI + trend + drill-down links)
+  - Risk: interpretation-sensitive risk context
+  - Quant reporting: explicit generation/retrieval lifecycle states, benchmark omission visibility, and artifact preview
+
 ## Phase E: Optional Next.js Spike (conditional)
 
 ### Objective
@@ -183,6 +197,117 @@ Run a bounded spike only if migration gates are satisfied.
 
 - explicit go/no-go decision with evidence
 - no full migration without approved decision artifact
+
+## Phase F: Analyst-Led Dashboard and Quant UX Hardening
+
+### Objectives
+
+- Add a formal data-analyst workflow to define KPI taxonomy, metric narratives, and dashboard hierarchy.
+- Remove chart duplication patterns and unify chart spacing/layout behavior across routes.
+- Move Quant report actions to a more appropriate analytical surface and improve report readability.
+- Promote a more professional analytical dashboard language while preserving fail-fast and deterministic behavior.
+
+### Scope (review + design + implementation)
+
+- Perform a frontend analytics audit covering:
+  - duplicated chart modules across Home/Analytics/Risk
+  - inconsistent chart container sizing and spacing
+  - report-generation placement and UX friction
+  - KPI signal quality and metric grouping by analyst intent
+- Define a KPI matrix with explicit ownership:
+  - `Home`: executive snapshot KPIs only
+  - `Analytics`: performance and attribution exploration
+  - `Risk`: interpretation-sensitive risk diagnostics
+  - `Quant/Reports`: report generation, advanced quant diagnostics, benchmark context
+- Introduce a dedicated Quant/Reports surface (or equivalent promoted module) so HTML report workflows are not buried in Home.
+- Standardize chart composition:
+  - responsive container contracts for all charts
+  - consistent panel/body spacing tokens
+  - shared chart header, controls, and summary patterns
+
+### Deliverables
+
+- Analyst-approved KPI catalog (metric definitions, formulas, audience, route placement).
+- Dashboard IA update (route-level module map and interaction flow).
+- UI consistency audit report with prioritized fix list (spacing, chart sizing, duplication).
+- Quant report UX redesign proposal (location, states, and preview/full-view behavior).
+- Implementation-ready OpenSpec change for Phase F execution.
+
+### Exit Criteria
+
+- KPI placement is analyst-reviewed and documented.
+- Chart spacing and sizing are consistent across workspace routes.
+- Quant HTML report workflow is accessible from a dedicated analytical context and validated with route tests.
+- Preview/interpretation labels align with the promoted UX model and standards.
+
+### Phase F Implementation Status (2026-03-29)
+
+Delivered in frontend implementation:
+
+- Home is now an executive snapshot surface:
+  - KPI cards with explainability
+  - period-change waterfall
+  - trend preview with persistent risk deep-link
+  - deterministic drill-down links to Analytics, Risk, Quant/Reports, and Transactions
+- Analytics includes:
+  - trend module
+  - contribution bars + ranked list
+  - contribution waterfall (analyst attribution bridge)
+- Risk includes:
+  - estimator cards with per-metric explainability
+  - mixed-unit guardrail (no misleading single-axis mixed-unit risk chart)
+- Quant/Reports includes:
+  - quant scorecards with omission context
+  - explicit report lifecycle states (`loading`, `error`, `unavailable`, `ready`)
+  - report generation controls + HTML preview
+  - monthly returns heatmap-style module with explicit precision caveat
+
+Shipped vs approved follow-up derived indicators:
+
+- Shipped in Phase F:
+  - period-change waterfall
+  - contribution waterfall
+  - monthly returns heatmap-style module
+- Approved follow-up (not yet shipped in this phase):
+  - drawdown path series
+  - rolling volatility/beta series
+  - return-distribution histogram
+
+## Phase G: QuantStats Monte Carlo and Risk Evolution (2026-03-30)
+
+### Objectives
+
+- Promote Risk from snapshot-only interpretation to timeline-aware diagnostics.
+- Add bounded, explainable Monte Carlo diagnostics in Quant/Reports with deterministic lifecycle behavior.
+- Preserve strict scope symmetry (`portfolio` vs `instrument_symbol`) across analytics, risk, simulation, and reporting.
+
+### Delivered in this phase
+
+- Risk route now includes:
+  - drawdown path timeline
+  - rolling volatility/beta timeline module with deterministic toggles
+  - return-distribution module with explicit bucket-policy context
+- Quant/Reports now includes:
+  - bounded Monte Carlo control panel (`sims`, `horizon_days`, `bust`, `goal`, `seed`)
+  - explicit lifecycle rendering (`unavailable`, `loading`, `error`, `ready`)
+  - simulation summary cards (percentiles and threshold probabilities)
+  - compact lifecycle action cluster (scope + primary CTA + lifecycle context)
+  - semantic quant lens table for `30D`/`90D`/`252D` comparison readability
+- Analytics and Home supporting modules now include:
+  - contribution-table semantic label hardening (`signed`, `net share`, `absolute share`)
+  - hierarchy polish with sector-collapsed default state and explicit sortable-header arrows
+- Backend contracts now include:
+  - `/api/portfolio/risk-evolution`
+  - `/api/portfolio/return-distribution`
+  - `/api/portfolio/monte-carlo`
+  - simulation context lifecycle metadata in quant-report generation response
+
+### Explicit non-goals
+
+- no portfolio optimization recommendations
+- no trade execution automation
+- no predictive-certainty framing for Monte Carlo output
+- no scheduler/queue expansion in this phase
 
 ## Standards and Quality Gates (Non-Negotiable)
 

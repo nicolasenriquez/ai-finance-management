@@ -57,6 +57,7 @@ describe("AppShell", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("Body content")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Inspect VOO" })).toBeInTheDocument();
+    expect(screen.queryByText("Ledger-only v1")).not.toBeInTheDocument();
     expect(screen.queryByText("Source posture")).not.toBeInTheDocument();
     expect(screen.queryByText("UX baseline")).not.toBeInTheDocument();
   });

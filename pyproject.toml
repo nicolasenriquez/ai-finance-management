@@ -20,6 +20,7 @@ dependencies = [
     "numpy==2.4.3",
     "pandas==3.0.1",
     "scipy==1.17.1",
+    "quantstats==0.0.81",
 ]
 
 [dependency-groups]
@@ -45,6 +46,7 @@ line-length = 100
 exclude = [
     ".git",
     ".venv",
+    ".uv-cache",
     "venv",
     "__pycache__",
     ".mypy_cache",
@@ -93,6 +95,7 @@ exclude = '''
 /(
     \.git
   | \.venv
+  | \.uv-cache
   | \.mypy_cache
   | \.pytest_cache
   | \.ruff_cache
@@ -105,6 +108,7 @@ exclude_dirs = [
     "tests",
     "alembic/versions",
     ".venv",
+    ".uv-cache",
     ".mypy_cache",
     ".pytest_cache",
     ".ruff_cache",
@@ -157,6 +161,7 @@ include = ["app"]
 exclude = [
     "**/__pycache__",
     ".venv",
+    ".uv-cache",
     ".mypy_cache",
     ".pytest_cache",
     ".ruff_cache"

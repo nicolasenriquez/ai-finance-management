@@ -3,6 +3,8 @@ import { z } from "zod";
 import { getFrontendEnv } from "../config/env";
 import { AppApiError } from "./errors";
 
+type JsonRequestMethod = "GET" | "POST";
+
 async function readErrorDetail(response: Response): Promise<string | undefined> {
   try {
     const payload = (await response.json()) as { detail?: unknown };
@@ -42,22 +44,34 @@ function buildErrorFromResponse(
   );
 }
 
-export async function fetchJson<Target>({
+async function sendApiRequest({
   path,
-  schema,
+  method,
+  accept,
+  body,
 }: {
   path: string;
-  schema: z.ZodType<Target>;
-}): Promise<Target> {
+  method: JsonRequestMethod;
+  accept: string;
+  body?: unknown;
+}): Promise<Response> {
   const { apiPrefix } = getFrontendEnv();
+  const headers: Record<string, string> = {
+    Accept: accept,
+  };
+  const requestInit: RequestInit = {
+    method,
+    headers,
+  };
+
+  if (body !== undefined) {
+    headers["Content-Type"] = "application/json";
+    requestInit.body = JSON.stringify(body);
+  }
 
   let response: Response;
   try {
-    response = await fetch(`${apiPrefix}${path}`, {
-      headers: {
-        Accept: "application/json",
-      },
-    });
+    response = await fetch(`${apiPrefix}${path}`, requestInit);
   } catch (error) {
     throw new AppApiError("Network error while loading portfolio analytics.", {
       kind: "network_error",
@@ -70,6 +84,27 @@ export async function fetchJson<Target>({
     throw buildErrorFromResponse(response, detail);
   }
 
+  return response;
+}
+
+export async function fetchJson<Target>({
+  path,
+  schema,
+  method = "GET",
+  body,
+}: {
+  path: string;
+  schema: z.ZodType<Target>;
+  method?: JsonRequestMethod;
+  body?: unknown;
+}): Promise<Target> {
+  const response = await sendApiRequest({
+    path,
+    method,
+    accept: "application/json",
+    body,
+  });
+
   const payload = await response.json();
   const parsed = schema.safeParse(payload);
   if (!parsed.success) {
@@ -80,4 +115,19 @@ export async function fetchJson<Target>({
   }
 
   return parsed.data;
+}
+
+export async function fetchText({
+  path,
+  method = "GET",
+}: {
+  path: string;
+  method?: JsonRequestMethod;
+}): Promise<string> {
+  const response = await sendApiRequest({
+    path,
+    method,
+    accept: "text/html",
+  });
+  return response.text();
 }

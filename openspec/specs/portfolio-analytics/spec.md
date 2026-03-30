@@ -12,26 +12,20 @@ The system SHALL provide a portfolio summary API that groups analytics by `instr
 - **THEN** each row is derived from `lot`, `lot_disposition`, `portfolio_transaction`, and `dividend_event` data as applicable
 
 ### Requirement: Portfolio analytics responses expose explicit ledger-state consistency metadata
-The system SHALL include an explicit `as_of_ledger_at` timestamp in both grouped summary and lot-detail responses to indicate the persisted ledger state used for analytics computation.
+The system SHALL include explicit ledger consistency metadata in grouped summary, lot-detail, and newly added chart-oriented analytics responses so clients can determine the persisted ledger state used for computation.
 
-#### Scenario: Summary and lot detail include ledger as-of timestamp
-- **WHEN** the system returns a grouped summary response or lot-detail response
-- **THEN** the payload includes `as_of_ledger_at`
-- **THEN** clients can determine the exact persisted ledger state time used for computation
+#### Scenario: Summary, lot detail, and chart responses include ledger as-of metadata
+- **WHEN** the system returns grouped summary, lot detail, or chart-oriented portfolio analytics responses
+- **THEN** the payload includes explicit ledger-state consistency metadata
+- **THEN** clients can determine the persisted ledger state time used for computation
 
 ### Requirement: Portfolio summary API exposes only ledger-supported KPI fields in v1
-The system SHALL continue to expose the current ledger-supported KPI fields in grouped portfolio summary responses and, when a consistent persisted market-data snapshot is available for the open-position symbols in the response, SHALL additionally expose bounded market-enriched valuation fields without inventing FX-dependent or unsupported values.
+The system SHALL expose only analytics fields that are fully supported by current ledger truth, persisted market-data boundaries, and frozen accounting policy, without silently inventing unsupported price-dependent or FX-dependent values.
 
-#### Scenario: Summary row includes ledger and market-enriched KPI fields
-- **WHEN** a grouped portfolio summary row is returned for an instrument with an open position and safe pricing coverage in the selected snapshot
-- **THEN** it includes the existing ledger-backed fields (`open_quantity`, `open_cost_basis_usd`, `open_lot_count`, `realized_proceeds_usd`, `realized_cost_basis_usd`, `realized_gain_usd`, `dividend_gross_usd`, `dividend_taxes_usd`, `dividend_net_usd`)
-- **THEN** it additionally includes the bounded market-enriched valuation fields defined for this slice
-- **THEN** it does not invent FX-sensitive or unsupported values beyond the documented pricing contract
-
-#### Scenario: Closed-position row does not require valuation fields
-- **WHEN** a grouped portfolio summary row is returned for an instrument with no remaining open quantity
-- **THEN** the row still includes the existing ledger-backed fields
-- **THEN** valuation fields may remain unset or null for that row because no open position requires current pricing
+#### Scenario: Summary row includes only approved KPI and market-enriched fields
+- **WHEN** a grouped portfolio summary row is returned
+- **THEN** it includes approved ledger and bounded market-enriched fields defined by the active portfolio analytics contract
+- **THEN** unsupported FX-sensitive or inferred valuation fields are excluded and represented through explicit failure or nullability semantics
 
 ### Requirement: Lot detail API explains per-instrument lot state from ledger truth
 The system SHALL provide a lot detail API for one `instrument_symbol` that returns explainable lot rows derived from ledger truth and linked disposition history.
@@ -97,3 +91,80 @@ The system SHALL reject market-enriched grouped summary responses when an instru
 - **WHEN** the system cannot find safe persisted price coverage in the selected snapshot for an instrument whose grouped summary row has open quantity greater than zero
 - **THEN** the grouped summary request fails explicitly
 - **THEN** the system does not silently omit valuation fields, mix fallback rows from another snapshot, or report a partial portfolio valuation as complete
+
+### Requirement: Portfolio analytics API SHALL provide chart-ready portfolio time-series
+The system SHALL provide a read-only portfolio time-series endpoint that returns ordered portfolio value and PnL points for approved periods so frontend chart modules can render trend analytics without client-side inference.
+
+#### Scenario: Time-series endpoint returns ordered points for selected period
+- **WHEN** a client requests portfolio time-series for a supported window
+- **THEN** the API returns chronologically ordered points with explicit timestamps and value fields
+- **THEN** the payload is deterministic for the same persisted input state and period parameters
+
+### Requirement: Portfolio analytics time-series responses SHALL expose explicit temporal interpretation metadata
+The system SHALL include explicit temporal interpretation metadata for chart-oriented time-series responses, including at minimum frequency context, timezone basis, and selected period/window parameters.
+
+#### Scenario: Time-series payload includes temporal context metadata
+- **WHEN** the API returns chart-oriented time-series data
+- **THEN** the response includes explicit temporal interpretation metadata required to render and compare points correctly
+- **THEN** frontend consumers do not infer hidden frequency or timezone defaults
+
+### Requirement: Portfolio analytics API SHALL provide contribution breakdown by instrument for selected periods
+The system SHALL provide a contribution breakdown endpoint that returns per-symbol aggregates for the selected period to support attribution visualizations.
+
+#### Scenario: Contribution endpoint returns per-symbol aggregates
+- **WHEN** a client requests contribution analytics for a supported period
+- **THEN** the API returns one row per instrument symbol with contribution-related aggregates
+- **THEN** totals are derived from persisted ledger and approved market-data inputs only
+
+### Requirement: Portfolio chart analytics endpoints SHALL enforce a bounded v1 period enum
+The system SHALL support only the approved v1 chart period enum (`30D`, `90D`, `252D`, `MAX`) for time-series and contribution analytics requests and SHALL reject unsupported period values explicitly.
+
+#### Scenario: Unsupported chart period is rejected explicitly
+- **WHEN** a client requests chart analytics with a period outside the approved v1 enum
+- **THEN** the API returns an explicit client-facing validation failure
+- **THEN** the service does not coerce unsupported periods into implicit defaults
+
+### Requirement: Quant metrics endpoint SHALL be version-compatible with pinned QuantStats API surface
+The system SHALL compute QuantStats-backed metrics through an explicit adapter contract that matches the pinned runtime QuantStats API surface, and SHALL fail explicitly when adapter compatibility checks detect unsupported call paths.
+
+#### Scenario: Adapter-compatible metrics are returned successfully
+- **WHEN** a client requests quant metrics for a supported period and adapter compatibility checks pass
+- **THEN** the endpoint returns deterministic metric rows with display metadata
+- **THEN** returned metrics are derived from persisted portfolio and market history only
+
+#### Scenario: Adapter compatibility mismatch is rejected explicitly
+- **WHEN** required QuantStats call paths are unavailable for the pinned runtime version
+- **THEN** the endpoint returns explicit failure with factual compatibility detail
+- **THEN** the service does not fabricate substitute metric values
+
+### Requirement: Benchmark-relative quant metrics SHALL be optional and explicit
+The quant metrics endpoint SHALL treat benchmark-relative metrics as optional outputs that are emitted only when compatible benchmark series and adapter call paths are available; absence SHALL be explicit and SHALL NOT invalidate core quant metric computation.
+
+#### Scenario: Benchmark-relative metrics omitted without blocking core metrics
+- **WHEN** benchmark-relative metrics cannot be computed safely for the selected period
+- **THEN** the endpoint still returns supported non-benchmark quant metrics
+- **THEN** the payload includes explicit benchmark-context metadata indicating omission reason/scope
+
+### Requirement: Quant metrics endpoint SHALL remain read-only and deterministic
+Quant metric requests SHALL remain read-only over canonical, ledger, lot, and market-data state and SHALL preserve deterministic ordering and period semantics.
+
+#### Scenario: Quant metrics request produces deterministic read-only output
+- **WHEN** the same persisted state and period are requested repeatedly
+- **THEN** metric ordering and value semantics remain deterministic for the same inputs
+- **THEN** the request path performs no database mutation side effects
+
+### Requirement: Portfolio quant report contracts SHALL remain route-agnostic for dedicated analytical surfaces
+The portfolio analytics API SHALL expose quant report generation and retrieval contracts that are consumable from any approved workspace route surface, including dedicated `Quant/Reports`, without requiring Home-specific request context.
+
+#### Scenario: Quant report endpoints succeed without Home-route coupling
+- **WHEN** a client requests quant report generation or retrieval from a dedicated analytical workflow
+- **THEN** the API validates scope inputs using contract-defined request fields only
+- **THEN** the API does not require Home-route-only context flags or implied UI state to process the request
+
+### Requirement: Portfolio quant report responses SHALL expose explicit workflow metadata for promoted UX
+The portfolio analytics API SHALL include explicit report workflow metadata required by promoted Quant/Reports UX, including deterministic scope identity and artifact lifecycle status.
+
+#### Scenario: Report payload provides deterministic scope and lifecycle context
+- **WHEN** a report generation or retrieval request returns successfully
+- **THEN** the payload includes explicit scope identity and artifact lifecycle metadata needed for route-level rendering
+- **THEN** frontend clients do not infer report state from missing fields or implicit defaults

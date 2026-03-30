@@ -49,6 +49,10 @@ export function PortfolioSummaryTable({ rows }: PortfolioSummaryTableProps) {
     openLotDetail(symbol);
   }
 
+  function stopRowNavigation(event: KeyboardEvent<HTMLElement>): void {
+    event.stopPropagation();
+  }
+
   return (
     <div className="panel">
       <div className="panel__body table-shell">
@@ -106,6 +110,33 @@ export function PortfolioSummaryTable({ rows }: PortfolioSummaryTableProps) {
                         </span>
                       </div>
                       <span className="metric-hint">{valuationHint}</span>
+                      <details
+                        className="symbol-breakdown"
+                        onClick={(event) => event.stopPropagation()}
+                        onKeyDown={stopRowNavigation}
+                      >
+                        <summary className="symbol-breakdown__summary">
+                          Expand symbol breakdown
+                        </summary>
+                        <dl className="symbol-breakdown__metrics">
+                          <div>
+                            <dt>Realized gain</dt>
+                            <dd className={`tone-${realizedTone}`}>
+                              {formatUsdMoney(row.realized_gain_usd)}
+                            </dd>
+                          </div>
+                          <div>
+                            <dt>Dividend net</dt>
+                            <dd className={`tone-${dividendTone}`}>
+                              {formatUsdMoney(row.dividend_net_usd)}
+                            </dd>
+                          </div>
+                          <div>
+                            <dt>Open lots</dt>
+                            <dd>{row.open_lot_count}</dd>
+                          </div>
+                        </dl>
+                      </details>
                     </div>
                   </td>
                   <td className="numeric">{formatQuantity(row.open_quantity)}</td>
