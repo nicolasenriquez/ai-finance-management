@@ -3,6 +3,10 @@ import { z } from "zod";
 const decimalFieldSchema = z.string().min(1);
 const nullableDecimalFieldSchema = z.union([decimalFieldSchema, z.null()]);
 export const portfolioChartPeriodSchema = z.enum(["30D", "90D", "252D", "MAX"]);
+export const portfolioTimeSeriesScopeSchema = z.enum([
+  "portfolio",
+  "instrument_symbol",
+]);
 export const portfolioHierarchyGroupBySchema = z.enum(["sector", "symbol"]);
 
 export const portfolioSummaryRowSchema = z.object({
@@ -127,6 +131,11 @@ export const portfolioQuantReportScopeSchema = z.enum([
   "portfolio",
   "instrument_symbol",
 ]);
+export const portfolioQuantReportLifecycleStatusSchema = z.enum([
+  "ready",
+  "expired",
+  "unavailable",
+]);
 
 export const portfolioQuantReportGenerateRequestSchema = z.object({
   scope: portfolioQuantReportScopeSchema,
@@ -137,6 +146,7 @@ export const portfolioQuantReportGenerateRequestSchema = z.object({
 export const portfolioQuantReportGenerateResponseSchema = z.object({
   report_id: z.string().min(1),
   report_url_path: z.string().min(1),
+  lifecycle_status: portfolioQuantReportLifecycleStatusSchema,
   scope: portfolioQuantReportScopeSchema,
   instrument_symbol: z.string().min(1).nullable(),
   period: portfolioChartPeriodSchema,
@@ -208,6 +218,7 @@ export type LotDispositionDetail = z.infer<typeof lotDispositionDetailSchema>;
 export type PortfolioLotDetailRow = z.infer<typeof portfolioLotDetailRowSchema>;
 export type PortfolioLotDetailResponse = z.infer<typeof portfolioLotDetailResponseSchema>;
 export type PortfolioChartPeriod = z.infer<typeof portfolioChartPeriodSchema>;
+export type PortfolioTimeSeriesScope = z.infer<typeof portfolioTimeSeriesScopeSchema>;
 export type PortfolioHierarchyGroupBy = z.infer<typeof portfolioHierarchyGroupBySchema>;
 export type PortfolioTimeSeriesPoint = z.infer<typeof portfolioTimeSeriesPointSchema>;
 export type PortfolioTimeSeriesResponse = z.infer<typeof portfolioTimeSeriesResponseSchema>;
@@ -229,6 +240,9 @@ export type PortfolioQuantMetricsResponse = z.infer<
 >;
 export type PortfolioQuantReportScope = z.infer<
   typeof portfolioQuantReportScopeSchema
+>;
+export type PortfolioQuantReportLifecycleStatus = z.infer<
+  typeof portfolioQuantReportLifecycleStatusSchema
 >;
 export type PortfolioQuantReportGenerateRequest = z.infer<
   typeof portfolioQuantReportGenerateRequestSchema

@@ -6,6 +6,7 @@ import {
 import { PortfolioAnalyticsPage } from "../pages/portfolio-analytics-page/PortfolioAnalyticsPage";
 import { PortfolioHomePage } from "../pages/portfolio-home-page/PortfolioHomePage";
 import { PortfolioLotDetailPage } from "../pages/portfolio-lot-detail-page/PortfolioLotDetailPage";
+import { PortfolioReportsPage } from "../pages/portfolio-reports-page/PortfolioReportsPage";
 import { PortfolioRiskPage } from "../pages/portfolio-risk-page/PortfolioRiskPage";
 import { PortfolioTransactionsPage } from "../pages/portfolio-transactions-page/PortfolioTransactionsPage";
 
@@ -29,6 +30,10 @@ export const appRouter = createBrowserRouter([
   {
     path: "/portfolio/risk",
     element: <PortfolioRiskPage />,
+  },
+  {
+    path: "/portfolio/reports",
+    element: <PortfolioReportsPage />,
   },
   {
     path: "/portfolio/transactions",

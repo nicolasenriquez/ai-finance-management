@@ -24,14 +24,31 @@ It documents the current workspace-first IA, state mapping rules, and methodolog
 - `/portfolio/:symbol`
   - lot-level ledger detail + dispositions
 - `/portfolio/home`
-  - KPI cards + trend chart + deterministic drill-down links
-  - supplemental quant preview + report actions (section-scoped state)
+  - executive KPI snapshot + period waterfall + trend preview + deterministic drill-down links
 - `/portfolio/analytics`
-  - trend + contribution modules (`Preview` framing in navigation)
+  - trend + contribution modules + attribution waterfall (`Preview` framing in navigation)
 - `/portfolio/risk`
-  - estimator cards/charts + methodology metadata (`Interpretation` framing in navigation)
+  - estimator cards/charts + methodology metadata + explainability (`Interpretation` framing in navigation)
+- `/portfolio/reports`
+  - quant scorecards + benchmark omission context + report lifecycle states + HTML preview
 - `/portfolio/transactions`
   - ledger-event-only table and filters (v1 scope)
+
+## Chart Composition and Storytelling Contract
+
+- Home, Analytics, and Risk chart surfaces must use shared composition primitives for:
+  - consistent panel/header/body spacing
+  - responsive chart containers
+  - short + long chart interpretation copy
+- Route storytelling sequence:
+  - Home: snapshot triage
+  - Analytics: attribution and contribution diagnostics
+  - Risk: methodology-sensitive interpretation
+  - Quant/Reports: diagnostics + report artifact lifecycle
+- Guardrails:
+  - no mixed-unit risk chart on a single shared axis
+  - no high-cardinality pie/donut usage for ranked contribution views
+  - no workflow-critical actions hidden only in transient hover tooltips
 
 ## Environment And API Prefix Resolution
 
@@ -121,6 +138,7 @@ Behavior notes:
 ### Quant Report Generation Response
 
 - `report_id: str`
+- `lifecycle_status: ready | expired | unavailable`
 - `scope: portfolio | instrument_symbol`
 - `instrument_symbol: str | null`
 - `period: 30D | 90D | 252D | MAX`
@@ -131,8 +149,8 @@ Behavior notes:
 
 Behavior notes:
 
-- Report controls must expose explicit action lifecycle states (`loading`, `error`, `ready`).
-- Report action failures are section-scoped and must not replace Home core context.
+- Report controls must expose explicit action lifecycle states (`loading`, `error`, `unavailable`, `ready`).
+- Report generation and artifact preview are owned by `/portfolio/reports`; Home links to that route instead of owning workflow execution.
 
 ## Normalization And Validation Rules
 
@@ -160,12 +178,15 @@ Each route must render explicit `loading`, `empty`, and `error` states:
 
 - `/portfolio/home`
   - empty when summary rows or trend points are empty
-  - quant/report modules use section-scoped loading/empty/error states
 - `/portfolio/analytics`
   - empty when trend points or contribution rows are empty
 - `/portfolio/risk`
   - empty when metrics are empty
   - explicit warning variants for unsupported or insufficient scope
+- `/portfolio/reports`
+  - quant scorecards: explicit loading/empty/error states
+  - report lifecycle: explicit loading/error/unavailable/ready states
+  - preview retry remains deterministic and keyboard accessible
 - `/portfolio/transactions`
   - empty when filtered ledger events are empty
 
@@ -183,9 +204,54 @@ Each route must render explicit `loading`, `empty`, and `error` states:
 
 ## Quant Placement Matrix
 
-- Home: KPI + supplemental quant preview + report actions; optional quant/report failures remain section-scoped.
+- Home: KPI snapshot and drill-down links only (no report generation controls).
 - Risk: interpretation-sensitive risk metrics with methodology context as primary surface.
-- Quant reports: generated artifacts remain explicit actions with typed scope and lifecycle states.
+- Quant/Reports: quant diagnostics, benchmark omission context, report lifecycle controls, and artifact preview.
+
+## KPI Explainability and Labeling Contract
+
+Promoted KPIs and key chart metrics must expose a shared explainability affordance that includes:
+
+- definition
+- why it matters
+- interpretation guidance
+- formula or basis
+- comparison context
+- caveats
+- current-context note when data supports it
+
+### Promoted KPI Baseline (Phase F)
+
+| KPI | Route owner | Definition | Why it matters |
+| --- | --- | --- | --- |
+| Market value | Home | Total marked-to-market value of open positions from persisted snapshot coverage. | Establishes current portfolio size/exposure for top-level triage. |
+| Unrealized gain | Home | Difference between current market value and open cost basis. | Shows whether open holdings are above/below entry basis. |
+| Period change | Home | Latest portfolio value minus first value in selected period. | Signals short-to-medium directional movement before deeper attribution. |
+| Top contribution PnL | Analytics | Per-symbol contribution to selected-period PnL. | Identifies strongest positive/negative drivers and concentration effects. |
+| Risk estimator value | Risk | Windowed estimator output with methodology metadata. | Supports return-vs-risk interpretation with explicit calculation context. |
+| Quant scorecard metrics | Quant/Reports | QuantStats-derived diagnostics scoped by period and benchmark context. | Supports advanced diagnostics and report workflow decisions. |
+
+### Why-it-matters Copy Rules
+
+- Keep `why it matters` tied to a user decision, not to implementation detail.
+- Avoid generic phrasing (`important metric`) without action context.
+- Mention comparison anchor when relevant (period, benchmark, threshold).
+- Keep copy deterministic and consistent across routes for same KPI.
+
+Naming guidance for ambiguous shorthand:
+
+- `PnL` -> `Unrealized P&L vs cost basis`
+- `Trendline` -> `Trend estimate`
+- `S&P 500 Proxy` -> `S&P 500 benchmark (normalized)`
+- `NASDAQ-100 Proxy` -> `NASDAQ-100 benchmark (normalized)`
+
+## Action Placement and False-Affordance Policy
+
+- Workflow actions must be persistent and testable (for example in panel/header action groups).
+- Tooltip actions are informational only unless fully functional and duplicated in one stable surface.
+- Non-functional analytical actions must not be rendered.
+- `Analyze Risk` deep-link belongs to stable surfaces (for example Home trend action).
+- `Export CSV` is only allowed when an explicit deterministic export contract is shipped.
 
 ## Accessibility And Performance Evidence Requirements
 

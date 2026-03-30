@@ -55,6 +55,7 @@ function renderWorkspaceRoute(path: string) {
           <Route path="/portfolio/home" element={<WorkspaceHarness />} />
           <Route path="/portfolio/analytics" element={<WorkspaceHarness />} />
           <Route path="/portfolio/risk" element={<WorkspaceHarness />} />
+          <Route path="/portfolio/reports" element={<WorkspaceHarness />} />
           <Route path="/portfolio/transactions" element={<WorkspaceHarness />} />
         </Routes>
       </MemoryRouter>
@@ -106,15 +107,23 @@ describe("PortfolioWorkspaceLayout", () => {
       path: "/portfolio/risk",
     },
     {
+      activeLabel: "Quant/Reports",
+      path: "/portfolio/reports",
+    },
+    {
       activeLabel: "Transactions",
       path: "/portfolio/transactions",
     },
   ])("maps route state to active navigation link for $path", ({ activeLabel, path }) => {
     renderWorkspaceRoute(path);
 
-    const links = ["Home", "Analytics (Preview)", "Risk (Interpretation)", "Transactions"].map((label) =>
-      screen.getByRole("link", { name: label }),
-    );
+    const links = [
+      "Home",
+      "Analytics (Preview)",
+      "Risk (Interpretation)",
+      "Quant/Reports",
+      "Transactions",
+    ].map((label) => screen.getByRole("link", { name: label }));
 
     for (const link of links) {
       if (link.textContent === activeLabel) {

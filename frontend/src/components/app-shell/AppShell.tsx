@@ -36,7 +36,6 @@ export function AppShell({
           <div className="route-frame__body">
             <div className="route-frame__meta">
               <span className="eyebrow">{eyebrow}</span>
-              <span className="scope-note">Ledger-only v1</span>
             </div>
             <div className="route-frame__copy">
               <h1 className="route-frame__title">{title}</h1>

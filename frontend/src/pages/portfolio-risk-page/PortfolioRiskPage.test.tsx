@@ -186,7 +186,7 @@ describe("PortfolioRiskPage", () => {
     renderRiskPage();
 
     expect(screen.getByRole("heading", { name: "Estimator metrics" })).toBeInTheDocument();
-    expect(screen.getAllByText("beta").length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/beta/i).length).toBeGreaterThan(0);
     expect(screen.getByText(/window 90d/i)).toBeInTheDocument();
     expect(screen.getByRole("img", { name: "Risk metrics chart" })).toBeInTheDocument();
     expect(

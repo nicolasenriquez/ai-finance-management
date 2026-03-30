@@ -4,12 +4,13 @@ from __future__ import annotations
 
 from importlib import import_module
 from types import ModuleType
-from typing import Any
+from typing import Any, cast
 
 import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
+from app.portfolio_analytics.schemas import PortfolioQuantReportGenerateResponse
 from app.portfolio_analytics.service import PortfolioAnalyticsClientError
 
 
@@ -187,6 +188,91 @@ def test_time_series_endpoint_rejects_unsupported_period_explicitly() -> None:
 
     assert response.status_code == 422
     assert "supported periods" in str(response.json()).lower()
+
+
+@pytest.mark.integration
+def test_time_series_endpoint_normalizes_instrument_scope_inputs_before_service_call(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Time-series endpoint should normalize scope/symbol query inputs before service dispatch."""
+
+    routes_module = _load_portfolio_analytics_routes_module()
+    endpoint_path = _workspace_endpoint_path(suffix="time-series")
+    _assert_endpoint_registered(
+        path=endpoint_path,
+        guidance="Implement instrument-scoped time-series support before enabling this test.",
+    )
+    _assert_routes_callable_exists(
+        module=routes_module,
+        callable_name="get_portfolio_time_series_response",
+        guidance="Instrument-scoped time-series contract should dispatch through typed service.",
+    )
+
+    captured_scope_values: list[str] = []
+    captured_symbol_values: list[str | None] = []
+
+    async def _fake_time_series_response(**kwargs: Any) -> dict[str, Any]:
+        scope = kwargs.get("scope")
+        if scope is None or not hasattr(scope, "value"):
+            raise AssertionError("Normalized scope enum value was not passed to service callable.")
+        captured_scope_values.append(str(scope.value))
+        captured_symbol_values.append(cast(str | None, kwargs.get("instrument_symbol")))
+        return {
+            "as_of_ledger_at": "2026-03-28T00:00:00Z",
+            "period": "MAX",
+            "frequency": "1D",
+            "timezone": "UTC",
+            "points": [
+                {
+                    "captured_at": "2026-03-27T00:00:00Z",
+                    "portfolio_value_usd": "1000.00",
+                    "pnl_usd": "0.00",
+                }
+            ],
+        }
+
+    monkeypatch.setattr(
+        routes_module,
+        "get_portfolio_time_series_response",
+        _fake_time_series_response,
+    )
+
+    with TestClient(app) as client:
+        response = client.get(
+            endpoint_path,
+            params={
+                "period": "max",
+                "scope": "instrument_symbol",
+                "instrument_symbol": " voo ",
+            },
+        )
+
+    assert response.status_code == 200
+    assert captured_scope_values == ["instrument_symbol"]
+    assert captured_symbol_values == ["VOO"]
+
+
+@pytest.mark.integration
+def test_time_series_endpoint_rejects_instrument_scope_without_symbol_explicitly() -> None:
+    """Instrument-scoped time-series requests should fail fast when symbol is missing."""
+
+    endpoint_path = _workspace_endpoint_path(suffix="time-series")
+    _assert_endpoint_registered(
+        path=endpoint_path,
+        guidance="Implement explicit instrument scope validation for time-series endpoint.",
+    )
+
+    with TestClient(app) as client:
+        response = client.get(
+            endpoint_path,
+            params={
+                "period": "MAX",
+                "scope": "instrument_symbol",
+            },
+        )
+
+    assert response.status_code == 422
+    assert "instrument_symbol is required" in str(response.json()).lower()
 
 
 @pytest.mark.integration
@@ -705,3 +791,108 @@ def test_quant_metrics_endpoint_rejects_unsupported_period_values() -> None:
 
     assert response.status_code == 422
     assert "supported periods" in str(response.json()).lower()
+
+
+@pytest.mark.integration
+def test_quant_report_generation_rejects_home_route_context_fields_explicitly(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Quant-report generation should reject Home-route context fields not in typed contract."""
+
+    routes_module = _load_portfolio_analytics_routes_module()
+    endpoint_path = _workspace_endpoint_path(suffix="quant-reports")
+    _assert_endpoint_registered(
+        path=endpoint_path,
+        guidance="Implement task 2.3 before enabling this route-agnostic contract test.",
+    )
+    _assert_routes_callable_exists(
+        module=routes_module,
+        callable_name="generate_portfolio_quant_report_response",
+        guidance="Task 2.3 should keep report generation route-agnostic and typed.",
+    )
+
+    async def _fake_generate_response(**_: Any) -> PortfolioQuantReportGenerateResponse:
+        return PortfolioQuantReportGenerateResponse.model_validate(
+            {
+                "report_id": "report-001",
+                "report_url_path": "/api/portfolio/quant-reports/report-001",
+                "scope": "portfolio",
+                "instrument_symbol": None,
+                "period": "30D",
+                "benchmark_symbol": "SP500_PROXY",
+                "generated_at": "2026-03-28T00:00:00Z",
+                "expires_at": "2026-03-28T01:00:00Z",
+            }
+        )
+
+    monkeypatch.setattr(
+        routes_module,
+        "generate_portfolio_quant_report_response",
+        _fake_generate_response,
+    )
+
+    with TestClient(app) as client:
+        response = client.post(
+            endpoint_path,
+            json={
+                "scope": "portfolio",
+                "period": "30D",
+                "home_route_context": "workspace-home",
+            },
+        )
+
+    assert response.status_code == 422
+    assert "home_route_context" in str(response.json()).lower()
+
+
+@pytest.mark.integration
+def test_quant_report_generation_exposes_explicit_lifecycle_metadata(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Quant-report generation should expose explicit lifecycle metadata for promoted UX."""
+
+    routes_module = _load_portfolio_analytics_routes_module()
+    endpoint_path = _workspace_endpoint_path(suffix="quant-reports")
+    _assert_endpoint_registered(
+        path=endpoint_path,
+        guidance="Implement task 2.3 before enabling lifecycle metadata contract checks.",
+    )
+    _assert_routes_callable_exists(
+        module=routes_module,
+        callable_name="generate_portfolio_quant_report_response",
+        guidance="Task 2.3 should expose explicit lifecycle metadata for promoted Quant/Reports UX.",
+    )
+
+    async def _fake_generate_response(**_: Any) -> PortfolioQuantReportGenerateResponse:
+        return PortfolioQuantReportGenerateResponse.model_validate(
+            {
+                "report_id": "report-001",
+                "report_url_path": "/api/portfolio/quant-reports/report-001",
+                "scope": "portfolio",
+                "instrument_symbol": None,
+                "period": "30D",
+                "benchmark_symbol": "SP500_PROXY",
+                "generated_at": "2026-03-28T00:00:00Z",
+                "expires_at": "2026-03-28T01:00:00Z",
+                "lifecycle_status": "ready",
+            }
+        )
+
+    monkeypatch.setattr(
+        routes_module,
+        "generate_portfolio_quant_report_response",
+        _fake_generate_response,
+    )
+
+    with TestClient(app) as client:
+        response = client.post(
+            endpoint_path,
+            json={
+                "scope": "portfolio",
+                "period": "30D",
+            },
+        )
+
+    assert response.status_code == 201
+    payload = response.json()
+    assert payload["lifecycle_status"] == "ready"

@@ -1,33 +1,24 @@
 import { Link, useSearchParams } from "react-router-dom";
-import {
-  useEffect,
-  useState,
-} from "react";
+import { useState } from "react";
 
+import { PortfolioPeriodChangeWaterfall } from "../../components/charts/AnalystVisualModules";
 import { PortfolioTrendChart } from "../../components/charts/PortfolioTrendChart";
+import { WorkspaceChartPanel } from "../../components/charts/WorkspaceChartPanel";
 import { EmptyState } from "../../components/empty-state/EmptyState";
 import { ErrorBanner } from "../../components/error-banner/ErrorBanner";
+import { MetricExplainabilityPopover } from "../../components/metric-explainability/MetricExplainabilityPopover";
 import { LoadingTableSkeleton } from "../../components/skeletons/LoadingTableSkeleton";
 import { PortfolioWorkspaceLayout } from "../../components/workspace-layout/PortfolioWorkspaceLayout";
 import { PortfolioHierarchyTable } from "../../features/portfolio-hierarchy/PortfolioHierarchyTable";
-import type {
-  PortfolioHierarchyGroupBy,
-  PortfolioQuantReportGenerateRequest,
-  PortfolioQuantReportScope,
-} from "../../core/api/schemas";
-import {
-  buildHomeMetricCards,
-  buildQuantMetricCards,
-} from "../../features/portfolio-workspace/overview";
+import type { PortfolioHierarchyGroupBy } from "../../core/api/schemas";
+import { formatPricingSnapshotProvenanceLabel } from "../../core/lib/provenance";
+import { buildHomeMetricCards } from "../../features/portfolio-workspace/overview";
 import { PortfolioChartPeriodControl } from "../../features/portfolio-workspace/PortfolioChartPeriodControl";
 import { resolvePortfolioChartPeriod } from "../../features/portfolio-workspace/period";
 import { resolveWorkspaceError } from "../../features/portfolio-workspace/errors";
 import { usePortfolioSummaryQuery } from "../../features/portfolio-summary/hooks";
 import {
   usePortfolioHierarchyQuery,
-  usePortfolioQuantMetricsQuery,
-  usePortfolioQuantReportGenerateMutation,
-  usePortfolioQuantReportHtmlQuery,
   usePortfolioTimeSeriesQuery,
 } from "../../features/portfolio-workspace/hooks";
 
@@ -35,21 +26,23 @@ function resolvePeriodFromSearchParams(searchParams: URLSearchParams) {
   return resolvePortfolioChartPeriod(searchParams.get("period"));
 }
 
+type DrilldownRouteCard = {
+  label: string;
+  to: string;
+  useCase: string;
+  outcome: string;
+  routeTag: string;
+};
+
 export function PortfolioHomePage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [hierarchyGroupBy, setHierarchyGroupBy] =
     useState<PortfolioHierarchyGroupBy>("sector");
-  const [reportScope, setReportScope] = useState<PortfolioQuantReportScope>("portfolio");
-  const [reportInstrumentSymbol, setReportInstrumentSymbol] = useState("");
-  const [reportValidationError, setReportValidationError] = useState<string | null>(null);
-  const [activeReportId, setActiveReportId] = useState<string | null>(null);
+
   const selectedPeriod = resolvePeriodFromSearchParams(searchParams);
   const summaryQuery = usePortfolioSummaryQuery();
   const timeSeriesQuery = usePortfolioTimeSeriesQuery(selectedPeriod);
-  const quantMetricsQuery = usePortfolioQuantMetricsQuery(selectedPeriod);
   const hierarchyQuery = usePortfolioHierarchyQuery(hierarchyGroupBy);
-  const quantReportGenerateMutation = usePortfolioQuantReportGenerateMutation();
-  const quantReportHtmlQuery = usePortfolioQuantReportHtmlQuery(activeReportId);
 
   const isCoreLoading =
     summaryQuery.isLoading ||
@@ -70,32 +63,13 @@ export function PortfolioHomePage() {
       timeSeriesQuery.data.points.length === 0 ||
       hierarchyQuery.data.groups.length === 0
     );
-  const isQuantLoading = quantMetricsQuery.isLoading;
-  const isQuantError = quantMetricsQuery.isError;
-  const isQuantSuccess = quantMetricsQuery.isSuccess;
-  const isQuantEmpty = isQuantSuccess && quantMetricsQuery.data.metrics.length === 0;
 
   const coreErrorCopy = resolveWorkspaceError(
     summaryQuery.error ||
-    timeSeriesQuery.error ||
-    hierarchyQuery.error,
+      timeSeriesQuery.error ||
+      hierarchyQuery.error,
     "Home analytics unavailable",
     "Home analytics could not be loaded from persisted workspace data.",
-  );
-  const quantErrorCopy = resolveWorkspaceError(
-    quantMetricsQuery.error,
-    "Quant preview unavailable",
-    "Quant preview metrics are temporarily unavailable.",
-  );
-  const quantReportGenerateErrorCopy = resolveWorkspaceError(
-    quantReportGenerateMutation.error,
-    "Quant report generation failed",
-    "The QuantStats report could not be generated for the selected scope.",
-  );
-  const quantReportPreviewErrorCopy = resolveWorkspaceError(
-    quantReportHtmlQuery.error,
-    "Quant report preview unavailable",
-    "Generated report metadata is available, but the HTML preview could not be loaded.",
   );
 
   function handlePeriodChange(nextPeriod: "30D" | "90D" | "252D" | "MAX"): void {
@@ -114,66 +88,45 @@ export function PortfolioHomePage() {
     ]);
   }
 
-  const availableInstrumentSymbols = isCoreSuccess
-    ? summaryQuery.data.rows.map((row) => row.instrument_symbol)
-    : [];
-
-  useEffect(() => {
-    if (
-      reportScope === "instrument_symbol" &&
-      availableInstrumentSymbols.length > 0 &&
-      reportInstrumentSymbol.length === 0
-    ) {
-      setReportInstrumentSymbol(availableInstrumentSymbols[0]);
-    }
-  }, [availableInstrumentSymbols, reportInstrumentSymbol.length, reportScope]);
-
   const metricCards = isCoreSuccess
     ? buildHomeMetricCards(summaryQuery.data.rows, timeSeriesQuery.data.points)
     : [];
-  const quantMetricCards = isQuantSuccess
-    ? buildQuantMetricCards(quantMetricsQuery.data.metrics)
-    : [];
-  const quantBenchmarkContext = quantMetricsQuery.data?.benchmark_context;
-  const omittedMetricIds = quantBenchmarkContext?.omitted_metric_ids || [];
-  const omittedMetricsSummary = omittedMetricIds.length > 0
-    ? omittedMetricIds.join(", ")
-    : "";
-
-  async function generateQuantReport(): Promise<void> {
-    const normalizedSymbol = reportInstrumentSymbol.trim().toUpperCase();
-    if (reportScope === "instrument_symbol" && normalizedSymbol.length === 0) {
-      setReportValidationError("Instrument symbol is required for instrument-scoped reports.");
-      return;
-    }
-    setReportValidationError(null);
-    setActiveReportId(null);
-    const request: PortfolioQuantReportGenerateRequest = {
-      scope: reportScope,
-      instrument_symbol: reportScope === "instrument_symbol" ? normalizedSymbol : null,
-      period: selectedPeriod,
-    };
-    try {
-      const generatedReport = await quantReportGenerateMutation.mutateAsync(request);
-      setActiveReportId(generatedReport.report_id);
-    } catch {
-      setActiveReportId(null);
-    }
-  }
-
-  async function retryQuantPreview(): Promise<void> {
-    await quantMetricsQuery.refetch();
-  }
-
-  async function retryQuantReportPreview(): Promise<void> {
-    await quantReportHtmlQuery.refetch();
-  }
+  const drilldownCards: DrilldownRouteCard[] = [
+    {
+      label: "Analytics route",
+      to: `/portfolio/analytics?period=${selectedPeriod}`,
+      routeTag: "Attribution",
+      useCase: "When you need to identify concentration and contribution drivers.",
+      outcome: "Trend + contribution diagnostics for period interpretation.",
+    },
+    {
+      label: "Risk interpretation route",
+      to: `/portfolio/risk?period=${selectedPeriod}`,
+      routeTag: "Risk",
+      useCase: "When drawdown, volatility, or benchmark sensitivity need validation.",
+      outcome: "Estimator-led risk context with methodology metadata.",
+    },
+    {
+      label: "Quant/Reports route",
+      to: `/portfolio/reports?period=${selectedPeriod}`,
+      routeTag: "Reporting",
+      useCase: "When you need reusable report artifacts and scorecards.",
+      outcome: "Quant diagnostics, report lifecycle, and preview artifacts.",
+    },
+    {
+      label: "Transactions route",
+      to: "/portfolio/transactions",
+      routeTag: "Ledger",
+      useCase: "When you need event-level ledger traceability.",
+      outcome: "Deterministic transaction history without estimator overlays.",
+    },
+  ];
 
   return (
     <PortfolioWorkspaceLayout
       eyebrow="Workspace home"
       title="Portfolio command home"
-      description="High-signal portfolio context with explicit freshness, scope, and provenance."
+      description="Executive snapshot route: KPI health, period bridge, trend context, and deterministic drill-down routes."
       actions={
         <>
           <PortfolioChartPeriodControl
@@ -188,8 +141,11 @@ export function PortfolioHomePage() {
       freshnessTimestamp={summaryQuery.data?.as_of_ledger_at}
       scopeLabel="Ledger truth + persisted market snapshots"
       provenanceLabel={
-        summaryQuery.data?.pricing_snapshot_key || "Persisted portfolio analytics APIs"
+        summaryQuery.data?.pricing_snapshot_key
+          ? formatPricingSnapshotProvenanceLabel(summaryQuery.data.pricing_snapshot_key)
+          : "Persisted portfolio analytics APIs"
       }
+      provenanceTooltip={summaryQuery.data?.pricing_snapshot_key || undefined}
       periodLabel={selectedPeriod}
       frequencyLabel={timeSeriesQuery.data?.frequency}
       timezoneLabel={timeSeriesQuery.data?.timezone}
@@ -232,7 +188,19 @@ export function PortfolioHomePage() {
                 <div className="overview-grid">
                   {metricCards.map((metric) => (
                     <article className="overview-card" key={metric.label}>
-                      <span className="overview-card__label">{metric.label}</span>
+                      <div className="overview-card__meta">
+                        <span className="overview-card__label">{metric.label}</span>
+                        <MetricExplainabilityPopover
+                          label={metric.label}
+                          shortDefinition={metric.explainability.shortDefinition}
+                          whyItMatters={metric.explainability.whyItMatters}
+                          interpretation={metric.explainability.interpretation}
+                          formulaOrBasis={metric.explainability.formulaOrBasis}
+                          comparisonContext={metric.explainability.comparisonContext}
+                          caveats={metric.explainability.caveats}
+                          currentContextNote={metric.explainability.currentContextNote}
+                        />
+                      </div>
                       <strong className={`overview-card__value tone-${metric.tone}`}>
                         {metric.value}
                       </strong>
@@ -243,217 +211,36 @@ export function PortfolioHomePage() {
               </div>
             </section>
 
-            <section className="panel">
-              <header className="panel__header">
-                <h2 className="panel__title">Quant metrics</h2>
-                <p className="panel__subtitle">
-                  QuantStats-derived supplemental preview metrics for {selectedPeriod}. Preview
-                  only; risk-context interpretation remains on the Risk route.
-                </p>
-              </header>
-              <div className="panel__body">
-                {isQuantLoading ? <LoadingTableSkeleton rows={2} /> : null}
+            <WorkspaceChartPanel
+              title="Period change waterfall"
+              subtitle="Bridge from start value to current value with explicit contribution components."
+              shortDescription="Waterfall-style module for period movement decomposition."
+              longDescription="Use this bridge to separate valuation drift from realized/dividend components and reconciliation adjustments."
+            >
+              <PortfolioPeriodChangeWaterfall
+                points={timeSeriesQuery.data.points}
+                summaryRows={summaryQuery.data.rows}
+              />
+            </WorkspaceChartPanel>
 
-                {isQuantError ? (
-                  <ErrorBanner
-                    title={quantErrorCopy.title}
-                    message={quantErrorCopy.message}
-                    variant={quantErrorCopy.variant}
-                    actions={
-                      <button
-                        className="button-primary"
-                        onClick={() => void retryQuantPreview()}
-                        type="button"
-                      >
-                        Retry quant preview
-                      </button>
-                    }
-                  />
-                ) : null}
-
-                {isQuantSuccess ? (
-                  isQuantEmpty ? (
-                    <EmptyState
-                      title="Quant preview has no metrics for this period"
-                      message="QuantStats returned no preview rows for the selected period."
-                    />
-                  ) : (
-                    <>
-                      {omittedMetricIds.length > 0 ? (
-                        <ErrorBanner
-                          title="Optional benchmark metrics omitted"
-                          message={
-                            quantBenchmarkContext?.omission_reason
-                              ? `${quantBenchmarkContext.omission_reason} Omitted: ${omittedMetricsSummary}.`
-                              : `Optional benchmark metrics were omitted for this request: ${omittedMetricsSummary}.`
-                          }
-                          variant="warning"
-                        />
-                      ) : null}
-                      <div className="overview-grid">
-                        {quantMetricCards.map((metric) => (
-                          <article className="overview-card" key={metric.label}>
-                            <span className="overview-card__label">{metric.label}</span>
-                            <strong className={`overview-card__value tone-${metric.tone}`}>
-                              {metric.value}
-                            </strong>
-                            <p className="overview-card__copy">{metric.hint}</p>
-                          </article>
-                        ))}
-                      </div>
-                    </>
-                  )
-                ) : null}
-              </div>
-            </section>
-
-            <section className="panel">
-              <header className="panel__header">
-                <h2 className="panel__title">Quant report generation</h2>
-                <p className="panel__subtitle">
-                  Generate bounded QuantStats HTML reports with explicit scope and lifecycle
-                  states.
-                </p>
-              </header>
-              <div className="panel__body">
-                <div className="transactions-filters">
-                  <label className="transactions-filters__field">
-                    <span>Report scope</span>
-                    <select
-                      className="transactions-filters__select"
-                      onChange={(event) => {
-                        setReportScope(event.target.value as PortfolioQuantReportScope);
-                        setReportValidationError(null);
-                      }}
-                      value={reportScope}
-                    >
-                      <option value="portfolio">Portfolio</option>
-                      <option value="instrument_symbol">Instrument</option>
-                    </select>
-                  </label>
-                  {reportScope === "instrument_symbol" ? (
-                    <label className="transactions-filters__field">
-                      <span>Instrument symbol</span>
-                      <input
-                        className="transactions-filters__input"
-                        list="quant-report-symbols"
-                        onChange={(event) => {
-                          setReportInstrumentSymbol(event.target.value.toUpperCase());
-                          setReportValidationError(null);
-                        }}
-                        placeholder="AAPL"
-                        value={reportInstrumentSymbol}
-                      />
-                      <datalist id="quant-report-symbols">
-                        {availableInstrumentSymbols.map((symbol) => (
-                          <option key={symbol} value={symbol} />
-                        ))}
-                      </datalist>
-                    </label>
-                  ) : null}
-                </div>
-                <div className="status-banner__actions">
-                  <button
-                    className="button-primary"
-                    onClick={() => void generateQuantReport()}
-                    type="button"
+            <WorkspaceChartPanel
+              title="Trend preview"
+              subtitle="Latest points from portfolio time-series with benchmark overlays and spread context."
+              shortDescription="Time-trend comparison against rebased benchmark trajectories."
+              longDescription="This preview guides drill-down decisions; final report workflows belong to the Quant/Reports route."
+            >
+              <PortfolioTrendChart
+                analysisActions={
+                  <Link
+                    className="button-secondary chart-action-link"
+                    to={`/portfolio/risk?period=${selectedPeriod}`}
                   >
-                    {quantReportGenerateMutation.isPending
-                      ? "Generating report..."
-                      : "Generate HTML report"}
-                  </button>
-                </div>
-
-                {reportValidationError ? (
-                  <ErrorBanner
-                    title="Quant report request invalid"
-                    message={reportValidationError}
-                    variant="warning"
-                  />
-                ) : null}
-
-                {quantReportGenerateMutation.isError ? (
-                  <ErrorBanner
-                    title={quantReportGenerateErrorCopy.title}
-                    message={quantReportGenerateErrorCopy.message}
-                    variant={quantReportGenerateErrorCopy.variant}
-                  />
-                ) : null}
-
-                {quantReportGenerateMutation.data ? (
-                  <div className="chart-summary-grid quant-report-summary-grid">
-                    <article className="chart-summary-card">
-                      <span className="chart-summary-card__label">Scope</span>
-                      <strong className="chart-summary-card__value">
-                        {quantReportGenerateMutation.data.scope}
-                      </strong>
-                      <p className="chart-summary-card__copy">
-                        Period {quantReportGenerateMutation.data.period}
-                      </p>
-                    </article>
-                    <article className="chart-summary-card chart-summary-card--accent">
-                      <span className="chart-summary-card__label">Report id</span>
-                      <strong className="chart-summary-card__value">
-                        {quantReportGenerateMutation.data.report_id}
-                      </strong>
-                      <p className="chart-summary-card__copy">
-                        Expires {quantReportGenerateMutation.data.expires_at}
-                      </p>
-                    </article>
-                    <article className="chart-summary-card chart-summary-card--signal">
-                      <span className="chart-summary-card__label">Artifact</span>
-                      <a
-                        className="row-link"
-                        href={quantReportGenerateMutation.data.report_url_path}
-                        rel="noreferrer"
-                        target="_blank"
-                      >
-                        Open full HTML report
-                      </a>
-                    </article>
-                  </div>
-                ) : null}
-
-                {quantReportHtmlQuery.isLoading ? <LoadingTableSkeleton rows={3} /> : null}
-
-                {quantReportHtmlQuery.isError ? (
-                  <ErrorBanner
-                    title={quantReportPreviewErrorCopy.title}
-                    message={quantReportPreviewErrorCopy.message}
-                    variant={quantReportPreviewErrorCopy.variant}
-                    actions={
-                      <button
-                        className="button-primary"
-                        onClick={() => void retryQuantReportPreview()}
-                        type="button"
-                      >
-                        Retry preview
-                      </button>
-                    }
-                  />
-                ) : null}
-
-                {quantReportHtmlQuery.isSuccess ? (
-                  <iframe
-                    className="quant-report-preview"
-                    srcDoc={quantReportHtmlQuery.data}
-                    title="Quant report HTML preview"
-                  />
-                ) : null}
-              </div>
-            </section>
-
-            <section className="panel">
-              <header className="panel__header">
-                <h2 className="panel__title">Trend preview</h2>
-                <p className="panel__subtitle">
-                  Latest points from portfolio time-series with optional benchmark overlays.
-                </p>
-              </header>
-              <div className="panel__body">
-                <PortfolioTrendChart points={timeSeriesQuery.data.points} />
-              </div>
-            </section>
+                    Analyze risk route
+                  </Link>
+                }
+                points={timeSeriesQuery.data.points}
+              />
+            </WorkspaceChartPanel>
 
             <PortfolioHierarchyTable
               groupBy={hierarchyGroupBy}
@@ -465,35 +252,19 @@ export function PortfolioHomePage() {
               <header className="panel__header">
                 <h2 className="panel__title">Drill-down routes</h2>
                 <p className="panel__subtitle">
-                  Deterministic entry points into analytics, risk, and transactions views.
+                  Deterministic route selection with explicit “when to use” guidance.
                 </p>
               </header>
               <div className="panel__body">
                 <div className="drilldown-grid">
-                  <Link
-                    className="drilldown-link"
-                    to={`/portfolio/analytics?period=${selectedPeriod}`}
-                  >
-                    <span className="drilldown-link__label">Analytics + quant preview route</span>
-                    <span className="drilldown-link__copy">
-                      Open trend and contribution context; preview metrics are supplemental.
-                    </span>
-                  </Link>
-                  <Link
-                    className="drilldown-link"
-                    to={`/portfolio/risk?period=${selectedPeriod}`}
-                  >
-                    <span className="drilldown-link__label">Risk interpretation route</span>
-                    <span className="drilldown-link__copy">
-                      Inspect methodology-sensitive estimators and interpretation context.
-                    </span>
-                  </Link>
-                  <Link className="drilldown-link" to="/portfolio/transactions">
-                    <span className="drilldown-link__label">Transactions route</span>
-                    <span className="drilldown-link__copy">
-                      Review ledger-history events without diagnostics scope.
-                    </span>
-                  </Link>
+                  {drilldownCards.map((card) => (
+                    <Link className="drilldown-link" key={card.label} to={card.to}>
+                      <span className="drilldown-link__eyebrow">{card.routeTag}</span>
+                      <span className="drilldown-link__label">{card.label}</span>
+                      <span className="drilldown-link__intent">{card.useCase}</span>
+                      <span className="drilldown-link__copy">{card.outcome}</span>
+                    </Link>
+                  ))}
                 </div>
               </div>
             </section>

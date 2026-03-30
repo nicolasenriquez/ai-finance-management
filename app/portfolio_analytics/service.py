@@ -45,6 +45,7 @@ from app.portfolio_analytics.schemas import (
     PortfolioQuantMetricsResponse,
     PortfolioQuantReportGenerateRequest,
     PortfolioQuantReportGenerateResponse,
+    PortfolioQuantReportLifecycleStatus,
     PortfolioQuantReportScope,
     PortfolioRiskEstimatorMetric,
     PortfolioRiskEstimatorsResponse,
@@ -74,6 +75,9 @@ _PERIOD_TO_REQUIRED_POINTS: dict[PortfolioChartPeriod, int | None] = {
 _SUPPORTED_RISK_WINDOWS: set[int] = {30, 90, 252}
 _SUPPORTED_CHART_PERIOD_VALUES: tuple[str, ...] = tuple(
     period.value for period in PortfolioChartPeriod
+)
+_SUPPORTED_CHART_SCOPE_VALUES: tuple[str, ...] = tuple(
+    scope.value for scope in PortfolioQuantReportScope
 )
 _OPTIONAL_BENCHMARK_CANDIDATE_SYMBOLS: tuple[str, ...] = (
     "VOO",
@@ -167,6 +171,61 @@ def normalize_chart_period(*, period_value: object) -> PortfolioChartPeriod:
         f"Supported periods are: {', '.join(_SUPPORTED_CHART_PERIOD_VALUES)}.",
         status_code=422,
     )
+
+
+def normalize_chart_scope(
+    *,
+    scope_value: object,
+    instrument_symbol_value: object,
+) -> tuple[PortfolioQuantReportScope, str | None]:
+    """Normalize one chart scope request into supported scope/symbol values."""
+
+    normalized_scope: PortfolioQuantReportScope
+    if isinstance(scope_value, PortfolioQuantReportScope):
+        normalized_scope = scope_value
+    elif isinstance(scope_value, str):
+        normalized_scope_text = scope_value.strip().lower()
+        matched_scope: PortfolioQuantReportScope | None = next(
+            (scope for scope in PortfolioQuantReportScope if normalized_scope_text == scope.value),
+            None,
+        )
+        if matched_scope is None:
+            raise PortfolioAnalyticsClientError(
+                "Unsupported chart scope value. "
+                f"Supported scopes are: {', '.join(_SUPPORTED_CHART_SCOPE_VALUES)}.",
+                status_code=422,
+            )
+        normalized_scope = matched_scope
+    else:
+        raise PortfolioAnalyticsClientError(
+            "Unsupported chart scope value. "
+            f"Supported scopes are: {', '.join(_SUPPORTED_CHART_SCOPE_VALUES)}.",
+            status_code=422,
+        )
+
+    if normalized_scope == PortfolioQuantReportScope.PORTFOLIO:
+        if isinstance(instrument_symbol_value, str) and instrument_symbol_value.strip():
+            raise PortfolioAnalyticsClientError(
+                "instrument_symbol must be omitted when chart scope is 'portfolio'.",
+                status_code=422,
+            )
+        return normalized_scope, None
+
+    if (
+        instrument_symbol_value is None
+        or not isinstance(instrument_symbol_value, str)
+        or not instrument_symbol_value.strip()
+    ):
+        raise PortfolioAnalyticsClientError(
+            "instrument_symbol is required when chart scope is 'instrument_symbol'.",
+            status_code=422,
+        )
+
+    normalized_instrument_symbol = _normalize_symbol(
+        symbol_value=instrument_symbol_value,
+        field="instrument_symbol",
+    )
+    return normalized_scope, normalized_instrument_symbol
 
 
 async def get_portfolio_summary_response(*, db: AsyncSession) -> PortfolioSummaryResponse:
@@ -367,12 +426,20 @@ async def get_portfolio_time_series_response(
     *,
     db: AsyncSession,
     period: PortfolioChartPeriod,
+    scope: PortfolioQuantReportScope = PortfolioQuantReportScope.PORTFOLIO,
+    instrument_symbol: str | None = None,
 ) -> PortfolioTimeSeriesResponse:
     """Return chart-ready portfolio time-series for one supported period."""
 
+    normalized_scope, normalized_instrument_symbol = normalize_chart_scope(
+        scope_value=scope,
+        instrument_symbol_value=instrument_symbol,
+    )
     logger.info(
         "portfolio_analytics.time_series_started",
         period=period.value,
+        scope=normalized_scope.value,
+        instrument_symbol=normalized_instrument_symbol,
     )
     required_points = _PERIOD_TO_REQUIRED_POINTS[period]
     insufficient_history_detail = (
@@ -386,7 +453,10 @@ async def get_portfolio_time_series_response(
                 total_open_cost_basis_usd,
                 price_series_by_symbol,
                 optional_price_series_by_symbol,
-            ) = await _load_open_position_price_inputs(db=db)
+            ) = await _load_open_position_price_inputs(
+                db=db,
+                instrument_symbol=normalized_instrument_symbol,
+            )
 
             aligned_timestamps = _select_aligned_timestamps(
                 price_series_by_symbol=price_series_by_symbol,
@@ -422,6 +492,8 @@ async def get_portfolio_time_series_response(
         logger.error(
             "portfolio_analytics.time_series_failed",
             period=period.value,
+            scope=normalized_scope.value,
+            instrument_symbol=normalized_instrument_symbol,
             error=str(exc),
             error_type=type(exc).__name__,
             exc_info=True,
@@ -436,6 +508,8 @@ async def get_portfolio_time_series_response(
         logger.error(
             "portfolio_analytics.time_series_failed",
             period=period.value,
+            scope=normalized_scope.value,
+            instrument_symbol=normalized_instrument_symbol,
             error=str(exc),
             error_type=type(exc).__name__,
             exc_info=True,
@@ -448,6 +522,8 @@ async def get_portfolio_time_series_response(
     logger.info(
         "portfolio_analytics.time_series_completed",
         period=response.period.value,
+        scope=normalized_scope.value,
+        instrument_symbol=normalized_instrument_symbol,
         point_count=len(response.points),
         as_of_ledger_at=response.as_of_ledger_at.isoformat(),
     )
@@ -610,6 +686,30 @@ async def get_portfolio_risk_estimators_response(
                 PortfolioRiskEstimatorMetric(
                     estimator_id="beta",
                     value=_quantize_ratio(computed_metrics["beta"]),
+                    window_days=window_days,
+                    return_basis="simple",
+                    annualization_basis=annualization_basis,
+                    as_of_timestamp=latest_timestamp,
+                ),
+                PortfolioRiskEstimatorMetric(
+                    estimator_id="downside_deviation_annualized",
+                    value=_quantize_ratio(computed_metrics["downside_deviation_annualized"]),
+                    window_days=window_days,
+                    return_basis="simple",
+                    annualization_basis=annualization_basis,
+                    as_of_timestamp=latest_timestamp,
+                ),
+                PortfolioRiskEstimatorMetric(
+                    estimator_id="value_at_risk_95",
+                    value=_quantize_ratio(computed_metrics["value_at_risk_95"]),
+                    window_days=window_days,
+                    return_basis="simple",
+                    annualization_basis=annualization_basis,
+                    as_of_timestamp=latest_timestamp,
+                ),
+                PortfolioRiskEstimatorMetric(
+                    estimator_id="expected_shortfall_95",
+                    value=_quantize_ratio(computed_metrics["expected_shortfall_95"]),
                     window_days=window_days,
                     return_basis="simple",
                     annualization_basis=annualization_basis,
@@ -803,6 +903,13 @@ async def generate_portfolio_quant_report_response(
                 price_series_by_symbol=price_series_by_symbol,
                 optional_price_series_by_symbol=optional_price_series_by_symbol,
             )
+            (
+                report_returns_series,
+                report_benchmark_returns,
+            ) = _normalize_quantstats_report_inputs(
+                returns_series=returns_series,
+                benchmark_returns=benchmark_returns,
+            )
             as_of_ledger_at = await _fetch_as_of_ledger_at(db=db)
 
         quantstats_module = _load_quantstats_module()
@@ -839,8 +946,8 @@ async def generate_portfolio_quant_report_response(
 
         try:
             html_callable(
-                returns_series,
-                benchmark=benchmark_returns,
+                report_returns_series,
+                benchmark=report_benchmark_returns,
                 title=report_title,
                 output=str(output_path),
                 compounded=True,
@@ -873,6 +980,7 @@ async def generate_portfolio_quant_report_response(
         response = PortfolioQuantReportGenerateResponse(
             report_id=report_id,
             report_url_path=f"{api_prefix}/portfolio/quant-reports/{report_id}",
+            lifecycle_status=PortfolioQuantReportLifecycleStatus.READY,
             scope=normalized_scope,
             instrument_symbol=normalized_instrument_symbol,
             period=request.period,
@@ -918,6 +1026,7 @@ async def generate_portfolio_quant_report_response(
         period=response.period.value,
         instrument_symbol=response.instrument_symbol,
         benchmark_symbol=response.benchmark_symbol,
+        lifecycle_status=response.lifecycle_status.value,
         generated_at=response.generated_at.isoformat(),
         expires_at=response.expires_at.isoformat(),
     )
@@ -1713,6 +1822,7 @@ def validate_open_position_price_coverage(
 async def _load_open_position_price_inputs(
     *,
     db: AsyncSession,
+    instrument_symbol: str | None = None,
 ) -> tuple[
     dict[str, Decimal],
     Decimal,
@@ -1738,6 +1848,8 @@ async def _load_open_position_price_inputs(
             symbol_value=lot.instrument_symbol,
             field="instrument_symbol",
         )
+        if instrument_symbol is not None and normalized_symbol != instrument_symbol:
+            continue
         remaining_qty = _coerce_decimal(
             value=lot.remaining_qty,
             field="remaining_qty",
@@ -1750,6 +1862,17 @@ async def _load_open_position_price_inputs(
         )
         open_quantity_by_symbol[normalized_symbol] += remaining_qty
         total_open_cost_basis_usd += total_cost_basis_usd
+
+    if not open_quantity_by_symbol:
+        if instrument_symbol is None:
+            raise PortfolioAnalyticsClientError(
+                "No open positions are available for analytics computation.",
+                status_code=409,
+            )
+        raise PortfolioAnalyticsClientError(
+            "No open positions are available for requested symbol " f"'{instrument_symbol}'.",
+            status_code=409,
+        )
 
     required_symbols = set(open_quantity_by_symbol)
     optional_symbols = set(_OPTIONAL_BENCHMARK_CANDIDATE_SYMBOLS)
@@ -2169,6 +2292,30 @@ def _compute_risk_metrics_from_price_frame(
     if np.isfinite(beta_from_covariance):
         beta = float((beta + beta_from_covariance) / 2.0)
 
+    downside_returns = portfolio_window[portfolio_window < 0]
+    if len(downside_returns) >= 2:
+        downside_std = float(downside_returns.std(ddof=1))
+    else:
+        downside_std = 0.0
+    downside_deviation_annualized = downside_std * float(np.sqrt(252.0))
+
+    value_at_risk_95 = float(portfolio_window.quantile(0.05))
+    tail_returns = portfolio_window[portfolio_window <= value_at_risk_95]
+    expected_shortfall_95 = (
+        float(tail_returns.mean()) if len(tail_returns) > 0 else value_at_risk_95
+    )
+
+    for metric_value, metric_field in (
+        (downside_deviation_annualized, "downside_deviation_annualized"),
+        (value_at_risk_95, "value_at_risk_95"),
+        (expected_shortfall_95, "expected_shortfall_95"),
+    ):
+        if not np.isfinite(metric_value):
+            raise PortfolioAnalyticsClientError(
+                f"Risk estimator {metric_field} produced a non-finite value.",
+                status_code=422,
+            )
+
     return {
         "volatility_annualized": _decimal_from_float(
             value=volatility_annualized,
@@ -2181,6 +2328,18 @@ def _compute_risk_metrics_from_price_frame(
         "beta": _decimal_from_float(
             value=beta,
             field="beta",
+        ),
+        "downside_deviation_annualized": _decimal_from_float(
+            value=downside_deviation_annualized,
+            field="downside_deviation_annualized",
+        ),
+        "value_at_risk_95": _decimal_from_float(
+            value=value_at_risk_95,
+            field="value_at_risk_95",
+        ),
+        "expected_shortfall_95": _decimal_from_float(
+            value=expected_shortfall_95,
+            field="expected_shortfall_95",
         ),
     }
 
@@ -2597,6 +2756,63 @@ def _align_returns_with_optional_benchmark(
     if not np.isfinite(aligned_benchmark_returns.to_numpy(dtype=np.float64)).all():
         return returns_series, None, None
     return aligned_returns, benchmark_symbol, aligned_benchmark_returns
+
+
+def _normalize_quantstats_report_inputs(
+    *,
+    returns_series: pd.Series,
+    benchmark_returns: pd.Series | None,
+) -> tuple[pd.Series, pd.Series | None]:
+    """Normalize report series indices for QuantStats HTML compatibility.
+
+    QuantStats report generation expects datetime indices without timezone metadata
+    in some benchmark preparation paths. We normalize both series to UTC-naive
+    DatetimeIndex while preserving deterministic ordering and finite values.
+    """
+
+    normalized_returns = _normalize_quantstats_report_series_index(
+        series=returns_series,
+        series_label="returns",
+    )
+    if benchmark_returns is None:
+        return normalized_returns, None
+
+    normalized_benchmark = _normalize_quantstats_report_series_index(
+        series=benchmark_returns,
+        series_label="benchmark",
+    )
+    return normalized_returns, normalized_benchmark
+
+
+def _normalize_quantstats_report_series_index(
+    *,
+    series: pd.Series,
+    series_label: str,
+) -> pd.Series:
+    """Normalize one QuantStats report series to UTC-naive DatetimeIndex."""
+
+    if not isinstance(series.index, pd.DatetimeIndex):
+        raise PortfolioAnalyticsClientError(
+            f"Quant report {series_label} series must use a DatetimeIndex.",
+            status_code=422,
+        )
+    if not np.isfinite(series.to_numpy(dtype=np.float64)).all():
+        raise PortfolioAnalyticsClientError(
+            f"Quant report {series_label} series contains non-finite values.",
+            status_code=422,
+        )
+
+    normalized_index = (
+        series.index.tz_convert(UTC).tz_localize(None)
+        if series.index.tz is not None
+        else series.index
+    )
+    return pd.Series(
+        series.to_numpy(dtype=np.float64),
+        index=normalized_index,
+        name=series.name,
+        dtype=np.float64,
+    )
 
 
 def _build_quant_report_title(

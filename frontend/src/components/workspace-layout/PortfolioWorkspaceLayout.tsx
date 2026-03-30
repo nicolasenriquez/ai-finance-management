@@ -12,6 +12,7 @@ type PortfolioWorkspaceLayoutProps = PropsWithChildren<{
   freshnessTimestamp?: string;
   scopeLabel: string;
   provenanceLabel: string;
+  provenanceTooltip?: string;
   periodLabel?: string;
   frequencyLabel?: string;
   timezoneLabel?: string;
@@ -26,6 +27,7 @@ const WORKSPACE_ROUTES: WorkspaceRoute[] = [
   { label: "Home", path: "/portfolio/home" },
   { label: "Analytics (Preview)", path: "/portfolio/analytics" },
   { label: "Risk (Interpretation)", path: "/portfolio/risk" },
+  { label: "Quant/Reports", path: "/portfolio/reports" },
   { label: "Transactions", path: "/portfolio/transactions" },
 ];
 
@@ -37,6 +39,7 @@ export function PortfolioWorkspaceLayout({
   freshnessTimestamp,
   scopeLabel,
   provenanceLabel,
+  provenanceTooltip,
   periodLabel,
   frequencyLabel,
   timezoneLabel,
@@ -80,20 +83,36 @@ export function PortfolioWorkspaceLayout({
               Freshness: awaiting response
             </span>
           )}
-          <span className="status-pill status-pill--neutral">Scope: {scopeLabel}</span>
-          <span className="status-pill status-pill--neutral">
-            Provenance: {provenanceLabel}
+          <span className="status-pill status-pill--neutral status-pill--kv">
+            <span className="status-pill__key">Scope</span>
+            <span className="status-pill__text">{scopeLabel}</span>
+          </span>
+          <span className="status-pill status-pill--neutral status-pill--kv status-pill--wide">
+            <span className="status-pill__key">Provenance</span>
+            <span
+              className="status-pill__text status-pill__text--truncate"
+              title={provenanceTooltip || provenanceLabel}
+            >
+              {provenanceLabel}
+            </span>
           </span>
           {periodLabel ? (
-            <span className="status-pill status-pill--neutral">Period: {periodLabel}</span>
+            <span className="status-pill status-pill--neutral status-pill--kv">
+              <span className="status-pill__key">Period</span>
+              <span className="status-pill__text">{periodLabel}</span>
+            </span>
           ) : null}
           {frequencyLabel ? (
-            <span className="status-pill status-pill--neutral">
-              Frequency: {frequencyLabel}
+            <span className="status-pill status-pill--neutral status-pill--kv">
+              <span className="status-pill__key">Frequency</span>
+              <span className="status-pill__text">{frequencyLabel}</span>
             </span>
           ) : null}
           {timezoneLabel ? (
-            <span className="status-pill status-pill--neutral">Timezone: {timezoneLabel}</span>
+            <span className="status-pill status-pill--neutral status-pill--kv">
+              <span className="status-pill__key">Timezone</span>
+              <span className="status-pill__text">{timezoneLabel}</span>
+            </span>
           ) : null}
         </div>
       </section>

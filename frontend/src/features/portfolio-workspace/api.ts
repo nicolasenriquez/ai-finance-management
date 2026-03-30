@@ -18,16 +18,28 @@ import {
   type PortfolioQuantReportGenerateRequest,
   type PortfolioQuantReportGenerateResponse,
   type PortfolioRiskEstimatorsResponse,
+  type PortfolioTimeSeriesScope,
   type PortfolioTimeSeriesResponse,
   type PortfolioTransactionsResponse,
 } from "../../core/api/schemas";
 
 export function fetchPortfolioTimeSeries(
   period: PortfolioChartPeriod,
+  options?: {
+    scope?: PortfolioTimeSeriesScope;
+    instrumentSymbol?: string | null;
+  },
 ): Promise<PortfolioTimeSeriesResponse> {
+  const scope = options?.scope ?? "portfolio";
+  const normalizedInstrumentSymbol =
+    options?.instrumentSymbol?.trim().toUpperCase() || null;
   const query = new URLSearchParams({
     period,
+    scope,
   });
+  if (scope === "instrument_symbol" && normalizedInstrumentSymbol) {
+    query.set("instrument_symbol", normalizedInstrumentSymbol);
+  }
   return fetchJson({
     path: `/portfolio/time-series?${query.toString()}`,
     schema: portfolioTimeSeriesResponseSchema,

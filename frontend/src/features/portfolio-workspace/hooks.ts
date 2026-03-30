@@ -9,6 +9,7 @@ import type {
   PortfolioHierarchyGroupBy,
   PortfolioQuantReportGenerateRequest,
   PortfolioQuantReportGenerateResponse,
+  PortfolioTimeSeriesScope,
   PortfolioTransactionEvent,
   PortfolioTransactionsResponse,
 } from "../../core/api/schemas";
@@ -26,6 +27,12 @@ import {
 export type PortfolioRiskWindowDays = 30 | 90 | 252;
 export type { PortfolioTransactionEvent, PortfolioTransactionsResponse };
 
+type PortfolioTimeSeriesQueryOptions = {
+  scope?: PortfolioTimeSeriesScope;
+  instrumentSymbol?: string | null;
+  enabled?: boolean;
+};
+
 const RISK_WINDOW_PERIOD_MAP: Record<PortfolioChartPeriod, PortfolioRiskWindowDays> =
   {
     "30D": 30,
@@ -40,10 +47,29 @@ export function mapChartPeriodToRiskWindow(
   return RISK_WINDOW_PERIOD_MAP[period];
 }
 
-export function usePortfolioTimeSeriesQuery(period: PortfolioChartPeriod) {
+export function usePortfolioTimeSeriesQuery(
+  period: PortfolioChartPeriod,
+  options?: PortfolioTimeSeriesQueryOptions,
+) {
+  const scope = options?.scope ?? "portfolio";
+  const normalizedInstrumentSymbol =
+    options?.instrumentSymbol?.trim().toUpperCase() || null;
+  const isValidScopeRequest =
+    scope === "portfolio" || normalizedInstrumentSymbol !== null;
   return useQuery({
-    queryKey: ["portfolio", "time-series", period],
-    queryFn: () => fetchPortfolioTimeSeries(period),
+    queryKey: [
+      "portfolio",
+      "time-series",
+      period,
+      scope,
+      normalizedInstrumentSymbol,
+    ],
+    queryFn: () =>
+      fetchPortfolioTimeSeries(period, {
+        scope,
+        instrumentSymbol: normalizedInstrumentSymbol,
+      }),
+    enabled: options?.enabled ?? isValidScopeRequest,
     staleTime: 30_000,
     retry: (failureCount, error) =>
       failureCount < 1 && shouldRetryApiError(error),

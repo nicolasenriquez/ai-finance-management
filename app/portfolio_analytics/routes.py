@@ -21,6 +21,7 @@ from app.portfolio_analytics.schemas import (
     PortfolioQuantMetricsResponse,
     PortfolioQuantReportGenerateRequest,
     PortfolioQuantReportGenerateResponse,
+    PortfolioQuantReportScope,
     PortfolioRiskEstimatorsResponse,
     PortfolioSummaryResponse,
     PortfolioTimeSeriesResponse,
@@ -39,6 +40,7 @@ from app.portfolio_analytics.service import (
     get_portfolio_time_series_response,
     get_portfolio_transactions_response,
     normalize_chart_period,
+    normalize_chart_scope,
 )
 
 logger = get_logger(__name__)
@@ -160,23 +162,41 @@ async def get_portfolio_time_series(
         str,
         Query(description="Supported chart period enum: 30D, 90D, 252D, MAX."),
     ] = PortfolioChartPeriod.D30.value,
+    scope: Annotated[
+        str,
+        Query(description=("Supported chart scope enum: portfolio, instrument_symbol.")),
+    ] = PortfolioQuantReportScope.PORTFOLIO.value,
+    instrument_symbol: Annotated[
+        str | None,
+        Query(description="Instrument symbol required when scope=instrument_symbol."),
+    ] = None,
 ) -> PortfolioTimeSeriesResponse:
     """Return chart-ready portfolio time-series with explicit temporal metadata."""
 
     try:
         normalized_period = normalize_chart_period(period_value=period)
+        normalized_scope, normalized_instrument_symbol = normalize_chart_scope(
+            scope_value=scope,
+            instrument_symbol_value=instrument_symbol,
+        )
         logger.info(
             "portfolio_analytics.time_series_request_started",
             period=normalized_period.value,
+            scope=normalized_scope.value,
+            instrument_symbol=normalized_instrument_symbol,
         )
         response = await get_portfolio_time_series_response(
             db=db,
             period=normalized_period,
+            scope=normalized_scope,
+            instrument_symbol=normalized_instrument_symbol,
         )
     except PortfolioAnalyticsClientError as exc:
         logger.info(
             "portfolio_analytics.time_series_request_rejected",
             period=period,
+            scope=scope,
+            instrument_symbol=instrument_symbol,
             status_code=exc.status_code,
             error=str(exc),
         )
@@ -188,6 +208,8 @@ async def get_portfolio_time_series(
     logger.info(
         "portfolio_analytics.time_series_request_completed",
         period=normalized_period.value,
+        scope=normalized_scope.value,
+        instrument_symbol=normalized_instrument_symbol,
         point_count=_response_list_len(response, "points"),
         as_of_ledger_at=_response_isoformat(response, "as_of_ledger_at"),
     )
@@ -366,6 +388,7 @@ async def generate_portfolio_quant_report(
     logger.info(
         "portfolio_analytics.quant_report_request_completed",
         report_id=response.report_id,
+        lifecycle_status=response.lifecycle_status.value,
         scope=response.scope.value,
         period=response.period.value,
         instrument_symbol=response.instrument_symbol,

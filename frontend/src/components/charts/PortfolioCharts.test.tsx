@@ -97,12 +97,15 @@ describe("portfolio workspace chart foundation", () => {
     expect(
       screen.getByRole("img", { name: "Contribution by symbol chart" }),
     ).toBeInTheDocument();
-    expect(container.querySelector("svg")).toBeInTheDocument();
+    expect(
+      container.querySelector(".recharts-responsive-container"),
+    ).toBeInTheDocument();
   });
 
   it("renders Recharts risk visual", () => {
-    const { container } = render(<PortfolioRiskChart metrics={riskMetrics} />);
+    render(<PortfolioRiskChart metrics={riskMetrics} />);
     expect(screen.getByRole("img", { name: "Risk metrics chart" })).toBeInTheDocument();
-    expect(container.querySelector("svg")).toBeInTheDocument();
+    expect(screen.getByText("Beta")).toBeInTheDocument();
+    expect(screen.getByText("Volatility Annualized")).toBeInTheDocument();
   });
 });

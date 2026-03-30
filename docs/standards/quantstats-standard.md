@@ -101,18 +101,33 @@ Important interpretation note:
 
 ## Frontend Integration Rules
 
-- Home route may show quant preview metrics but must not block core portfolio context when optional quant/report modules fail.
+- Home route is an executive snapshot surface; it links to Quant/Reports and does not own report generation controls.
 - Risk route remains the primary context for interpretation-sensitive risk metrics (drawdown, volatility, methodology labels).
-- Quant/report routes must display explicit scope, provenance, and generation status.
+- Quant/Reports route must display explicit scope, provenance, and generation lifecycle status (`loading`, `error`, `unavailable`, `ready`).
 - All quant-derived values must preserve deterministic formatting semantics (decimal-safe money/ratio presentation).
+- Non-functional analytical actions are prohibited; workflow actions must live in stable, testable surfaces (not tooltip-only controls).
 
 ### Metric Placement Matrix
 
 | Surface | Primary metric scope | Rules |
 | --- | --- | --- |
-| Home | High-signal KPI + supplemental quant preview | Quant/report failures are section-scoped; core context remains visible |
+| Home | High-signal KPI snapshot | No report generation controls; provide deterministic deep-link to Quant/Reports |
 | Risk | Interpretation-sensitive risk metrics | Drawdown/volatility/beta and methodology metadata are first-class here |
-| Quant/Reports | Expanded quant diagnostics and tearsheets | Explicit report scope, benchmark context, and generation lifecycle status |
+| Quant/Reports | Expanded quant diagnostics and tearsheets | Explicit report scope, benchmark context, generation lifecycle state, and artifact preview |
+
+## Derived Metrics Scope Boundaries
+
+Shipped in Phase F:
+
+- Quant scorecards with benchmark omission context
+- Report lifecycle + artifact preview
+- Monthly returns heatmap-style module with precision caveat copy
+
+Approved follow-up (not yet shipped in Phase F):
+
+- drawdown path visualization modules
+- rolling volatility/beta series modules
+- return-distribution histogram modules
 
 ## Testing Rules
 

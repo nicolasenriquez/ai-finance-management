@@ -16,6 +16,27 @@ The frontend SHALL enforce one chart composition contract across Home, Analytics
 - **THEN** they use the same spacing and container sizing tokens defined by shared workspace primitives
 - **THEN** route-specific chart modules do not introduce unreviewed one-off sizing or spacing behavior
 
+#### Scenario: Mixed-unit risk payloads avoid misleading single-axis charting
+- **WHEN** the Risk route receives estimator metrics that are not unit-compatible on one axis
+- **THEN** the UI applies a guardrail state instead of rendering a misleading mixed-unit single-axis bar chart
+- **THEN** users still receive deterministic metric-card interpretation context and methodology metadata
+
+### Requirement: Promoted metrics SHALL provide accessible explainability affordances
+The frontend SHALL expose accessible explainability affordances for promoted KPIs and important chart metrics so users can inspect what the metric means, why it matters, and how to interpret the current reading.
+
+#### Scenario: User inspects KPI explanation from one stable affordance
+- **WHEN** a user focuses, hovers, or activates an info affordance for a promoted KPI or chart metric
+- **THEN** the UI renders definition, relevance, interpretation, and caveat content without requiring hidden hover-only access
+- **THEN** the content remains keyboard-accessible and readable on touch devices
+
+### Requirement: Analytical actions SHALL not rely on false affordances
+The frontend SHALL not render non-functional analytical actions, and primary actions SHALL not live only inside transient hover tooltips.
+
+#### Scenario: Chart tooltip avoids dead controls
+- **WHEN** chart tooltip content is shown for one analytical data point
+- **THEN** any action displayed there is fully functional, accessible, and duplicated in one stable surface if it drives workflow navigation or export
+- **THEN** placeholder controls that do nothing are not rendered
+
 ## MODIFIED Requirements
 
 ### Requirement: Home route SHALL foreground first-viewport portfolio context

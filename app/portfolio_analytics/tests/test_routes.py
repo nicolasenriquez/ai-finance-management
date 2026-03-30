@@ -11,6 +11,7 @@ from pathlib import Path
 from types import ModuleType
 from typing import Any, cast
 
+import pandas as pd
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import text
@@ -216,6 +217,58 @@ def _patch_fake_quantstats_report_module(monkeypatch: pytest.MonkeyPatch) -> Non
             ),
             encoding="utf-8",
         )
+
+    fake_reports_module.html = _fake_html  # type: ignore[attr-defined]
+    fake_quantstats_module = ModuleType("fake_quantstats_root")
+    fake_quantstats_module.reports = fake_reports_module  # type: ignore[attr-defined]
+    monkeypatch.setattr(
+        service_module,
+        "_load_quantstats_module",
+        lambda: fake_quantstats_module,
+    )
+
+
+def _patch_quantstats_report_module_requiring_naive_index(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Patch QuantStats loader and fail if report inputs are not UTC-naive indexed."""
+
+    service_module = import_module("app.portfolio_analytics.service")
+    report_registry = getattr(service_module, "_QUANT_REPORT_ARTIFACTS_BY_ID", None)
+    if isinstance(report_registry, dict):
+        report_registry.clear()
+
+    fake_reports_module = ModuleType("fake_quantstats_reports")
+
+    def _fake_html(
+        returns: object,
+        benchmark: object | None = None,
+        output: str | None = None,
+        **_: Any,
+    ) -> None:
+        if output is None:
+            raise ValueError("output path is required for backend report generation tests")
+        if not isinstance(returns, pd.Series):
+            raise TypeError("returns must be a pandas Series")
+        if not isinstance(returns.index, pd.DatetimeIndex):
+            raise TypeError("returns index must be a DatetimeIndex")
+        if returns.index.tz is not None:
+            raise TypeError(
+                "returns index must be timezone-naive for QuantStats report compatibility"
+            )
+        if benchmark is not None:
+            if not isinstance(benchmark, pd.Series):
+                raise TypeError("benchmark must be a pandas Series")
+            if not isinstance(benchmark.index, pd.DatetimeIndex):
+                raise TypeError("benchmark index must be a DatetimeIndex")
+            if benchmark.index.tz is not None:
+                raise TypeError(
+                    "benchmark index must be timezone-naive for QuantStats report compatibility"
+                )
+
+        report_path = Path(output)
+        report_path.parent.mkdir(parents=True, exist_ok=True)
+        report_path.write_text("<html><body><h1>Quant Report</h1></body></html>", encoding="utf-8")
 
     fake_reports_module.html = _fake_html  # type: ignore[attr-defined]
     fake_quantstats_module = ModuleType("fake_quantstats_root")
@@ -897,6 +950,65 @@ def test_time_series_endpoint_rejects_unsupported_period_with_explicit_detail(
 
 
 @pytest.mark.integration
+def test_time_series_endpoint_supports_instrument_scope_with_symbol_filter(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    test_db_engine: AsyncEngine,
+) -> None:
+    """Instrument-scoped time-series requests should return symbol-filtered value history."""
+
+    time_series_path = _portfolio_workspace_endpoint_path(suffix="time-series")
+    _patch_forbidden_upstream_calls(monkeypatch)
+    asyncio.run(_seed_persisted_ledger_state(test_db_engine, price_history_points=35))
+
+    portfolio_response = client.get(
+        time_series_path,
+        params={"period": "MAX"},
+    )
+    instrument_response = client.get(
+        time_series_path,
+        params={
+            "period": "MAX",
+            "scope": "instrument_symbol",
+            "instrument_symbol": "VOO",
+        },
+    )
+
+    assert portfolio_response.status_code == 200
+    assert instrument_response.status_code == 200
+
+    portfolio_payload_raw = portfolio_response.json()
+    instrument_payload_raw = instrument_response.json()
+    if not isinstance(portfolio_payload_raw, dict):
+        pytest.fail("Portfolio-scoped time-series response must be a JSON object.")
+    if not isinstance(instrument_payload_raw, dict):
+        pytest.fail("Instrument-scoped time-series response must be a JSON object.")
+    portfolio_payload = cast(dict[str, object], portfolio_payload_raw)
+    instrument_payload = cast(dict[str, object], instrument_payload_raw)
+
+    portfolio_points_raw = portfolio_payload.get("points")
+    instrument_points_raw = instrument_payload.get("points")
+    if not isinstance(portfolio_points_raw, list):
+        pytest.fail("Portfolio-scoped time-series response must include points list.")
+    if not isinstance(instrument_points_raw, list):
+        pytest.fail("Instrument-scoped time-series response must include points list.")
+    portfolio_points = cast(list[Mapping[str, object]], portfolio_points_raw)
+    instrument_points = cast(list[Mapping[str, object]], instrument_points_raw)
+
+    assert len(portfolio_points) > 0
+    assert len(instrument_points) > 0
+    assert len(instrument_points) >= len(portfolio_points)
+
+    portfolio_last = portfolio_points[-1]
+    instrument_last = instrument_points[-1]
+    portfolio_last_value = Decimal(str(portfolio_last["portfolio_value_usd"]))
+    instrument_last_value = Decimal(str(instrument_last["portfolio_value_usd"]))
+
+    assert instrument_last_value > Decimal("0")
+    assert portfolio_last_value != instrument_last_value
+
+
+@pytest.mark.integration
 def test_contribution_endpoint_returns_symbol_breakdown_for_max_period(
     client: TestClient,
     monkeypatch: pytest.MonkeyPatch,
@@ -1034,7 +1146,7 @@ def test_risk_estimators_endpoint_returns_metrics_for_supported_window(
     if not isinstance(metrics_raw, list):
         pytest.fail("Risk-estimators response must include a 'metrics' list.")
     metrics = cast(list[object], metrics_raw)
-    assert len(metrics) == 3
+    assert len(metrics) == 6
 
     metric_ids: set[str] = set()
     for metric_candidate in metrics:
@@ -1059,7 +1171,14 @@ def test_risk_estimators_endpoint_returns_metrics_for_supported_window(
             pytest.fail("Risk-estimator metric must include string 'as_of_timestamp'.")
         assert as_of_timestamp
 
-    assert metric_ids == {"volatility_annualized", "max_drawdown", "beta"}
+    assert metric_ids == {
+        "volatility_annualized",
+        "max_drawdown",
+        "beta",
+        "downside_deviation_annualized",
+        "value_at_risk_95",
+        "expected_shortfall_95",
+    }
 
 
 @pytest.mark.integration
@@ -1151,6 +1270,7 @@ def test_quant_report_generation_returns_retrievable_html_artifact(
     assert report_url_path
     assert payload.get("scope") == "portfolio"
     assert payload.get("period") == "30D"
+    assert payload.get("lifecycle_status") == "ready"
     assert isinstance(payload.get("generated_at"), str)
     assert isinstance(payload.get("expires_at"), str)
 
@@ -1159,6 +1279,29 @@ def test_quant_report_generation_returns_retrievable_html_artifact(
     assert "text/html" in artifact_response.headers.get("content-type", "")
     assert "<html>" in artifact_response.text.lower()
     assert "quant report" in artifact_response.text.lower()
+
+
+@pytest.mark.integration
+def test_quant_report_generation_normalizes_timezone_before_quantstats_html(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    test_db_engine: AsyncEngine,
+) -> None:
+    """Quant-report generation should pass UTC-naive DatetimeIndex to QuantStats HTML."""
+
+    report_path = _portfolio_workspace_endpoint_path(suffix="quant-reports")
+    _patch_forbidden_upstream_calls(monkeypatch)
+    _patch_quantstats_report_module_requiring_naive_index(monkeypatch)
+    asyncio.run(_seed_persisted_ledger_state(test_db_engine, price_history_points=35))
+
+    response = client.post(
+        report_path,
+        json={
+            "scope": "portfolio",
+            "period": "30D",
+        },
+    )
+    assert response.status_code == 201
 
 
 @pytest.mark.integration
@@ -1187,6 +1330,32 @@ def test_quant_report_generation_rejects_invalid_scope_parameters_explicitly(
     detail = payload.get("detail")
     assert isinstance(detail, str)
     assert "instrument_symbol" in detail
+
+
+@pytest.mark.integration
+def test_quant_report_generation_rejects_extra_request_context_fields(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Quant-report generation should reject untyped request context fields explicitly."""
+
+    report_path = _portfolio_workspace_endpoint_path(suffix="quant-reports")
+    _patch_forbidden_upstream_calls(monkeypatch)
+
+    response = client.post(
+        report_path,
+        json={
+            "scope": "portfolio",
+            "period": "30D",
+            "home_route_context": "workspace-home",
+        },
+    )
+    assert response.status_code == 422
+    payload_raw = response.json()
+    if not isinstance(payload_raw, dict):
+        pytest.fail("Extra-field validation response must be a JSON object.")
+    payload = cast(dict[str, object], payload_raw)
+    assert "home_route_context" in str(payload).lower()
 
 
 @pytest.mark.integration
@@ -1229,7 +1398,7 @@ def test_quant_report_generation_keeps_read_only_side_effect_boundaries(
         report_path,
         json={
             "scope": "instrument_symbol",
-            "instrument_symbol": "AMD",
+            "instrument_symbol": "AAPL",
             "period": "30D",
         },
     )

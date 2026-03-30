@@ -1,4 +1,8 @@
-import { useMemo, useState } from "react";
+import type { ReactNode } from "react";
+import {
+  useMemo,
+  useState,
+} from "react";
 import {
   CartesianGrid,
   Line,
@@ -16,9 +20,11 @@ import {
   type TrendChartDatum,
 } from "../../features/portfolio-workspace/overview";
 import type { PortfolioTimeSeriesPoint } from "../../core/api/schemas";
+import { MetricExplainabilityPopover } from "../metric-explainability/MetricExplainabilityPopover";
 
 type PortfolioTrendChartProps = {
   points: PortfolioTimeSeriesPoint[];
+  analysisActions?: ReactNode;
 };
 
 function formatAxisMoney(value: number): string {
@@ -67,7 +73,7 @@ function computeRelativePerformance(current: number | null, baseline: number | n
   return ((current - baseline) / baseline) * 100;
 }
 
-export function PortfolioTrendChart({ points }: PortfolioTrendChartProps) {
+export function PortfolioTrendChart({ points, analysisActions }: PortfolioTrendChartProps) {
   const chartData: TrendChartDatum[] = buildTrendChartData(points);
   const enrichedChartData = useMemo<TrendChartPoint[]>(() => {
     if (chartData.length <= 1) {
@@ -141,6 +147,9 @@ export function PortfolioTrendChart({ points }: PortfolioTrendChartProps) {
 
   const [showSp500, setShowSp500] = useState(true);
   const [showNasdaq100, setShowNasdaq100] = useState(true);
+  const [showPortfolio, setShowPortfolio] = useState(true);
+  const [showPnl, setShowPnl] = useState(true);
+  const [showTrendline, setShowTrendline] = useState(true);
 
   function renderTrendTooltip(raw: unknown) {
     const tooltip = raw as {
@@ -186,22 +195,22 @@ export function PortfolioTrendChart({ points }: PortfolioTrendChartProps) {
             <strong>{formatUsdMoney(point.portfolioValue.toFixed(2))}</strong>
           </div>
           <div className={`chart-tooltip__row tone-${pnlTone}`}>
-            <span>PnL</span>
+            <span>Unrealized P&amp;L vs cost basis</span>
             <strong>{toSignedMoneyLabel(point.pnl)}</strong>
           </div>
           <div className="chart-tooltip__row">
-            <span>Trendline</span>
+            <span>Trend estimate</span>
             <strong>{formatUsdMoney(point.trendline.toFixed(2))}</strong>
           </div>
           {showSp500 && point.benchmarkSp500 !== null ? (
             <div className="chart-tooltip__row">
-              <span>S&P 500 Proxy</span>
+              <span>S&amp;P 500 benchmark (normalized)</span>
               <strong>{formatUsdMoney(point.benchmarkSp500.toFixed(2))}</strong>
             </div>
           ) : null}
           {showNasdaq100 && point.benchmarkNasdaq100 !== null ? (
             <div className="chart-tooltip__row">
-              <span>NASDAQ-100 Proxy</span>
+              <span>NASDAQ-100 benchmark (normalized)</span>
               <strong>{formatUsdMoney(point.benchmarkNasdaq100.toFixed(2))}</strong>
             </div>
           ) : null}
@@ -226,10 +235,6 @@ export function PortfolioTrendChart({ points }: PortfolioTrendChartProps) {
             ) : null}
           </div>
         ) : null}
-        <div className="chart-tooltip__actions">
-          <button type="button">Analyze Risk</button>
-          <button type="button">Export CSV</button>
-        </div>
       </div>
     );
   }
@@ -241,25 +246,54 @@ export function PortfolioTrendChart({ points }: PortfolioTrendChartProps) {
           <h3 className="panel__title">Portfolio Performance</h3>
           <p className="panel__subtitle">Net worth growth with market benchmarking</p>
         </div>
-        <div className="chart-controls">
-          <button
-            aria-pressed={showSp500 && hasSp500Series}
-            className="chart-chip"
-            disabled={!hasSp500Series}
-            onClick={() => setShowSp500((previous) => !previous)}
-            type="button"
-          >
-            S&P 500
-          </button>
-          <button
-            aria-pressed={showNasdaq100 && hasNasdaq100Series}
-            className="chart-chip"
-            disabled={!hasNasdaq100Series}
-            onClick={() => setShowNasdaq100((previous) => !previous)}
-            type="button"
-          >
-            NASDAQ-100
-          </button>
+        <div className="chart-controls-group">
+          <div className="chart-controls">
+            <button
+              aria-pressed={showPortfolio}
+              className="chart-chip"
+              onClick={() => setShowPortfolio((previous) => !previous)}
+              type="button"
+            >
+              Portfolio
+            </button>
+            <button
+              aria-pressed={showPnl}
+              className="chart-chip"
+              onClick={() => setShowPnl((previous) => !previous)}
+              type="button"
+            >
+              P&amp;L
+            </button>
+            <button
+              aria-pressed={showTrendline}
+              className="chart-chip"
+              onClick={() => setShowTrendline((previous) => !previous)}
+              type="button"
+            >
+              Trend estimate
+            </button>
+            <button
+              aria-pressed={showSp500 && hasSp500Series}
+              className="chart-chip"
+              disabled={!hasSp500Series}
+              onClick={() => setShowSp500((previous) => !previous)}
+              type="button"
+            >
+              S&P 500
+            </button>
+            <button
+              aria-pressed={showNasdaq100 && hasNasdaq100Series}
+              className="chart-chip"
+              disabled={!hasNasdaq100Series}
+              onClick={() => setShowNasdaq100((previous) => !previous)}
+              type="button"
+            >
+              NASDAQ-100
+            </button>
+          </div>
+          {analysisActions ? (
+            <div className="chart-persistent-actions">{analysisActions}</div>
+          ) : null}
         </div>
       </div>
       <div className="chart-canvas">
@@ -289,39 +323,45 @@ export function PortfolioTrendChart({ points }: PortfolioTrendChartProps) {
               yAxisId="right"
             />
             <Tooltip content={renderTrendTooltip} />
-            <Line
-              activeDot={{
-                r: 5,
-                stroke: "var(--chart-trend-primary)",
-                strokeWidth: 2,
-              }}
-              dataKey="portfolioValue"
-              dot={false}
-              name="Portfolio value"
-              stroke="var(--chart-trend-primary)"
-              strokeWidth={3}
-              type="monotone"
-              yAxisId="left"
-            />
-            <Line
-              dataKey="pnl"
-              dot={false}
-              name="PnL"
-              stroke="var(--chart-trend-secondary)"
-              strokeWidth={2}
-              type="monotone"
-              yAxisId="right"
-            />
-            <Line
-              dataKey="trendline"
-              dot={false}
-              name="Trendline"
-              stroke="var(--color-text-muted)"
-              strokeDasharray="6 4"
-              strokeWidth={2}
-              type="monotone"
-              yAxisId="left"
-            />
+            {showPortfolio ? (
+              <Line
+                activeDot={{
+                  r: 5,
+                  stroke: "var(--chart-trend-primary)",
+                  strokeWidth: 2,
+                }}
+                dataKey="portfolioValue"
+                dot={false}
+                name="Portfolio value"
+                stroke="var(--chart-trend-primary)"
+                strokeWidth={3}
+                type="monotone"
+                yAxisId="left"
+              />
+            ) : null}
+            {showPnl ? (
+              <Line
+                dataKey="pnl"
+                dot={false}
+                name="Unrealized P&L vs cost basis"
+                stroke="var(--chart-trend-secondary)"
+                strokeWidth={2}
+                type="monotone"
+                yAxisId="right"
+              />
+            ) : null}
+            {showTrendline ? (
+              <Line
+                dataKey="trendline"
+                dot={false}
+                name="Trend estimate"
+                stroke="var(--color-text-muted)"
+                strokeDasharray="6 4"
+                strokeWidth={2}
+                type="monotone"
+                yAxisId="left"
+              />
+            ) : null}
             {showSp500 && hasSp500Series ? (
               <Line
                 dataKey="benchmarkSp500"
@@ -348,6 +388,40 @@ export function PortfolioTrendChart({ points }: PortfolioTrendChartProps) {
             ) : null}
           </LineChart>
         </ResponsiveContainer>
+      </div>
+      <div className="chart-definition-row">
+        <MetricExplainabilityPopover
+          label="Trend estimate"
+          shortDefinition="Linear-regression trend estimate over the selected chart window."
+          whyItMatters="Highlights directional drift independent of day-to-day noise."
+          interpretation="If portfolio value persistently sits below this line, momentum is weakening."
+          formulaOrBasis="Ordinary least squares on index position versus portfolio value."
+          comparisonContext="Compare trend slope with benchmark-relative spread cards."
+          caveats="Regression trend is descriptive, not predictive."
+        />
+        <MetricExplainabilityPopover
+          label="Normalized benchmarks"
+          shortDefinition="Benchmark series rebased to portfolio start value for comparable trajectory."
+          whyItMatters="Allows shape comparison against S&P 500 and NASDAQ-100 without absolute index-level distortion."
+          interpretation="A higher normalized benchmark line means benchmark outperformed your portfolio since period start."
+          formulaOrBasis="portfolio_start_value * (benchmark_price_t / benchmark_price_start)."
+          comparisonContext="Use together with excess return and spread values."
+          caveats="Normalization compares path/relative return, not nominal index points."
+        />
+        <MetricExplainabilityPopover
+          label="Unrealized P&L vs cost basis"
+          shortDefinition="Difference between current market value and open cost basis."
+          whyItMatters="Shows unrealized gain/loss without mixing in realized exits."
+          interpretation="Positive values indicate open positions are above cost basis."
+          formulaOrBasis="Portfolio value - open cost basis at the selected timestamp."
+          comparisonContext="Compare against period return and benchmark spread."
+          caveats="Unrealized P&L is mark-to-market and can change with each price update."
+          currentContextNote={
+            latestPoint
+              ? `Latest available value is ${toSignedMoneyLabel(latestPoint.pnl)}.`
+              : undefined
+          }
+        />
       </div>
       <div className="chart-summary-grid">
         <article className="chart-summary-card">

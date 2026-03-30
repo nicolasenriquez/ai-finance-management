@@ -7,7 +7,7 @@ from decimal import Decimal
 from enum import StrEnum
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class PortfolioSummaryRow(BaseModel):
@@ -252,8 +252,18 @@ class PortfolioQuantReportScope(StrEnum):
     INSTRUMENT_SYMBOL = "instrument_symbol"
 
 
+class PortfolioQuantReportLifecycleStatus(StrEnum):
+    """Lifecycle statuses exposed by quant report generation contract."""
+
+    READY = "ready"
+    EXPIRED = "expired"
+    UNAVAILABLE = "unavailable"
+
+
 class PortfolioQuantReportGenerateRequest(BaseModel):
     """Request payload for bounded QuantStats tearsheet generation."""
+
+    model_config = ConfigDict(extra="forbid")
 
     scope: PortfolioQuantReportScope
     instrument_symbol: str | None = None
@@ -265,6 +275,7 @@ class PortfolioQuantReportGenerateResponse(BaseModel):
 
     report_id: str = Field(min_length=1)
     report_url_path: str = Field(min_length=1)
+    lifecycle_status: PortfolioQuantReportLifecycleStatus
     scope: PortfolioQuantReportScope
     instrument_symbol: str | None = None
     period: PortfolioChartPeriod

@@ -16,11 +16,14 @@ It integrates:
   - `/portfolio/home`
   - `/portfolio/analytics`
   - `/portfolio/risk`
+  - `/portfolio/reports`
   - `/portfolio/transactions`
 - Backend contracts implemented for workspace analytics:
   - `/api/portfolio/time-series`
   - `/api/portfolio/contribution`
   - `/api/portfolio/risk-estimators`
+  - `/api/portfolio/quant-metrics`
+  - `/api/portfolio/quant-reports` (`POST` generate + `GET` artifact)
 - Period enum is locked and enforced end-to-end (`30D`, `90D`, `252D`, `MAX`).
 - Risk methodology metadata is surfaced in UI from API payload (`window_days`, `return_basis`, `annualization_basis`, `as_of_timestamp`).
 - Transactions v1 scope remains ledger-history-only; market-refresh diagnostics are deferred.
@@ -174,9 +177,9 @@ Stay on the current `React + Vite` stack for the next delivery phases.
   - `POST /api/portfolio/quant-reports` with `portfolio` or `instrument_symbol` scope only
   - `GET /api/portfolio/quant-reports/{report_id}` for artifact retrieval with lifecycle controls
 - Placement matrix is frozen for this phase:
-  - Home: supplemental quant preview + report actions (section-scoped failure boundaries)
+  - Home: executive snapshot only (KPI + trend + drill-down links)
   - Risk: interpretation-sensitive risk context
-  - Quant reporting: explicit generation/retrieval lifecycle states and benchmark omission visibility
+  - Quant reporting: explicit generation/retrieval lifecycle states, benchmark omission visibility, and artifact preview
 
 ## Phase E: Optional Next.js Spike (conditional)
 
@@ -236,6 +239,39 @@ Run a bounded spike only if migration gates are satisfied.
 - Chart spacing and sizing are consistent across workspace routes.
 - Quant HTML report workflow is accessible from a dedicated analytical context and validated with route tests.
 - Preview/interpretation labels align with the promoted UX model and standards.
+
+### Phase F Implementation Status (2026-03-29)
+
+Delivered in frontend implementation:
+
+- Home is now an executive snapshot surface:
+  - KPI cards with explainability
+  - period-change waterfall
+  - trend preview with persistent risk deep-link
+  - deterministic drill-down links to Analytics, Risk, Quant/Reports, and Transactions
+- Analytics includes:
+  - trend module
+  - contribution bars + ranked list
+  - contribution waterfall (analyst attribution bridge)
+- Risk includes:
+  - estimator cards with per-metric explainability
+  - mixed-unit guardrail (no misleading single-axis mixed-unit risk chart)
+- Quant/Reports includes:
+  - quant scorecards with omission context
+  - explicit report lifecycle states (`loading`, `error`, `unavailable`, `ready`)
+  - report generation controls + HTML preview
+  - monthly returns heatmap-style module with explicit precision caveat
+
+Shipped vs approved follow-up derived indicators:
+
+- Shipped in Phase F:
+  - period-change waterfall
+  - contribution waterfall
+  - monthly returns heatmap-style module
+- Approved follow-up (not yet shipped in this phase):
+  - drawdown path series
+  - rolling volatility/beta series
+  - return-distribution histogram
 
 ## Standards and Quality Gates (Non-Negotiable)
 
