@@ -17,7 +17,7 @@ dependencies = [
     "structlog>=25.5.0",
     "uvicorn[standard]>=0.38.0",
     "yfinance>=0.2.66",
-    "numpy==2.4.3",
+    "numpy==2.4.4",
     "pandas==3.0.1",
     "scipy==1.17.1",
     "quantstats==0.0.81",
