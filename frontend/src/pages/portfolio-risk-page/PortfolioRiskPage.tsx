@@ -1,6 +1,12 @@
+import { useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 
 import { PortfolioRiskChart } from "../../components/charts/PortfolioRiskChart";
+import {
+  DrawdownTimelineChart,
+  ReturnDistributionChart,
+  RollingEstimatorsTimelineChart,
+} from "../../components/charts/PortfolioRiskEvolutionCharts";
 import { WorkspaceChartPanel } from "../../components/charts/WorkspaceChartPanel";
 import { EmptyState } from "../../components/empty-state/EmptyState";
 import { ErrorBanner } from "../../components/error-banner/ErrorBanner";
@@ -8,19 +14,46 @@ import { MetricExplainabilityPopover } from "../../components/metric-explainabil
 import { LoadingTableSkeleton } from "../../components/skeletons/LoadingTableSkeleton";
 import { PortfolioWorkspaceLayout } from "../../components/workspace-layout/PortfolioWorkspaceLayout";
 import { AppApiError } from "../../core/api/errors";
-import type { PortfolioRiskEstimatorMetric } from "../../core/api/schemas";
+import type {
+  PortfolioRiskEstimatorMetric,
+  PortfolioTimeSeriesScope,
+} from "../../core/api/schemas";
 import { formatDateTimeLabel } from "../../core/lib/dates";
 import { PortfolioChartPeriodControl } from "../../features/portfolio-workspace/PortfolioChartPeriodControl";
 import { resolveWorkspaceError } from "../../features/portfolio-workspace/errors";
 import {
   mapChartPeriodToRiskWindow,
-  usePortfolioRiskEstimatorsQuery,
+  usePortfolioHealthSynthesisQuery,
+  usePortfolioReturnDistributionQuery,
+  usePortfolioRiskEstimatorsScopedQuery,
+  usePortfolioRiskEvolutionQuery,
 } from "../../features/portfolio-workspace/hooks";
 import { sortRiskMetrics } from "../../features/portfolio-workspace/overview";
 import { resolvePortfolioChartPeriod } from "../../features/portfolio-workspace/period";
 
 function resolvePeriodFromSearchParams(searchParams: URLSearchParams) {
   return resolvePortfolioChartPeriod(searchParams.get("period"), "252D");
+}
+
+function resolveScopeFromSearchParams(
+  searchParams: URLSearchParams,
+): PortfolioTimeSeriesScope {
+  const scope = searchParams.get("scope");
+  if (scope === "instrument_symbol") {
+    return "instrument_symbol";
+  }
+  return "portfolio";
+}
+
+function resolveInstrumentSymbolFromSearchParams(
+  searchParams: URLSearchParams,
+): string | null {
+  const symbol = searchParams.get("instrument_symbol");
+  if (!symbol) {
+    return null;
+  }
+  const normalized = symbol.trim().toUpperCase();
+  return normalized.length > 0 ? normalized : null;
 }
 
 function resolveRiskErrorCopy(error: unknown): {
@@ -148,8 +181,37 @@ function groupRiskMetricsByUnit(
 export function PortfolioRiskPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const selectedPeriod = resolvePeriodFromSearchParams(searchParams);
+  const selectedScope = resolveScopeFromSearchParams(searchParams);
+  const selectedInstrumentSymbol = resolveInstrumentSymbolFromSearchParams(searchParams);
+  const isInstrumentScope = selectedScope === "instrument_symbol";
+  const isScopeReady = !isInstrumentScope || selectedInstrumentSymbol !== null;
   const selectedWindow = mapChartPeriodToRiskWindow(selectedPeriod);
-  const riskQuery = usePortfolioRiskEstimatorsQuery(selectedWindow);
+  const riskQuery = usePortfolioRiskEstimatorsScopedQuery(selectedWindow, {
+    scope: selectedScope,
+    instrumentSymbol: selectedInstrumentSymbol,
+    period: selectedPeriod,
+    enabled: isScopeReady,
+  });
+  const riskEvolutionQuery = usePortfolioRiskEvolutionQuery(selectedPeriod, {
+    scope: selectedScope,
+    instrumentSymbol: selectedInstrumentSymbol,
+    enabled: isScopeReady,
+  });
+  const returnDistributionQuery = usePortfolioReturnDistributionQuery(selectedPeriod, {
+    scope: selectedScope,
+    instrumentSymbol: selectedInstrumentSymbol,
+    binCount: 12,
+    enabled: isScopeReady,
+  });
+  const healthQuery = usePortfolioHealthSynthesisQuery(selectedPeriod, {
+    scope: selectedScope,
+    instrumentSymbol: selectedInstrumentSymbol,
+    profilePosture: "balanced",
+    enabled: isScopeReady,
+  });
+  const [showDrawdownSeries, setShowDrawdownSeries] = useState(true);
+  const [showRollingVolatilitySeries, setShowRollingVolatilitySeries] = useState(true);
+  const [showRollingBetaSeries, setShowRollingBetaSeries] = useState(true);
 
   const isLoading = riskQuery.isLoading;
   const isError = riskQuery.isError;
@@ -161,6 +223,30 @@ export function PortfolioRiskPage() {
     setSearchParams((previous) => {
       const next = new URLSearchParams(previous);
       next.set("period", nextPeriod);
+      return next;
+    });
+  }
+
+  function handleScopeChange(nextScope: PortfolioTimeSeriesScope): void {
+    setSearchParams((previous) => {
+      const next = new URLSearchParams(previous);
+      next.set("scope", nextScope);
+      if (nextScope === "portfolio") {
+        next.delete("instrument_symbol");
+      }
+      return next;
+    });
+  }
+
+  function handleInstrumentSymbolChange(nextSymbol: string): void {
+    const normalized = nextSymbol.trim().toUpperCase();
+    setSearchParams((previous) => {
+      const next = new URLSearchParams(previous);
+      if (normalized.length === 0) {
+        next.delete("instrument_symbol");
+      } else {
+        next.set("instrument_symbol", normalized);
+      }
       return next;
     });
   }
@@ -177,6 +263,30 @@ export function PortfolioRiskPage() {
       description="Risk estimators with explicit methodology metadata, unsupported-scope visibility, and risk-context interpretation boundaries."
       actions={
         <>
+          <label className="period-control">
+            <span className="period-control__label">Scope</span>
+            <select
+              aria-label="Select risk scope"
+              className="period-control__select"
+              onChange={(event) => handleScopeChange(event.target.value as PortfolioTimeSeriesScope)}
+              value={selectedScope}
+            >
+              <option value="portfolio">Portfolio</option>
+              <option value="instrument_symbol">Instrument</option>
+            </select>
+          </label>
+          {selectedScope === "instrument_symbol" ? (
+            <label className="period-control">
+              <span className="period-control__label">Symbol</span>
+              <input
+                aria-label="Instrument symbol"
+                className="period-control__select"
+                onChange={(event) => handleInstrumentSymbolChange(event.target.value)}
+                placeholder="AAPL"
+                value={selectedInstrumentSymbol ?? ""}
+              />
+            </label>
+          ) : null}
           <PortfolioChartPeriodControl
             value={selectedPeriod}
             onChange={handlePeriodChange}
@@ -192,6 +302,14 @@ export function PortfolioRiskPage() {
       periodLabel={selectedPeriod}
     >
       {isLoading ? <LoadingTableSkeleton rows={4} /> : null}
+
+      {!isScopeReady ? (
+        <ErrorBanner
+          title="Risk scope requires symbol"
+          message="Provide an instrument symbol to request instrument-scoped risk diagnostics."
+          variant="warning"
+        />
+      ) : null}
 
       {isError ? (
         <ErrorBanner
@@ -297,6 +415,205 @@ export function PortfolioRiskPage() {
             </div>
           </WorkspaceChartPanel>
         )
+      ) : null}
+
+      {isScopeReady ? (
+        <WorkspaceChartPanel
+          title="Health context bridge"
+          subtitle="Risk pillar contribution linked to aggregate portfolio-health interpretation."
+          shortDescription="Shows how current estimator posture affects overall health label and score."
+          longDescription="Use this bridge to connect estimator readings with executive health interpretation before moving to timeline diagnostics."
+        >
+          {healthQuery.isLoading ? <LoadingTableSkeleton rows={2} /> : null}
+          {healthQuery.isError ? (
+            <ErrorBanner
+              title="Health context unavailable"
+              message="Risk-to-health bridge could not be loaded for selected scope."
+              variant="warning"
+              actions={
+                <button
+                  className="button-primary"
+                  onClick={() => void healthQuery.refetch()}
+                  type="button"
+                >
+                  Retry health context
+                </button>
+              }
+            />
+          ) : null}
+          {healthQuery.isSuccess ? (
+            <>
+              <div className="chart-summary-grid">
+                <article className="chart-summary-card chart-summary-card--signal">
+                  <span className="chart-summary-card__label">Health label</span>
+                  <strong className="chart-summary-card__headline">
+                    {healthQuery.data.health_label}
+                  </strong>
+                  <p className="chart-summary-card__copy">
+                    Score {healthQuery.data.health_score}/100 for balanced posture.
+                  </p>
+                </article>
+                <article className="chart-summary-card chart-summary-card--accent">
+                  <span className="chart-summary-card__label">Risk pillar score</span>
+                  <strong className="chart-summary-card__headline">
+                    {healthQuery.data.pillars.find((pillar) => pillar.pillar_id === "risk")?.score ?? 0}/100
+                  </strong>
+                  <p className="chart-summary-card__copy">
+                    Derived from drawdown, volatility, VaR, and expected shortfall posture.
+                  </p>
+                </article>
+              </div>
+              <section className="context-banner context-banner--info" aria-live="polite">
+                <h3 className="context-banner__title">Health driver link</h3>
+                <p className="context-banner__copy">
+                  {healthQuery.data.key_drivers
+                    .filter((driver) => driver.direction === "penalizing")
+                    .slice(0, 2)
+                    .map((driver) => `${driver.label} ${driver.value_display}`)
+                    .join(" · ") || "No dominant penalizing risk drivers in current profile."}
+                </p>
+              </section>
+            </>
+          ) : null}
+        </WorkspaceChartPanel>
+      ) : null}
+
+      {isScopeReady ? (
+        <WorkspaceChartPanel
+          title="Drawdown path timeline"
+          subtitle="Peak-to-trough path across selected scope and period."
+          shortDescription="Use drawdown trajectory to understand depth and recovery rhythm, not only endpoint severity."
+          longDescription="Drawdown values are expressed as relative decline from the running peak in the selected scope. Persistent deep drawdowns indicate slower capital recovery dynamics."
+          actions={
+            <button
+              aria-label="Toggle drawdown series"
+              aria-pressed={showDrawdownSeries}
+              className="chart-chip"
+              onClick={() => setShowDrawdownSeries((previous) => !previous)}
+              type="button"
+            >
+              Drawdown series
+            </button>
+          }
+        >
+          {riskEvolutionQuery.isLoading ? <LoadingTableSkeleton rows={2} /> : null}
+          {riskEvolutionQuery.isError ? (
+            <ErrorBanner
+              title="Risk evolution unavailable"
+              message="Drawdown timeline could not be loaded for selected scope and period."
+              variant="warning"
+              actions={
+                <button
+                  className="button-primary"
+                  onClick={() => void riskEvolutionQuery.refetch()}
+                  type="button"
+                >
+                  Retry timeline
+                </button>
+              }
+            />
+          ) : null}
+          {riskEvolutionQuery.isSuccess &&
+          riskEvolutionQuery.data.drawdown_path_points.length > 0 ? (
+            <DrawdownTimelineChart
+              points={riskEvolutionQuery.data.drawdown_path_points}
+              showDrawdown={showDrawdownSeries}
+            />
+          ) : null}
+        </WorkspaceChartPanel>
+      ) : null}
+
+      {isScopeReady ? (
+        <WorkspaceChartPanel
+          title="Rolling estimator timeline"
+          subtitle="Time-evolution context for rolling volatility and rolling beta."
+          shortDescription="Rolling metrics provide trend context to support current snapshot interpretation."
+          longDescription="Rolling estimators are computed over a bounded trailing window. Use these paths to detect regime shifts rather than relying on one-point values."
+          actions={
+            <div className="chart-controls">
+              <button
+                aria-label="Toggle rolling volatility series"
+                aria-pressed={showRollingVolatilitySeries}
+                className="chart-chip"
+                onClick={() => setShowRollingVolatilitySeries((previous) => !previous)}
+                type="button"
+              >
+                Rolling volatility
+              </button>
+              <button
+                aria-label="Toggle rolling beta series"
+                aria-pressed={showRollingBetaSeries}
+                className="chart-chip"
+                onClick={() => setShowRollingBetaSeries((previous) => !previous)}
+                type="button"
+              >
+                Rolling beta
+              </button>
+            </div>
+          }
+        >
+          {riskEvolutionQuery.isLoading ? <LoadingTableSkeleton rows={2} /> : null}
+          {riskEvolutionQuery.isError ? (
+            <ErrorBanner
+              title="Rolling estimators unavailable"
+              message="Rolling timeline data could not be loaded for selected scope and period."
+              variant="warning"
+              actions={
+                <button
+                  className="button-primary"
+                  onClick={() => void riskEvolutionQuery.refetch()}
+                  type="button"
+                >
+                  Retry rolling series
+                </button>
+              }
+            />
+          ) : null}
+          {riskEvolutionQuery.isSuccess && riskEvolutionQuery.data.rolling_points.length > 0 ? (
+            <RollingEstimatorsTimelineChart
+              points={riskEvolutionQuery.data.rolling_points}
+              showVolatility={showRollingVolatilitySeries}
+              showBeta={showRollingBetaSeries}
+            />
+          ) : null}
+        </WorkspaceChartPanel>
+      ) : null}
+
+      {isScopeReady ? (
+        <WorkspaceChartPanel
+          title="Return distribution"
+          subtitle="Deterministic equal-width buckets over aligned return history."
+          shortDescription="Distribution shape complements drawdown and rolling metrics for risk storytelling."
+          longDescription="Histogram buckets are deterministic for equivalent input state and policy. Evaluate skew, tail concentration, and central tendency together with volatility and drawdown modules."
+        >
+          {returnDistributionQuery.isLoading ? <LoadingTableSkeleton rows={2} /> : null}
+          {returnDistributionQuery.isError ? (
+            <ErrorBanner
+              title="Return distribution unavailable"
+              message="Return-distribution buckets could not be loaded for selected scope and period."
+              variant="warning"
+              actions={
+                <button
+                  className="button-primary"
+                  onClick={() => void returnDistributionQuery.refetch()}
+                  type="button"
+                >
+                  Retry distribution
+                </button>
+              }
+            />
+          ) : null}
+          {returnDistributionQuery.isSuccess && returnDistributionQuery.data.buckets.length > 0 ? (
+            <>
+              <ReturnDistributionChart buckets={returnDistributionQuery.data.buckets} />
+              <p className="chart-footnote">
+                Bucket policy: {returnDistributionQuery.data.bucket_policy.method} (
+                {returnDistributionQuery.data.bucket_policy.bin_count} bins), sample size{" "}
+                {returnDistributionQuery.data.sample_size}.
+              </p>
+            </>
+          ) : null}
+        </WorkspaceChartPanel>
       ) : null}
     </PortfolioWorkspaceLayout>
   );

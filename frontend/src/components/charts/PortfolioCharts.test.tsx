@@ -61,6 +61,9 @@ const riskMetrics: PortfolioRiskEstimatorMetric[] = [
       value: 252,
     },
     as_of_timestamp: "2026-03-28T00:00:00Z",
+    unit: "ratio",
+    interpretation_band: "favorable",
+    timeline_series_id: "beta",
   },
   {
     estimator_id: "volatility_annualized",
@@ -72,6 +75,9 @@ const riskMetrics: PortfolioRiskEstimatorMetric[] = [
       value: 252,
     },
     as_of_timestamp: "2026-03-28T00:00:00Z",
+    unit: "percent",
+    interpretation_band: "favorable",
+    timeline_series_id: "volatility_annualized",
   },
 ];
 

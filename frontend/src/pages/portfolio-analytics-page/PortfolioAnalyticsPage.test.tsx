@@ -220,6 +220,16 @@ describe("PortfolioAnalyticsPage", () => {
     ).toBeInTheDocument();
   });
 
+  it("renders contribution leaders table with explicit directional semantics labels (fail-first)", () => {
+    setTimeSeriesState({ isSuccess: true, data: timeSeriesResponse });
+    setContributionState({ isSuccess: true, data: contributionResponse });
+
+    renderAnalyticsPage();
+
+    expect(screen.getByRole("columnheader", { name: "Net share (vs net period)" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Absolute share" })).toBeInTheDocument();
+  });
+
   it("limits period selector values to backend-supported enum options", () => {
     setTimeSeriesState({ isSuccess: true, data: timeSeriesResponse });
     setContributionState({ isSuccess: true, data: contributionResponse });

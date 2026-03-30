@@ -46,6 +46,7 @@ line-length = 100
 exclude = [
     ".git",
     ".venv",
+    ".uv-cache",
     "venv",
     "__pycache__",
     ".mypy_cache",
@@ -94,6 +95,7 @@ exclude = '''
 /(
     \.git
   | \.venv
+  | \.uv-cache
   | \.mypy_cache
   | \.pytest_cache
   | \.ruff_cache
@@ -106,6 +108,7 @@ exclude_dirs = [
     "tests",
     "alembic/versions",
     ".venv",
+    ".uv-cache",
     ".mypy_cache",
     ".pytest_cache",
     ".ruff_cache",
@@ -158,6 +161,7 @@ include = ["app"]
 exclude = [
     "**/__pycache__",
     ".venv",
+    ".uv-cache",
     ".mypy_cache",
     ".pytest_cache",
     ".ruff_cache"

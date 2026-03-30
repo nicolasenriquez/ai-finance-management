@@ -20,12 +20,14 @@ import {
 import { ThemeProvider } from "../../app/theme";
 import { AppApiError } from "../../core/api/errors";
 import type {
+  PortfolioHealthSynthesisResponse,
   PortfolioHierarchyResponse,
   PortfolioSummaryResponse,
   PortfolioTimeSeriesResponse,
 } from "../../core/api/schemas";
 import { usePortfolioSummaryQuery } from "../../features/portfolio-summary/hooks";
 import {
+  usePortfolioHealthSynthesisQuery,
   usePortfolioHierarchyQuery,
   usePortfolioTimeSeriesQuery,
 } from "../../features/portfolio-workspace/hooks";
@@ -41,6 +43,7 @@ vi.mock("../../features/portfolio-workspace/hooks", async () => {
   >("../../features/portfolio-workspace/hooks");
   return {
     ...actual,
+    usePortfolioHealthSynthesisQuery: vi.fn(),
     usePortfolioHierarchyQuery: vi.fn(),
     usePortfolioTimeSeriesQuery: vi.fn(),
   };
@@ -58,6 +61,7 @@ type QueryState<TData> = {
 const mockedUsePortfolioSummaryQuery = vi.mocked(usePortfolioSummaryQuery);
 const mockedUsePortfolioHierarchyQuery = vi.mocked(usePortfolioHierarchyQuery);
 const mockedUsePortfolioTimeSeriesQuery = vi.mocked(usePortfolioTimeSeriesQuery);
+const mockedUsePortfolioHealthSynthesisQuery = vi.mocked(usePortfolioHealthSynthesisQuery);
 
 const summaryResponse: PortfolioSummaryResponse = {
   as_of_ledger_at: "2026-03-28T00:00:00Z",
@@ -149,6 +153,68 @@ const hierarchyResponse: PortfolioHierarchyResponse = {
   ],
 };
 
+const healthResponse: PortfolioHealthSynthesisResponse = {
+  as_of_ledger_at: "2026-03-28T00:00:00Z",
+  scope: "portfolio",
+  instrument_symbol: null,
+  period: "30D",
+  profile_posture: "balanced",
+  health_score: 74,
+  health_label: "healthy",
+  threshold_policy_version: "health_v1_20260330",
+  pillars: [
+    {
+      pillar_id: "growth",
+      label: "Growth",
+      score: 80,
+      status: "favorable",
+      metrics: [
+        {
+          metric_id: "cagr",
+          label: "CAGR",
+          value_display: "+14.00%",
+          score: 80,
+          contribution: "supporting",
+        },
+      ],
+    },
+    {
+      pillar_id: "risk",
+      label: "Risk",
+      score: 58,
+      status: "caution",
+      metrics: [],
+    },
+    {
+      pillar_id: "risk_adjusted_quality",
+      label: "Risk-adjusted quality",
+      score: 72,
+      status: "favorable",
+      metrics: [],
+    },
+    {
+      pillar_id: "resilience",
+      label: "Resilience",
+      score: 68,
+      status: "caution",
+      metrics: [],
+    },
+  ],
+  key_drivers: [
+    {
+      metric_id: "cagr",
+      label: "CAGR",
+      direction: "supporting",
+      impact_points: 60,
+      rationale: "Growth output is strong versus long-term target bands.",
+      value_display: "+14.00%",
+    },
+  ],
+  health_caveats: ["Health synthesis supports interpretation and is not financial advice."],
+  core_metric_ids: ["cagr", "max_drawdown", "sharpe_ratio"],
+  advanced_metric_ids: ["value_at_risk_95"],
+};
+
 function installMatchMediaMock(prefersDark: boolean): void {
   Object.defineProperty(window, "matchMedia", {
     configurable: true,
@@ -222,6 +288,24 @@ function setHierarchyState(
   );
 }
 
+function setHealthState(
+  state: Partial<QueryState<PortfolioHealthSynthesisResponse>>,
+): void {
+  const queryState: QueryState<PortfolioHealthSynthesisResponse> = {
+    isLoading: false,
+    isError: false,
+    isSuccess: false,
+    data: undefined,
+    error: undefined,
+    refetch: vi.fn().mockResolvedValue(undefined),
+    ...state,
+  };
+
+  mockedUsePortfolioHealthSynthesisQuery.mockReturnValue(
+    queryState as ReturnType<typeof usePortfolioHealthSynthesisQuery>,
+  );
+}
+
 function renderHomePage(path = "/portfolio/home") {
   return render(
     <ThemeProvider>
@@ -240,6 +324,10 @@ describe("PortfolioHomePage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     installMatchMediaMock(false);
+    setHealthState({
+      isSuccess: true,
+      data: healthResponse,
+    });
   });
 
   it("renders loading state while home analytics requests are pending", () => {
@@ -309,6 +397,10 @@ describe("PortfolioHomePage", () => {
     renderHomePage();
 
     expect(screen.getByRole("heading", { name: "Portfolio KPIs" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Portfolio health synthesis" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Core 10 first")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Period change waterfall" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Trend preview" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Drill-down routes" })).toBeInTheDocument();
@@ -338,6 +430,10 @@ describe("PortfolioHomePage", () => {
     renderHomePage("/portfolio/home?period=BAD");
 
     expect(mockedUsePortfolioTimeSeriesQuery).toHaveBeenCalledWith("30D");
+    expect(mockedUsePortfolioHealthSynthesisQuery).toHaveBeenCalledWith("30D", {
+      scope: "portfolio",
+      profilePosture: "balanced",
+    });
     await user.selectOptions(
       screen.getByRole("combobox", { name: "Select analytics period" }),
       "90D",

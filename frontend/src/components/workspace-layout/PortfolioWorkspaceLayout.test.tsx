@@ -175,4 +175,12 @@ describe("PortfolioWorkspaceLayout", () => {
       "workspace-nav__link--active",
     );
   });
+
+  it("renders compact trust metadata with dedicated provenance row", () => {
+    renderWorkspaceRoute("/portfolio/home");
+
+    expect(screen.getAllByText("Scope").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Provenance").length).toBeGreaterThan(0);
+    expect(screen.getByLabelText("Data provenance")).toBeInTheDocument();
+  });
 });

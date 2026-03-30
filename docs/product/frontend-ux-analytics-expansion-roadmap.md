@@ -273,6 +273,42 @@ Shipped vs approved follow-up derived indicators:
   - rolling volatility/beta series
   - return-distribution histogram
 
+## Phase G: QuantStats Monte Carlo and Risk Evolution (2026-03-30)
+
+### Objectives
+
+- Promote Risk from snapshot-only interpretation to timeline-aware diagnostics.
+- Add bounded, explainable Monte Carlo diagnostics in Quant/Reports with deterministic lifecycle behavior.
+- Preserve strict scope symmetry (`portfolio` vs `instrument_symbol`) across analytics, risk, simulation, and reporting.
+
+### Delivered in this phase
+
+- Risk route now includes:
+  - drawdown path timeline
+  - rolling volatility/beta timeline module with deterministic toggles
+  - return-distribution module with explicit bucket-policy context
+- Quant/Reports now includes:
+  - bounded Monte Carlo control panel (`sims`, `horizon_days`, `bust`, `goal`, `seed`)
+  - explicit lifecycle rendering (`unavailable`, `loading`, `error`, `ready`)
+  - simulation summary cards (percentiles and threshold probabilities)
+  - compact lifecycle action cluster (scope + primary CTA + lifecycle context)
+  - semantic quant lens table for `30D`/`90D`/`252D` comparison readability
+- Analytics and Home supporting modules now include:
+  - contribution-table semantic label hardening (`signed`, `net share`, `absolute share`)
+  - hierarchy polish with sector-collapsed default state and explicit sortable-header arrows
+- Backend contracts now include:
+  - `/api/portfolio/risk-evolution`
+  - `/api/portfolio/return-distribution`
+  - `/api/portfolio/monte-carlo`
+  - simulation context lifecycle metadata in quant-report generation response
+
+### Explicit non-goals
+
+- no portfolio optimization recommendations
+- no trade execution automation
+- no predictive-certainty framing for Monte Carlo output
+- no scheduler/queue expansion in this phase
+
 ## Standards and Quality Gates (Non-Negotiable)
 
 - Keep existing frontend reliability rules:

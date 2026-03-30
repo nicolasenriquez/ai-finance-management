@@ -16,6 +16,13 @@ type PortfolioHierarchyTableProps = {
   onGroupByChange: (nextGroupBy: PortfolioHierarchyGroupBy) => void;
 };
 
+type HierarchySortField = "label" | "current_value" | "profit_loss" | "change_pct";
+type HierarchySortDirection = "asc" | "desc";
+type HierarchySortState = {
+  field: HierarchySortField;
+  direction: HierarchySortDirection;
+};
+
 const INSTRUMENT_DISPLAY_NAME_BY_SYMBOL: Record<string, string> = {
   AAPL: "Apple Inc.",
   MSFT: "Microsoft Corp.",
@@ -65,6 +72,92 @@ function formatSignedPercent(value: string | null): string {
   return `${fixedValue}%`;
 }
 
+function toSortableNumber(value: string | null): number {
+  if (value === null) {
+    return 0;
+  }
+  const parsedValue = Number.parseFloat(value);
+  if (!Number.isFinite(parsedValue)) {
+    return 0;
+  }
+  return parsedValue;
+}
+
+function compareLabelValues(leftValue: string, rightValue: string): number {
+  return leftValue.localeCompare(rightValue, undefined, {
+    sensitivity: "base",
+    numeric: true,
+  });
+}
+
+function compareNumericValues(leftValue: number, rightValue: number): number {
+  if (leftValue === rightValue) {
+    return 0;
+  }
+  return leftValue > rightValue ? 1 : -1;
+}
+
+function resolveSortArrow(
+  sortState: HierarchySortState,
+  field: HierarchySortField,
+): string {
+  if (sortState.field !== field) {
+    return "↕";
+  }
+  return sortState.direction === "asc" ? "↑" : "↓";
+}
+
+function resolveAriaSort(
+  sortState: HierarchySortState,
+  field: HierarchySortField,
+): "none" | "ascending" | "descending" {
+  if (sortState.field !== field) {
+    return "none";
+  }
+  return sortState.direction === "asc" ? "ascending" : "descending";
+}
+
+function sortAssetsForGroup(
+  assets: PortfolioHierarchyAssetRow[],
+  sortState: HierarchySortState,
+): PortfolioHierarchyAssetRow[] {
+  const sortedAssets = [...assets];
+  sortedAssets.sort((leftAsset, rightAsset) => {
+    let comparison = 0;
+    if (sortState.field === "label") {
+      comparison = compareLabelValues(
+        leftAsset.instrument_symbol,
+        rightAsset.instrument_symbol,
+      );
+    } else if (sortState.field === "current_value") {
+      comparison = compareNumericValues(
+        toSortableNumber(leftAsset.market_value_usd),
+        toSortableNumber(rightAsset.market_value_usd),
+      );
+    } else if (sortState.field === "profit_loss") {
+      comparison = compareNumericValues(
+        toSortableNumber(leftAsset.profit_loss_usd),
+        toSortableNumber(rightAsset.profit_loss_usd),
+      );
+    } else {
+      comparison = compareNumericValues(
+        toSortableNumber(leftAsset.change_pct),
+        toSortableNumber(rightAsset.change_pct),
+      );
+    }
+
+    if (comparison === 0) {
+      return compareLabelValues(
+        leftAsset.instrument_symbol,
+        rightAsset.instrument_symbol,
+      );
+    }
+
+    return sortState.direction === "asc" ? comparison : -comparison;
+  });
+  return sortedAssets;
+}
+
 function renderLotRows(lots: PortfolioHierarchyLotRow[]) {
   return lots.map((lot) => {
     const lotProfitTone = resolveMoneyTone(lot.profit_loss_usd);
@@ -101,21 +194,57 @@ export function PortfolioHierarchyTable({
 }: PortfolioHierarchyTableProps) {
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [expandedAssets, setExpandedAssets] = useState<Set<string>>(new Set());
+  const [sortState, setSortState] = useState<HierarchySortState>({
+    field: "label",
+    direction: "asc",
+  });
+
+  const sortedGroups = useMemo(() => {
+    const sortableGroups = [...groups];
+    sortableGroups.sort((leftGroup, rightGroup) => {
+      let comparison = 0;
+      if (sortState.field === "label") {
+        comparison = compareLabelValues(leftGroup.group_label, rightGroup.group_label);
+      } else if (sortState.field === "current_value") {
+        comparison = compareNumericValues(
+          toSortableNumber(leftGroup.total_market_value_usd),
+          toSortableNumber(rightGroup.total_market_value_usd),
+        );
+      } else if (sortState.field === "profit_loss") {
+        comparison = compareNumericValues(
+          toSortableNumber(leftGroup.total_profit_loss_usd),
+          toSortableNumber(rightGroup.total_profit_loss_usd),
+        );
+      } else {
+        comparison = compareNumericValues(
+          toSortableNumber(leftGroup.total_change_pct),
+          toSortableNumber(rightGroup.total_change_pct),
+        );
+      }
+
+      if (comparison === 0) {
+        return compareLabelValues(leftGroup.group_label, rightGroup.group_label);
+      }
+
+      return sortState.direction === "asc" ? comparison : -comparison;
+    });
+    return sortableGroups;
+  }, [groups, sortState]);
 
   const allGroupKeys = useMemo(
-    () => groups.map((group) => group.group_key),
-    [groups],
+    () => sortedGroups.map((group) => group.group_key),
+    [sortedGroups],
   );
   const allAssetKeys = useMemo(
     () =>
-      groups.flatMap((group) =>
+      sortedGroups.flatMap((group) =>
         group.assets.map((asset) => `${group.group_key}:${asset.instrument_symbol}`),
       ),
-    [groups],
+    [sortedGroups],
   );
 
   useEffect(() => {
-    setExpandedGroups(new Set(allGroupKeys));
+    setExpandedGroups(new Set());
     setExpandedAssets(new Set());
   }, [allGroupKeys]);
 
@@ -157,6 +286,21 @@ export function PortfolioHierarchyTable({
 
   function collapseAllAssets(): void {
     setExpandedAssets(new Set());
+  }
+
+  function handleSortChange(field: HierarchySortField): void {
+    setSortState((previousSortState) => {
+      if (previousSortState.field === field) {
+        return {
+          field,
+          direction: previousSortState.direction === "asc" ? "desc" : "asc",
+        };
+      }
+      return {
+        field,
+        direction: field === "label" ? "asc" : "desc",
+      };
+    });
   }
 
   function renderAssetRow(groupKey: string, asset: PortfolioHierarchyAssetRow) {
@@ -212,7 +356,7 @@ export function PortfolioHierarchyTable({
           </td>
         </tr>
 
-          {isAssetExpanded ? (
+        {isAssetExpanded ? (
           <tr className="hierarchy-subrow" id={lotPanelId}>
             <td colSpan={6}>
               <div className="hierarchy-lot-container">
@@ -344,16 +488,72 @@ export function PortfolioHierarchyTable({
         <table className="data-table hierarchy-table">
           <thead>
             <tr>
-              <th>Asset / Group</th>
+              <th aria-sort={resolveAriaSort(sortState, "label")}>
+                <button
+                  aria-label="Sort hierarchy by asset or group"
+                  className={`hierarchy-sort-button ${
+                    sortState.field === "label" ? "hierarchy-sort-button--active" : ""
+                  }`}
+                  onClick={() => handleSortChange("label")}
+                  type="button"
+                >
+                  Asset / Group
+                  <span className="hierarchy-sort-button__arrow" aria-hidden="true">
+                    {resolveSortArrow(sortState, "label")}
+                  </span>
+                </button>
+              </th>
               <th className="numeric">Shares</th>
               <th className="numeric">Avg Price</th>
-              <th className="numeric">Current</th>
-              <th className="numeric">Profit/Loss</th>
-              <th className="numeric">Change</th>
+              <th aria-sort={resolveAriaSort(sortState, "current_value")} className="numeric">
+                <button
+                  aria-label="Sort hierarchy by current value"
+                  className={`hierarchy-sort-button hierarchy-sort-button--numeric ${
+                    sortState.field === "current_value" ? "hierarchy-sort-button--active" : ""
+                  }`}
+                  onClick={() => handleSortChange("current_value")}
+                  type="button"
+                >
+                  Current
+                  <span className="hierarchy-sort-button__arrow" aria-hidden="true">
+                    {resolveSortArrow(sortState, "current_value")}
+                  </span>
+                </button>
+              </th>
+              <th aria-sort={resolveAriaSort(sortState, "profit_loss")} className="numeric">
+                <button
+                  aria-label="Sort hierarchy by profit or loss"
+                  className={`hierarchy-sort-button hierarchy-sort-button--numeric ${
+                    sortState.field === "profit_loss" ? "hierarchy-sort-button--active" : ""
+                  }`}
+                  onClick={() => handleSortChange("profit_loss")}
+                  type="button"
+                >
+                  Profit/Loss
+                  <span className="hierarchy-sort-button__arrow" aria-hidden="true">
+                    {resolveSortArrow(sortState, "profit_loss")}
+                  </span>
+                </button>
+              </th>
+              <th aria-sort={resolveAriaSort(sortState, "change_pct")} className="numeric">
+                <button
+                  aria-label="Sort hierarchy by change percent"
+                  className={`hierarchy-sort-button hierarchy-sort-button--numeric ${
+                    sortState.field === "change_pct" ? "hierarchy-sort-button--active" : ""
+                  }`}
+                  onClick={() => handleSortChange("change_pct")}
+                  type="button"
+                >
+                  Change
+                  <span className="hierarchy-sort-button__arrow" aria-hidden="true">
+                    {resolveSortArrow(sortState, "change_pct")}
+                  </span>
+                </button>
+              </th>
             </tr>
           </thead>
           <tbody>
-            {groups.map((group) => {
+            {sortedGroups.map((group) => {
               const isGroupExpanded = expandedGroups.has(group.group_key);
               const groupProfitTone = resolveMoneyTone(group.total_profit_loss_usd);
               const groupChangeTone = isPositiveDecimal(group.total_change_pct)
@@ -404,7 +604,9 @@ export function PortfolioHierarchyTable({
                     </td>
                   </tr>
                   {isGroupExpanded
-                    ? group.assets.map((asset) => renderAssetRow(group.group_key, asset))
+                    ? sortAssetsForGroup(group.assets, sortState).map((asset) =>
+                        renderAssetRow(group.group_key, asset),
+                      )
                     : null}
                 </Fragment>
               );

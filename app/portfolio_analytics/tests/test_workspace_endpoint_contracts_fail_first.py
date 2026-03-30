@@ -520,6 +520,66 @@ def test_risk_estimators_endpoint_rejects_insufficient_history_explicitly(
 
 
 @pytest.mark.integration
+def test_risk_estimators_endpoint_infers_period_from_window_when_period_omitted(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Risk-estimators endpoint should infer period metadata from window when period query is omitted."""
+
+    routes_module = _load_portfolio_analytics_routes_module()
+    endpoint_path = _workspace_endpoint_path(suffix="risk-estimators")
+    _assert_endpoint_registered(
+        path=endpoint_path,
+        guidance="Risk-estimators route must remain registered for period/window inference.",
+    )
+    _assert_routes_callable_exists(
+        module=routes_module,
+        callable_name="get_portfolio_risk_estimators_response",
+        guidance="Risk-estimators route should dispatch to typed service response callable.",
+    )
+
+    captured_period_values: list[str] = []
+
+    async def _fake_risk_response(**kwargs: Any) -> dict[str, Any]:
+        normalized_period = kwargs.get("period")
+        if normalized_period is None or not hasattr(normalized_period, "value"):
+            raise AssertionError(
+                "Normalized period enum should be passed when period query parameter is omitted."
+            )
+        captured_period_values.append(str(normalized_period.value))
+        return {
+            "as_of_ledger_at": "2026-03-28T00:00:00Z",
+            "window_days": int(kwargs.get("window_days", 30)),
+            "metrics": [
+                {
+                    "estimator_id": "beta",
+                    "value": "0.920000",
+                    "window_days": int(kwargs.get("window_days", 30)),
+                    "return_basis": "simple",
+                    "annualization_basis": {
+                        "kind": "trading_days",
+                        "value": 252,
+                    },
+                    "as_of_timestamp": "2026-03-28T00:00:00Z",
+                }
+            ],
+        }
+
+    monkeypatch.setattr(
+        routes_module,
+        "get_portfolio_risk_estimators_response",
+        _fake_risk_response,
+    )
+
+    with TestClient(app) as client:
+        response_90 = client.get(endpoint_path, params={"window_days": 90})
+        response_default = client.get(endpoint_path)
+
+    assert response_90.status_code == 200
+    assert response_default.status_code == 200
+    assert captured_period_values == ["90D", "30D"]
+
+
+@pytest.mark.integration
 def test_hierarchy_endpoint_contract_includes_grouping_and_provenance_fields(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -896,3 +956,572 @@ def test_quant_report_generation_exposes_explicit_lifecycle_metadata(
     assert response.status_code == 201
     payload = response.json()
     assert payload["lifecycle_status"] == "ready"
+
+
+@pytest.mark.integration
+def test_risk_evolution_endpoint_contract_includes_drawdown_and_rolling_series(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Risk-evolution endpoint should expose chart-ready drawdown and rolling series."""
+
+    routes_module = _load_portfolio_analytics_routes_module()
+    endpoint_path = _workspace_endpoint_path(suffix="risk-evolution")
+    _assert_endpoint_registered(
+        path=endpoint_path,
+        guidance="Implement task 2.2 before enabling risk-evolution contracts.",
+    )
+    _assert_routes_callable_exists(
+        module=routes_module,
+        callable_name="get_portfolio_risk_evolution_response",
+        guidance="Task 2.2 should wire risk-evolution route to typed service response.",
+    )
+
+    async def _fake_risk_evolution_response(**_: Any) -> dict[str, Any]:
+        return {
+            "as_of_ledger_at": "2026-03-28T00:00:00Z",
+            "scope": "instrument_symbol",
+            "instrument_symbol": "VOO",
+            "period": "252D",
+            "rolling_window_days": 30,
+            "methodology": {
+                "drawdown_method": "running_peak_relative_decline",
+                "rolling_volatility_method": "rolling_std_x_sqrt_252",
+                "rolling_beta_method": "rolling_covariance_div_variance",
+            },
+            "drawdown_path_points": [
+                {"captured_at": "2026-03-20T00:00:00Z", "drawdown": "-0.020000"},
+                {"captured_at": "2026-03-21T00:00:00Z", "drawdown": "-0.018000"},
+            ],
+            "rolling_points": [
+                {
+                    "captured_at": "2026-03-20T00:00:00Z",
+                    "volatility_annualized": "0.210000",
+                    "beta": "0.920000",
+                }
+            ],
+        }
+
+    monkeypatch.setattr(
+        routes_module,
+        "get_portfolio_risk_evolution_response",
+        _fake_risk_evolution_response,
+    )
+
+    with TestClient(app) as client:
+        response = client.get(
+            endpoint_path,
+            params={
+                "period": "252D",
+                "scope": "instrument_symbol",
+                "instrument_symbol": " voo ",
+            },
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["scope"] == "instrument_symbol"
+    assert payload["instrument_symbol"] == "VOO"
+    assert payload["period"] == "252D"
+    assert payload["rolling_window_days"] == 30
+    assert isinstance(payload["drawdown_path_points"], list)
+    assert isinstance(payload["rolling_points"], list)
+    assert payload["methodology"]["drawdown_method"]
+
+
+@pytest.mark.integration
+def test_return_distribution_endpoint_contract_exposes_bucket_policy_metadata(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Return-distribution endpoint should expose deterministic bucket policy metadata."""
+
+    routes_module = _load_portfolio_analytics_routes_module()
+    endpoint_path = _workspace_endpoint_path(suffix="return-distribution")
+    _assert_endpoint_registered(
+        path=endpoint_path,
+        guidance="Implement task 2.2 before enabling return-distribution contracts.",
+    )
+    _assert_routes_callable_exists(
+        module=routes_module,
+        callable_name="get_portfolio_return_distribution_response",
+        guidance="Task 2.2 should wire return-distribution route to typed service response.",
+    )
+
+    async def _fake_distribution_response(**_: Any) -> dict[str, Any]:
+        return {
+            "as_of_ledger_at": "2026-03-28T00:00:00Z",
+            "scope": "portfolio",
+            "instrument_symbol": None,
+            "period": "90D",
+            "sample_size": 89,
+            "bucket_policy": {
+                "method": "equal_width",
+                "bin_count": 12,
+                "min_return": "-0.061200",
+                "max_return": "0.047300",
+            },
+            "buckets": [
+                {
+                    "bucket_index": 0,
+                    "lower_bound": "-0.061200",
+                    "upper_bound": "-0.052000",
+                    "count": 2,
+                    "frequency": "0.022472",
+                }
+            ],
+        }
+
+    monkeypatch.setattr(
+        routes_module,
+        "get_portfolio_return_distribution_response",
+        _fake_distribution_response,
+    )
+
+    with TestClient(app) as client:
+        response = client.get(
+            endpoint_path,
+            params={"period": "90D"},
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["scope"] == "portfolio"
+    assert payload["instrument_symbol"] is None
+    assert payload["bucket_policy"]["method"] == "equal_width"
+    assert payload["bucket_policy"]["bin_count"] == 12
+    assert isinstance(payload["buckets"], list)
+
+
+@pytest.mark.integration
+def test_monte_carlo_endpoint_contract_exposes_effective_parameters_and_summary(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Monte Carlo endpoint should expose effective envelope and summary payload shape."""
+
+    routes_module = _load_portfolio_analytics_routes_module()
+    endpoint_path = _workspace_endpoint_path(suffix="monte-carlo")
+    _assert_endpoint_registered(
+        path=endpoint_path,
+        guidance="Implement task 2.1 before enabling Monte Carlo endpoint contracts.",
+    )
+    _assert_routes_callable_exists(
+        module=routes_module,
+        callable_name="generate_portfolio_monte_carlo_response",
+        guidance="Task 2.1 should wire Monte Carlo route to typed service response.",
+    )
+
+    async def _fake_monte_carlo_response(**_: Any) -> dict[str, Any]:
+        return {
+            "as_of_ledger_at": "2026-03-28T00:00:00Z",
+            "scope": "portfolio",
+            "instrument_symbol": None,
+            "period": "90D",
+            "simulation": {
+                "sims": 1000,
+                "horizon_days": 90,
+                "seed": 20260330,
+                "bust_threshold": "-0.200000",
+                "goal_threshold": "0.300000",
+            },
+            "assumptions": {
+                "model": "quantstats_shuffled_returns",
+                "notes": [
+                    "Simulation shuffles historical simple returns.",
+                    "Monte Carlo output is scenario-based and not predictive.",
+                ],
+            },
+            "summary": {
+                "start_value_usd": "12668.08",
+                "median_ending_value_usd": "13214.90",
+                "mean_ending_return": "0.042100",
+                "bust_probability": "0.083000",
+                "goal_probability": "0.312000",
+                "interpretation_signal": "balanced",
+            },
+            "ending_return_percentiles": [
+                {"percentile": 5, "value": "-0.190000"},
+                {"percentile": 50, "value": "0.040000"},
+                {"percentile": 95, "value": "0.280000"},
+            ],
+            "profile_comparison_enabled": True,
+            "calibration_context": {
+                "requested_basis": "monthly",
+                "effective_basis": "monthly",
+                "sample_size": 30,
+                "lookback_start": "2023-01-31T00:00:00Z",
+                "lookback_end": "2025-06-30T00:00:00Z",
+                "used_fallback": False,
+                "fallback_reason": None,
+            },
+            "profile_scenarios": [
+                {
+                    "profile_id": "conservative",
+                    "label": "Conservative",
+                    "bust_threshold": "-0.100000",
+                    "goal_threshold": "0.120000",
+                    "bust_probability": "0.120000",
+                    "goal_probability": "0.420000",
+                    "interpretation_signal": "balanced",
+                },
+                {
+                    "profile_id": "balanced",
+                    "label": "Balanced",
+                    "bust_threshold": "-0.200000",
+                    "goal_threshold": "0.270000",
+                    "bust_probability": "0.083000",
+                    "goal_probability": "0.312000",
+                    "interpretation_signal": "balanced",
+                },
+                {
+                    "profile_id": "growth",
+                    "label": "Growth",
+                    "bust_threshold": "-0.300000",
+                    "goal_threshold": "0.450000",
+                    "bust_probability": "0.041000",
+                    "goal_probability": "0.210000",
+                    "interpretation_signal": "balanced",
+                },
+            ],
+        }
+
+    monkeypatch.setattr(
+        routes_module,
+        "generate_portfolio_monte_carlo_response",
+        _fake_monte_carlo_response,
+    )
+
+    with TestClient(app) as client:
+        response = client.post(
+            endpoint_path,
+            json={
+                "scope": "portfolio",
+                "period": "90D",
+                "sims": 1000,
+                "horizon_days": 90,
+                "bust_threshold": -0.2,
+                "goal_threshold": 0.3,
+                "seed": 20260330,
+            },
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["scope"] == "portfolio"
+    assert payload["simulation"]["sims"] == 1000
+    assert payload["simulation"]["horizon_days"] == 90
+    assert payload["simulation"]["seed"] == 20260330
+    assert payload["summary"]["median_ending_value_usd"]
+    assert isinstance(payload["ending_return_percentiles"], list)
+    assert payload["profile_comparison_enabled"] is True
+    assert payload["calibration_context"]["effective_basis"] == "monthly"
+    assert [row["profile_id"] for row in payload["profile_scenarios"]] == [
+        "conservative",
+        "balanced",
+        "growth",
+    ]
+
+
+@pytest.mark.integration
+def test_monte_carlo_endpoint_rejects_out_of_bounds_simulation_count() -> None:
+    """Monte Carlo endpoint should reject requests outside bounded sims envelope."""
+
+    endpoint_path = _workspace_endpoint_path(suffix="monte-carlo")
+    _assert_endpoint_registered(
+        path=endpoint_path,
+        guidance="Implement task 2.1 parameter-envelope validation before this test can pass.",
+    )
+
+    with TestClient(app) as client:
+        response = client.post(
+            endpoint_path,
+            json={
+                "scope": "portfolio",
+                "period": "90D",
+                "sims": 100,
+            },
+        )
+
+    assert response.status_code == 422
+    assert "sims" in str(response.json()).lower()
+
+
+@pytest.mark.integration
+def test_monte_carlo_endpoint_rejects_unsupported_calibration_basis() -> None:
+    """Monte Carlo endpoint should reject calibration basis values outside approved enum."""
+
+    endpoint_path = _workspace_endpoint_path(suffix="monte-carlo")
+    _assert_endpoint_registered(
+        path=endpoint_path,
+        guidance="Implement task 7.2 validation contract for calibration basis.",
+    )
+
+    with TestClient(app) as client:
+        response = client.post(
+            endpoint_path,
+            json={
+                "scope": "portfolio",
+                "period": "90D",
+                "sims": 1000,
+                "calibration_basis": "weekly",
+            },
+        )
+
+    assert response.status_code == 422
+    assert "calibration_basis" in str(response.json()).lower()
+
+
+@pytest.mark.integration
+def test_monte_carlo_endpoint_is_deterministic_for_equivalent_seed_and_state(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Equivalent seed + input should produce deterministic payload output."""
+
+    routes_module = _load_portfolio_analytics_routes_module()
+    endpoint_path = _workspace_endpoint_path(suffix="monte-carlo")
+    _assert_endpoint_registered(
+        path=endpoint_path,
+        guidance="Implement task 2.3 deterministic-seed contract before this test can pass.",
+    )
+    _assert_routes_callable_exists(
+        module=routes_module,
+        callable_name="generate_portfolio_monte_carlo_response",
+        guidance="Task 2.3 should route deterministic Monte Carlo seed handling through service.",
+    )
+
+    async def _fake_monte_carlo_response(**kwargs: Any) -> dict[str, Any]:
+        request = kwargs.get("request")
+        seed = getattr(request, "seed", None)
+        if seed is None:
+            raise AssertionError("Monte Carlo request seed should be available in typed request.")
+        return {
+            "as_of_ledger_at": "2026-03-28T00:00:00Z",
+            "scope": "portfolio",
+            "instrument_symbol": None,
+            "period": "90D",
+            "simulation": {
+                "sims": 1000,
+                "horizon_days": 90,
+                "seed": seed,
+                "bust_threshold": None,
+                "goal_threshold": None,
+            },
+            "assumptions": {
+                "model": "quantstats_shuffled_returns",
+                "notes": ["Deterministic seed-enabled simulation."],
+            },
+            "summary": {
+                "start_value_usd": "100.00",
+                "median_ending_value_usd": "103.00",
+                "mean_ending_return": "0.030000",
+                "bust_probability": None,
+                "goal_probability": None,
+                "interpretation_signal": "monitor",
+            },
+            "ending_return_percentiles": [
+                {"percentile": 50, "value": "0.030000"},
+            ],
+            "profile_comparison_enabled": True,
+            "calibration_context": {
+                "requested_basis": "manual",
+                "effective_basis": "manual",
+                "sample_size": 90,
+                "lookback_start": "2026-01-01T00:00:00Z",
+                "lookback_end": "2026-03-28T00:00:00Z",
+                "used_fallback": False,
+                "fallback_reason": None,
+            },
+            "profile_scenarios": [
+                {
+                    "profile_id": "conservative",
+                    "label": "Conservative",
+                    "bust_threshold": "-0.120000",
+                    "goal_threshold": "0.100000",
+                    "bust_probability": "0.200000",
+                    "goal_probability": "0.450000",
+                    "interpretation_signal": "balanced",
+                },
+                {
+                    "profile_id": "balanced",
+                    "label": "Balanced",
+                    "bust_threshold": "-0.200000",
+                    "goal_threshold": "0.180000",
+                    "bust_probability": "0.140000",
+                    "goal_probability": "0.390000",
+                    "interpretation_signal": "balanced",
+                },
+                {
+                    "profile_id": "growth",
+                    "label": "Growth",
+                    "bust_threshold": "-0.300000",
+                    "goal_threshold": "0.330000",
+                    "bust_probability": "0.080000",
+                    "goal_probability": "0.290000",
+                    "interpretation_signal": "balanced",
+                },
+            ],
+        }
+
+    monkeypatch.setattr(
+        routes_module,
+        "generate_portfolio_monte_carlo_response",
+        _fake_monte_carlo_response,
+    )
+
+    request_payload = {
+        "scope": "portfolio",
+        "period": "90D",
+        "sims": 1000,
+        "horizon_days": 90,
+        "seed": 20260330,
+    }
+
+    with TestClient(app) as client:
+        first_response = client.post(endpoint_path, json=request_payload)
+        second_response = client.post(endpoint_path, json=request_payload)
+
+    assert first_response.status_code == 200
+    assert second_response.status_code == 200
+    assert first_response.json() == second_response.json()
+
+
+@pytest.mark.integration
+def test_monte_carlo_endpoint_surfaces_insufficient_history_as_explicit_409(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Monte Carlo endpoint should surface insufficient-history failures explicitly."""
+
+    routes_module = _load_portfolio_analytics_routes_module()
+    endpoint_path = _workspace_endpoint_path(suffix="monte-carlo")
+    _assert_endpoint_registered(
+        path=endpoint_path,
+        guidance="Implement task 2.3 insufficiency contract before enabling this test.",
+    )
+    _assert_routes_callable_exists(
+        module=routes_module,
+        callable_name="generate_portfolio_monte_carlo_response",
+        guidance="Task 2.3 should expose explicit insufficiency failures from service layer.",
+    )
+
+    async def _raise_insufficient_history(**_: Any) -> dict[str, Any]:
+        raise PortfolioAnalyticsClientError(
+            "Insufficient persisted history for Monte Carlo horizon 252 days.",
+            status_code=409,
+        )
+
+    monkeypatch.setattr(
+        routes_module,
+        "generate_portfolio_monte_carlo_response",
+        _raise_insufficient_history,
+    )
+
+    with TestClient(app) as client:
+        response = client.post(
+            endpoint_path,
+            json={"scope": "portfolio", "period": "252D", "horizon_days": 252},
+        )
+
+    assert response.status_code == 409
+    assert "insufficient persisted history" in str(response.json()).lower()
+
+
+@pytest.mark.integration
+def test_health_synthesis_endpoint_contract_returns_required_shape(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Health synthesis endpoint should expose deterministic summary payload shape."""
+
+    routes_module = _load_portfolio_analytics_routes_module()
+    endpoint_path = _workspace_endpoint_path(suffix="health-synthesis")
+    _assert_endpoint_registered(
+        path=endpoint_path,
+        guidance="Implement task 8.2 before enabling this health contract test.",
+    )
+    _assert_routes_callable_exists(
+        module=routes_module,
+        callable_name="get_portfolio_health_synthesis_response",
+        guidance="Task 8.2 should wire health synthesis route to typed service contract.",
+    )
+
+    async def _fake_health_response(**_: Any) -> dict[str, Any]:
+        return {
+            "as_of_ledger_at": "2026-03-28T00:00:00Z",
+            "scope": "portfolio",
+            "instrument_symbol": None,
+            "period": "90D",
+            "profile_posture": "balanced",
+            "health_score": 74,
+            "health_label": "healthy",
+            "threshold_policy_version": "health_v1_20260330",
+            "pillars": [
+                {
+                    "pillar_id": "growth",
+                    "label": "Growth",
+                    "score": 80,
+                    "status": "favorable",
+                    "metrics": [
+                        {
+                            "metric_id": "cagr",
+                            "label": "CAGR",
+                            "value_display": "+14.00%",
+                            "score": 80,
+                            "contribution": "supporting",
+                        }
+                    ],
+                }
+            ],
+            "key_drivers": [
+                {
+                    "metric_id": "cagr",
+                    "label": "CAGR",
+                    "direction": "supporting",
+                    "impact_points": 60,
+                    "rationale": "Growth output is strong versus long-term target bands.",
+                    "value_display": "+14.00%",
+                }
+            ],
+            "health_caveats": [
+                "Health synthesis supports interpretation and is not financial advice."
+            ],
+            "core_metric_ids": ["cagr", "max_drawdown", "sharpe_ratio"],
+            "advanced_metric_ids": ["value_at_risk_95"],
+        }
+
+    monkeypatch.setattr(
+        routes_module,
+        "get_portfolio_health_synthesis_response",
+        _fake_health_response,
+    )
+
+    with TestClient(app) as client:
+        response = client.get(
+            endpoint_path,
+            params={"period": "90D", "scope": "portfolio", "profile_posture": "balanced"},
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["health_score"] == 74
+    assert payload["health_label"] == "healthy"
+    assert payload["profile_posture"] == "balanced"
+    assert isinstance(payload["pillars"], list)
+    assert isinstance(payload["key_drivers"], list)
+    assert isinstance(payload["health_caveats"], list)
+
+
+@pytest.mark.integration
+def test_health_synthesis_endpoint_rejects_instrument_scope_without_symbol() -> None:
+    """Instrument-scoped health synthesis requests should fail fast without symbol."""
+
+    endpoint_path = _workspace_endpoint_path(suffix="health-synthesis")
+    _assert_endpoint_registered(
+        path=endpoint_path,
+        guidance="Implement task 8.2 explicit scope validation before enabling this test.",
+    )
+
+    with TestClient(app) as client:
+        response = client.get(
+            endpoint_path,
+            params={"period": "90D", "scope": "instrument_symbol"},
+        )
+
+    assert response.status_code == 422
+    assert "instrument_symbol is required" in str(response.json()).lower()

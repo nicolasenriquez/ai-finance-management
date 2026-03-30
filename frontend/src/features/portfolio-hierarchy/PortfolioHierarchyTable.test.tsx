@@ -97,11 +97,6 @@ describe("PortfolioHierarchyTable", () => {
       />,
     );
 
-    expect(screen.getByText("AAPL")).toBeInTheDocument();
-
-    await user.click(
-      screen.getByRole("button", { name: "Toggle group Technology" }),
-    );
     expect(screen.queryByText("AAPL")).toBeNull();
 
     await user.click(
@@ -114,6 +109,29 @@ describe("PortfolioHierarchyTable", () => {
     );
     expect(
       screen.getByRole("heading", { name: "Individual Entries (Tax Lots)" }),
+    ).toBeInTheDocument();
+  });
+
+  it("renders sortable hierarchy headers with explicit sort controls (fail-first)", () => {
+    render(
+      <PortfolioHierarchyTable
+        groups={groups}
+        groupBy="sector"
+        onGroupByChange={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.getByRole("button", { name: "Sort hierarchy by asset or group" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Sort hierarchy by current value" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Sort hierarchy by profit or loss" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Sort hierarchy by change percent" }),
     ).toBeInTheDocument();
   });
 });

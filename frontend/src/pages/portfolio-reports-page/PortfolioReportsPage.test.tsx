@@ -21,6 +21,9 @@ import { ThemeProvider } from "../../app/theme";
 import { AppApiError } from "../../core/api/errors";
 import type {
   PortfolioContributionResponse,
+  PortfolioHealthSynthesisResponse,
+  PortfolioMonteCarloRequest,
+  PortfolioMonteCarloResponse,
   PortfolioQuantMetricsResponse,
   PortfolioQuantReportGenerateRequest,
   PortfolioQuantReportGenerateResponse,
@@ -30,6 +33,8 @@ import type {
 import { usePortfolioSummaryQuery } from "../../features/portfolio-summary/hooks";
 import {
   usePortfolioContributionQuery,
+  usePortfolioHealthSynthesisQuery,
+  usePortfolioMonteCarloMutation,
   usePortfolioQuantMetricsQuery,
   usePortfolioQuantReportGenerateMutation,
   usePortfolioQuantReportHtmlQuery,
@@ -48,6 +53,8 @@ vi.mock("../../features/portfolio-workspace/hooks", async () => {
   return {
     ...actual,
     usePortfolioContributionQuery: vi.fn(),
+    usePortfolioHealthSynthesisQuery: vi.fn(),
+    usePortfolioMonteCarloMutation: vi.fn(),
     usePortfolioQuantMetricsQuery: vi.fn(),
     usePortfolioQuantReportGenerateMutation: vi.fn(),
     usePortfolioQuantReportHtmlQuery: vi.fn(),
@@ -76,7 +83,11 @@ type MutationState<TData, TVariables> = {
 const mockedUsePortfolioSummaryQuery = vi.mocked(usePortfolioSummaryQuery);
 const mockedUsePortfolioTimeSeriesQuery = vi.mocked(usePortfolioTimeSeriesQuery);
 const mockedUsePortfolioContributionQuery = vi.mocked(usePortfolioContributionQuery);
+const mockedUsePortfolioHealthSynthesisQuery = vi.mocked(
+  usePortfolioHealthSynthesisQuery,
+);
 const mockedUsePortfolioQuantMetricsQuery = vi.mocked(usePortfolioQuantMetricsQuery);
+const mockedUsePortfolioMonteCarloMutation = vi.mocked(usePortfolioMonteCarloMutation);
 const mockedUsePortfolioQuantReportGenerateMutation = vi.mocked(
   usePortfolioQuantReportGenerateMutation,
 );
@@ -183,6 +194,132 @@ const quantReportGenerateResponse: PortfolioQuantReportGenerateResponse = {
   benchmark_symbol: "SP500_PROXY",
   generated_at: "2026-03-28T00:00:00Z",
   expires_at: "2026-03-28T01:00:00Z",
+  simulation_context_status: "unavailable",
+  simulation_context_reason: null,
+};
+
+const monteCarloResponse: PortfolioMonteCarloResponse = {
+  as_of_ledger_at: "2026-03-28T00:00:00Z",
+  scope: "portfolio",
+  instrument_symbol: null,
+  period: "90D",
+  simulation: {
+    sims: 1000,
+    horizon_days: 90,
+    seed: 20260330,
+    bust_threshold: "-0.200000",
+    goal_threshold: "0.300000",
+  },
+  assumptions: {
+    model: "quantstats_shuffled_returns",
+    notes: ["Simulation shuffles historical returns."],
+  },
+  summary: {
+    start_value_usd: "10000.00",
+    median_ending_value_usd: "10420.00",
+    mean_ending_return: "0.041000",
+    bust_probability: "0.080000",
+    goal_probability: "0.310000",
+    interpretation_signal: "balanced",
+  },
+  ending_return_percentiles: [
+    { percentile: 5, value: "-0.190000" },
+    { percentile: 50, value: "0.040000" },
+    { percentile: 95, value: "0.270000" },
+  ],
+  profile_comparison_enabled: true,
+  calibration_context: {
+    requested_basis: "monthly",
+    effective_basis: "monthly",
+    sample_size: 48,
+    lookback_start: "2022-01-31T00:00:00Z",
+    lookback_end: "2026-03-31T00:00:00Z",
+    used_fallback: false,
+    fallback_reason: null,
+  },
+  profile_scenarios: [
+    {
+      profile_id: "conservative",
+      label: "Conservative",
+      bust_threshold: "-0.100000",
+      goal_threshold: "0.120000",
+      bust_probability: "0.140000",
+      goal_probability: "0.510000",
+      interpretation_signal: "upside_favorable",
+    },
+    {
+      profile_id: "balanced",
+      label: "Balanced",
+      bust_threshold: "-0.200000",
+      goal_threshold: "0.270000",
+      bust_probability: "0.080000",
+      goal_probability: "0.310000",
+      interpretation_signal: "balanced",
+    },
+    {
+      profile_id: "growth",
+      label: "Growth",
+      bust_threshold: "-0.300000",
+      goal_threshold: "0.450000",
+      bust_probability: "0.040000",
+      goal_probability: "0.190000",
+      interpretation_signal: "balanced",
+    },
+  ],
+};
+
+const healthResponse: PortfolioHealthSynthesisResponse = {
+  as_of_ledger_at: "2026-03-28T00:00:00Z",
+  scope: "portfolio",
+  instrument_symbol: null,
+  period: "90D",
+  profile_posture: "balanced",
+  health_score: 72,
+  health_label: "healthy",
+  threshold_policy_version: "health_v1_20260330",
+  pillars: [
+    {
+      pillar_id: "growth",
+      label: "Growth",
+      score: 82,
+      status: "favorable",
+      metrics: [],
+    },
+    {
+      pillar_id: "risk",
+      label: "Risk",
+      score: 60,
+      status: "caution",
+      metrics: [],
+    },
+    {
+      pillar_id: "risk_adjusted_quality",
+      label: "Risk-adjusted quality",
+      score: 70,
+      status: "favorable",
+      metrics: [],
+    },
+    {
+      pillar_id: "resilience",
+      label: "Resilience",
+      score: 66,
+      status: "caution",
+      metrics: [],
+    },
+  ],
+  key_drivers: [
+    {
+      metric_id: "sharpe_ratio",
+      label: "Sharpe Ratio",
+      direction: "supporting",
+      impact_points: 52,
+      rationale: "Risk-adjusted efficiency supports the current return profile.",
+      value_display: "0.860",
+    },
+  ],
+  health_caveats: ["Health synthesis supports interpretation and is not financial advice."],
+  core_metric_ids: ["cagr", "max_drawdown", "sharpe_ratio"],
+  advanced_metric_ids: ["value_at_risk_95"],
 };
 
 function installMatchMediaMock(prefersDark: boolean): void {
@@ -276,6 +413,24 @@ function setContributionState(
   );
 }
 
+function setHealthState(
+  state: Partial<QueryState<PortfolioHealthSynthesisResponse>>,
+): void {
+  const queryState: QueryState<PortfolioHealthSynthesisResponse> = {
+    isLoading: false,
+    isError: false,
+    isSuccess: false,
+    data: undefined,
+    error: undefined,
+    refetch: vi.fn().mockResolvedValue(undefined),
+    ...state,
+  };
+
+  mockedUsePortfolioHealthSynthesisQuery.mockReturnValue(
+    queryState as ReturnType<typeof usePortfolioHealthSynthesisQuery>,
+  );
+}
+
 function setQuantReportGenerateState(
   state: Partial<
     MutationState<
@@ -299,6 +454,27 @@ function setQuantReportGenerateState(
 
   mockedUsePortfolioQuantReportGenerateMutation.mockReturnValue(
     mutationState as ReturnType<typeof usePortfolioQuantReportGenerateMutation>,
+  );
+}
+
+function setMonteCarloState(
+  state: Partial<MutationState<PortfolioMonteCarloResponse, PortfolioMonteCarloRequest>>,
+): void {
+  const mutationState: MutationState<
+    PortfolioMonteCarloResponse,
+    PortfolioMonteCarloRequest
+  > = {
+    isPending: false,
+    isError: false,
+    isSuccess: false,
+    data: undefined,
+    error: undefined,
+    mutateAsync: vi.fn().mockResolvedValue(monteCarloResponse),
+    ...state,
+  };
+
+  mockedUsePortfolioMonteCarloMutation.mockReturnValue(
+    mutationState as ReturnType<typeof usePortfolioMonteCarloMutation>,
   );
 }
 
@@ -339,9 +515,11 @@ describe("PortfolioReportsPage", () => {
     setSummaryState({ isSuccess: true, data: summaryResponse });
     setTimeSeriesState({ isSuccess: true, data: timeSeriesResponse });
     setContributionState({ isSuccess: true, data: contributionResponse });
+    setHealthState({ isSuccess: true, data: healthResponse });
     setQuantMetricsState({ isSuccess: true, data: quantMetricsResponse });
     setQuantReportGenerateState({});
     setQuantReportHtmlState({});
+    setMonteCarloState({});
   });
 
   it("renders loading state while quant metrics request is pending", () => {
@@ -431,6 +609,13 @@ describe("PortfolioReportsPage", () => {
     expect(screen.queryByText("-999.00")).not.toBeInTheDocument();
   });
 
+  it("renders quant lens as semantic table and compact lifecycle controls (fail-first)", () => {
+    const { container } = renderReportsPage();
+
+    expect(container.querySelector("table.quant-lens-table")).toBeInTheDocument();
+    expect(container.querySelector(".quant-lifecycle-controls")).toBeInTheDocument();
+  });
+
   it("renders ready state metadata and html preview for generated report", () => {
     setQuantReportGenerateState({
       isSuccess: true,
@@ -509,5 +694,206 @@ describe("PortfolioReportsPage", () => {
 
     expect(screen.getByText(/instrument symbol is required/i)).toBeInTheDocument();
     expect(mutateAsync).not.toHaveBeenCalled();
+  });
+
+  it("validates horizon against selected period capacity before dispatching Monte Carlo request", async () => {
+    const user = userEvent.setup();
+    const mutateAsync = vi.fn().mockResolvedValue(monteCarloResponse);
+    setMonteCarloState({ mutateAsync });
+
+    renderReportsPage("/portfolio/reports?period=30D");
+
+    const horizonInput = screen.getByRole("textbox", {
+      name: /simulation horizon days/i,
+    });
+    await user.clear(horizonInput);
+    await user.type(horizonInput, "30");
+    await user.click(screen.getByRole("button", { name: /run monte carlo simulation/i }));
+
+    expect(
+      screen.getByText(
+        "For 30D period, horizon days must be an integer between 5 and 29 return days.",
+      ),
+    ).toBeInTheDocument();
+    expect(mutateAsync).not.toHaveBeenCalled();
+  });
+
+  it("rejects non-numeric bust threshold input before dispatching Monte Carlo request", async () => {
+    const user = userEvent.setup();
+    const mutateAsync = vi.fn().mockResolvedValue(monteCarloResponse);
+    setMonteCarloState({ mutateAsync });
+
+    renderReportsPage();
+
+    const bustThresholdInput = screen.getByRole("textbox", { name: /bust threshold/i });
+    await user.clear(bustThresholdInput);
+    await user.type(bustThresholdInput, "abc");
+    await user.click(screen.getByRole("button", { name: /run monte carlo simulation/i }));
+
+    expect(
+      screen.getByText("Bust threshold must be a valid number or left empty."),
+    ).toBeInTheDocument();
+    expect(mutateAsync).not.toHaveBeenCalled();
+  });
+
+  it("rejects non-numeric goal threshold input before dispatching Monte Carlo request", async () => {
+    const user = userEvent.setup();
+    const mutateAsync = vi.fn().mockResolvedValue(monteCarloResponse);
+    setMonteCarloState({ mutateAsync });
+
+    renderReportsPage();
+
+    const goalThresholdInput = screen.getByRole("textbox", { name: /goal threshold/i });
+    await user.clear(goalThresholdInput);
+    await user.type(goalThresholdInput, "xyz");
+    await user.click(screen.getByRole("button", { name: /run monte carlo simulation/i }));
+
+    expect(
+      screen.getByText("Goal threshold must be a valid number or left empty."),
+    ).toBeInTheDocument();
+    expect(mutateAsync).not.toHaveBeenCalled();
+  });
+
+  it("renders Monte Carlo module with explicit unavailable state before first simulation", () => {
+    renderReportsPage();
+
+    expect(
+      screen.getByRole("heading", { name: /Monte Carlo diagnostics/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /Health scenario bridge/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Simulation lifecycle: unavailable/i)).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /Run Monte Carlo simulation/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("renders Monte Carlo loading state with explicit progress copy", () => {
+    setMonteCarloState({
+      isPending: true,
+    });
+
+    renderReportsPage();
+
+    expect(screen.getByText(/Simulation lifecycle: loading/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/running bounded quantstats monte carlo scenarios/i),
+    ).toBeInTheDocument();
+  });
+
+  it("renders Monte Carlo error state with retry affordance", () => {
+    setMonteCarloState({
+      isError: true,
+      error: new AppApiError("Monte Carlo failure", {
+        kind: "server_error",
+        detail: "Monte Carlo simulation failed for selected scope.",
+      }),
+    });
+
+    renderReportsPage();
+
+    expect(
+      screen.getByRole("heading", { name: /Simulation lifecycle: error/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Monte Carlo simulation failed for selected scope."),
+    ).toBeInTheDocument();
+  });
+
+  it("handles rejected Monte Carlo submission without unhandled rejection", async () => {
+    const user = userEvent.setup();
+    const mutationError = new AppApiError("Monte Carlo failure", {
+      kind: "server_error",
+      detail: "Monte Carlo simulation failed for selected scope.",
+    });
+    const mutateAsync = vi.fn().mockRejectedValue(mutationError);
+    setMonteCarloState({
+      isError: true,
+      error: mutationError,
+      mutateAsync,
+    });
+
+    renderReportsPage();
+
+    await user.click(screen.getByRole("button", { name: /run monte carlo simulation/i }));
+
+    expect(mutateAsync).toHaveBeenCalledTimes(1);
+    expect(
+      screen.getByRole("heading", { name: /Simulation lifecycle: error/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("renders Monte Carlo ready state summary cards", () => {
+    setMonteCarloState({
+      isSuccess: true,
+      data: monteCarloResponse,
+    });
+
+    renderReportsPage();
+
+    expect(screen.getByText(/Simulation lifecycle: ready/i)).toBeInTheDocument();
+    expect(screen.getByText(/Simulation scope/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Portfolio scope · 90D window · 90-day horizon\./i),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText(/P50 ending return/i).length).toBeGreaterThan(0);
+    expect(screen.getByText("+4.00%")).toBeInTheDocument();
+    expect(screen.getAllByText(/Bust probability/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText("8.00%").length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Goal probability/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText("31.00%").length).toBeGreaterThan(0);
+  });
+
+  it("renders panoramic profile scenario comparison with fixed profile order", () => {
+    setMonteCarloState({
+      isSuccess: true,
+      data: monteCarloResponse,
+    });
+
+    renderReportsPage();
+
+    expect(screen.getByRole("heading", { name: /profile scenario comparison/i })).toBeInTheDocument();
+    const profileRows = screen.getAllByTestId("monte-carlo-profile-row");
+    expect(profileRows).toHaveLength(3);
+    expect(profileRows[0]).toHaveTextContent("Conservative");
+    expect(profileRows[1]).toHaveTextContent("Balanced");
+    expect(profileRows[2]).toHaveTextContent("Growth");
+    expect(screen.getByText(/Calibration basis: monthly/i)).toBeInTheDocument();
+  });
+
+  it("supports profile controls while preserving manual input workflow", async () => {
+    const user = userEvent.setup();
+    const mutateAsync = vi.fn().mockResolvedValue(monteCarloResponse);
+    setMonteCarloState({ mutateAsync });
+
+    renderReportsPage();
+
+    await user.selectOptions(
+      screen.getByRole("combobox", { name: /calibration basis/i }),
+      "annual",
+    );
+    await user.click(screen.getByRole("button", { name: /apply profile growth/i }));
+    await user.click(screen.getByRole("button", { name: /run monte carlo simulation/i }));
+
+    const request = mutateAsync.mock.calls[0]?.[0] as PortfolioMonteCarloRequest;
+    expect(request.calibration_basis).toBe("annual");
+    expect(request.enable_profile_comparison).toBe(true);
+    expect(request.bust_threshold).not.toBeNull();
+    expect(request.goal_threshold).not.toBeNull();
+  });
+
+  it("allows disabling profile comparison and sends explicit request toggle", async () => {
+    const user = userEvent.setup();
+    const mutateAsync = vi.fn().mockResolvedValue(monteCarloResponse);
+    setMonteCarloState({ mutateAsync });
+
+    renderReportsPage();
+
+    await user.click(screen.getByRole("checkbox", { name: /enable profile compare/i }));
+    await user.click(screen.getByRole("button", { name: /run monte carlo simulation/i }));
+
+    const request = mutateAsync.mock.calls[0]?.[0] as PortfolioMonteCarloRequest;
+    expect(request.enable_profile_comparison).toBe(false);
   });
 });

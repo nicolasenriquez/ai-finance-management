@@ -95,6 +95,30 @@ QuantStats Monte Carlo uses return shuffling for path analysis:
 - Produces path-dependent variability for drawdown and risk characteristics.
 - Use explicit simulation parameters (`sims`, `seed`, `bust`, `goal`) and expose assumptions in UI/API metadata.
 
+### Frozen v1 simulation envelope
+
+| Parameter | Bound / rule |
+| --- | --- |
+| `scope` | `portfolio` or `instrument_symbol` only |
+| `instrument_symbol` | required for `instrument_symbol`; omitted for `portfolio` |
+| `period` | `30D`, `90D`, `252D`, `MAX` |
+| `sims` | `250..5000` |
+| `horizon_days` | `5..756` (plus period-aware client caps for `30D/90D/252D`) |
+| `seed` | `0..2147483647`, deterministic default when omitted |
+| `bust_threshold` | optional, `-0.95..0` |
+| `goal_threshold` | optional, `0..3` |
+| `calibration_basis` | `monthly`, `annual`, or `manual` |
+| `enable_profile_comparison` | boolean toggle for three-profile matrix |
+| threshold ordering | when both provided, `bust_threshold < goal_threshold` |
+
+Policy:
+
+- Invalid simulation parameters are explicit `422` client failures.
+- Insufficient aligned history is explicit `409`; never fabricate simulation output.
+- Equivalent persisted input state + seed must remain deterministic.
+- Profile comparison mode evaluates one deterministic path set and derives three profile outcomes (`Conservative`, `Balanced`, `Growth`) from that shared simulation context.
+- Historical calibration (`monthly`/`annual`) must expose sample-size and fallback metadata; insufficient sample must be explicit, not silent.
+
 Important interpretation note:
 
 - QuantStats documentation states shuffled-path simulations preserve the compounded terminal product; path-dependent metrics vary by sequence even when terminal product is preserved.
@@ -102,18 +126,39 @@ Important interpretation note:
 ## Frontend Integration Rules
 
 - Home route is an executive snapshot surface; it links to Quant/Reports and does not own report generation controls.
-- Risk route remains the primary context for interpretation-sensitive risk metrics (drawdown, volatility, methodology labels).
+- Risk route remains the primary context for interpretation-sensitive risk metrics (drawdown, volatility, beta, downside deviation, VaR, expected shortfall, methodology labels).
 - Quant/Reports route must display explicit scope, provenance, and generation lifecycle status (`loading`, `error`, `unavailable`, `ready`).
 - All quant-derived values must preserve deterministic formatting semantics (decimal-safe money/ratio presentation).
 - Non-functional analytical actions are prohibited; workflow actions must live in stable, testable surfaces (not tooltip-only controls).
+- KPI copy must keep portfolio-investing semantics (`realized/unrealized/period P&L`, `total return`) and must not mix business statement lines (`COGS`, `OPEX`, `EBITDA`).
 
 ### Metric Placement Matrix
 
 | Surface | Primary metric scope | Rules |
 | --- | --- | --- |
 | Home | High-signal KPI snapshot | No report generation controls; provide deterministic deep-link to Quant/Reports |
-| Risk | Interpretation-sensitive risk metrics | Drawdown/volatility/beta and methodology metadata are first-class here |
+| Risk | Interpretation-sensitive risk metrics | Drawdown/volatility/beta/downside deviation/VaR/expected shortfall and methodology metadata are first-class here |
 | Quant/Reports | Expanded quant diagnostics and tearsheets | Explicit report scope, benchmark context, generation lifecycle state, and artifact preview |
+
+### Risk interpretation guardrails
+
+Risk modules must keep mixed-unit and threshold-context guardrails explicit:
+
+- Mixed-unit estimator payloads must render separated groups (`percent` vs `ratio`) and must not be merged into a single misleading axis.
+- Each promoted estimator should expose threshold-context guidance:
+  - `max_drawdown`: favorable `<=10%`, caution `>10% and <=20%`, elevated `>20%`
+  - `volatility_annualized`: favorable `<=15%`, caution `>15% and <=25%`, elevated `>25%`
+  - `beta`: favorable `0.8..1.2`, caution `0.6..0.8 or 1.2..1.4`, elevated `<0.6 or >1.4`
+  - `value_at_risk_95`: favorable `<=2%`, caution `>2% and <=5%`, elevated `>5%`
+  - `expected_shortfall_95`: favorable `<=3%`, caution `>3% and <=6%`, elevated `>6%`
+
+### Simulation-context omission semantics
+
+Quant report contracts must not imply simulation readiness by absence:
+
+- `simulation_context_status=ready`: simulation metadata was computed and is safe to interpret.
+- `simulation_context_status=unavailable`: report generation succeeded but simulation context is intentionally omitted with factual reason.
+- `simulation_context_status=error`: simulation context failed; lifecycle is explicit and separate from core report artifact availability.
 
 ## Derived Metrics Scope Boundaries
 
@@ -123,11 +168,12 @@ Shipped in Phase F:
 - Report lifecycle + artifact preview
 - Monthly returns heatmap-style module with precision caveat copy
 
-Approved follow-up (not yet shipped in Phase F):
+Shipped in Phase G:
 
-- drawdown path visualization modules
-- rolling volatility/beta series modules
-- return-distribution histogram modules
+- risk-evolution modules (drawdown path + rolling volatility/beta timelines)
+- deterministic return-distribution histogram modules
+- bounded Monte Carlo control workflow and simulation summary cards
+- profile-calibrated three-scenario Monte Carlo comparison with basis controls (`monthly`, `annual`, `manual`)
 
 ## Testing Rules
 
@@ -159,4 +205,4 @@ npm --prefix frontend run build
 
 ---
 
-**Last Updated:** 2026-03-29
+**Last Updated:** 2026-03-30

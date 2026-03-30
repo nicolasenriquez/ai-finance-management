@@ -52,6 +52,7 @@ export function buildHomeMetricCards(
 ): MetricCard[] {
   const marketValue = sumSummaryValues(summaryRows, (row) => row.market_value_usd);
   const unrealizedGain = sumSummaryValues(summaryRows, (row) => row.unrealized_gain_usd);
+  const realizedPnl = sumSummaryValues(summaryRows, (row) => row.realized_gain_usd);
   const latestPoint = points.at(-1);
   const firstPoint = points.at(0);
   const periodPnl =
@@ -81,7 +82,7 @@ export function buildHomeMetricCards(
       label: "Unrealized gain",
       value: formatUsdMoney(unrealizedGain.toFixed(2)),
       tone: resolveMoneyTone(unrealizedGain.toFixed(2)),
-      hint: "Difference between open cost basis and market valuation.",
+      hint: "Unrealized P&L from open positions versus cost basis.",
       explainability: {
         shortDefinition: "Open-position gain/loss relative to cost basis.",
         whyItMatters: "Clarifies whether current holdings are above or below entry cost.",
@@ -93,10 +94,25 @@ export function buildHomeMetricCards(
       },
     },
     {
+      label: "Realized P&L",
+      value: formatUsdMoney(realizedPnl.toFixed(2)),
+      tone: resolveMoneyTone(realizedPnl.toFixed(2)),
+      hint: "Locked gain/loss from closed lots in persisted ledger history.",
+      explainability: {
+        shortDefinition: "Realized gain/loss from closed position events.",
+        whyItMatters: "Represents crystallized results that no longer depend on mark-to-market prices.",
+        interpretation: "Positive is locked profit; negative is locked loss.",
+        formulaOrBasis: "Sum of summary rows realized_gain_usd.",
+        comparisonContext: "Compare against unrealized gain and period change for full portfolio P&L framing.",
+        caveats: "Excludes tax and fee post-processing outside current dashboard contracts.",
+        currentContextNote: `Current realized P&L is ${formatUsdMoney(realizedPnl.toFixed(2))}.`,
+      },
+    },
+    {
       label: "Period change",
       value: formatUsdMoney(periodPnl.toFixed(2)),
       tone: resolveMoneyTone(periodPnl.toFixed(2)),
-      hint: "Latest value versus first available point in selected period.",
+      hint: "Period P&L: latest value versus first available point in selected period.",
       explainability: {
         shortDefinition: "Change in portfolio value over selected period.",
         whyItMatters: "Signals recent direction and magnitude of portfolio movement.",

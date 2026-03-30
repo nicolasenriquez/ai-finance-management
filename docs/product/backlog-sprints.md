@@ -350,6 +350,215 @@ Definition of Done:
 - TLS and access-control expectations are clear
 - hosted or remote PostgreSQL work has a defined security baseline
 
+## Sprint 7: Refactor and Code Health Checkpoint (Mandatory)
+
+### Item 7.1: Run full technical-debt baseline and prioritize remediation scope
+
+- capture backend/frontend quality baseline using repository gates
+- isolate unit versus integration regressions and classify blockers by severity
+- inventory high-complexity and oversized modules for staged refactor
+- map contract drift between backend schemas/routes and frontend API consumers
+
+Definition of Done:
+
+- current debt baseline is documented with reproducible command evidence
+- remediation scope is prioritized and bounded for this sprint
+- no blocker category is left implicit
+
+### Item 7.2: Refactor backend hotspots without changing product behavior
+
+- reduce complexity in known hotspot functions and modules
+- split oversized service internals into clearer boundaries where needed
+- remove stale adapter/helper coupling that causes contract instability
+- preserve fail-fast semantics and existing domain constraints
+
+Definition of Done:
+
+- backend quality gates are green (`ruff`, `black --check`, `mypy`, `pyright`, `ty`)
+- backend unit and required integration suites are green
+- behavior changes are either zero or explicitly documented/approved
+
+### Item 7.3: Refactor frontend contract and state handling for consistency
+
+- align frontend schemas with backend-required fields and lifecycle metadata
+- remove route-level UX/test drift introduced by in-flight contract changes
+- stabilize workspace state mapping for loading/error/unavailable/ready flows
+
+Definition of Done:
+
+- frontend quality gates are green (`lint`, `type-check`, `test`, `build`)
+- route-level tests reflect current API contracts and accessibility behavior
+- no required contract field remains optional by accident in the frontend boundary
+
+### Item 7.4: Close documentation and specification governance debt
+
+- update roadmap/backlog/guides to reflect final post-refactor posture
+- remove stale `TBD` placeholders in archived-spec purpose sections
+- confirm OpenSpec active-change and spec validation remain clean
+
+Definition of Done:
+
+- docs and OpenSpec artifacts are synchronized with current implementation state
+- `openspec validate --specs --all` passes
+- remaining deferred items are explicit and justified
+
+### Item 7.5: Checkpoint closeout and release readiness signoff
+
+- rerun full repository validation stack before exiting the sprint
+- capture updated security and frontend evidence artifacts
+- record final closeout in `CHANGELOG.md` with validation evidence
+
+Definition of Done:
+
+- all mandatory backend and frontend quality gates are green
+- security/accessibility/performance evidence is refreshed and linked
+- checkpoint is formally marked complete before any new feature phase starts
+
+## Sprint 8: QuantStats Monte Carlo and Risk Evolution
+
+Prerequisite: Sprint 7 checkpoint must be complete before this sprint opens.
+
+### Item 8.1: Add risk-evolution analytics contracts and computation
+
+- implement drawdown path, rolling volatility/beta, and deterministic return-distribution datasets
+- preserve scope symmetry across `portfolio` and `instrument_symbol` contexts
+- keep read-only boundaries over canonical, ledger, lot, and market-data truth
+
+Definition of Done:
+
+- backend contracts are typed, validated, and fail-fast for invalid scope/period/coverage
+- timeline and distribution payloads are deterministic for equivalent persisted state
+- targeted backend portfolio analytics tests are green
+
+### Item 8.2: Add bounded Monte Carlo diagnostics workflow
+
+- implement bounded simulation envelope (`sims`, `horizon_days`, `bust`, `goal`, `seed`)
+- expose explicit assumptions and percentile/probability outputs
+- enforce deterministic seeded behavior and explicit insufficient-history failures
+
+Definition of Done:
+
+- Monte Carlo contracts reject invalid envelopes explicitly
+- equivalent seed + state produce deterministic simulation outputs
+- simulation context is exposed explicitly (`ready`, `unavailable`, `error`) in quant-report metadata
+
+### Item 8.3: Upgrade Risk and Quant/Reports UX modules
+
+- add risk timeline modules with deterministic visibility toggles and accessibility labels
+- add return-distribution module with explicit bin-policy context
+- add Monte Carlo controls and lifecycle rendering (`unavailable`, `loading`, `error`, `ready`)
+
+Definition of Done:
+
+- frontend quality gates are green (`lint`, `type-check`, `test`, `build`)
+- route-level tests cover new risk and Monte Carlo lifecycle flows
+- mixed-unit and threshold-context interpretation guidance is visible in UI copy
+
+### Item 8.4: Close documentation and governance updates
+
+- update frontend API/UX guide and QuantStats standard with new contracts and guardrails
+- update roadmap/backlog/docs with explicit non-goal boundaries for this sprint
+- record implementation and validation evidence in `CHANGELOG.md`
+
+Definition of Done:
+
+- docs reflect shipped contracts and omission semantics
+- OpenSpec change/spec validation is green
+- non-goals are explicit and unchanged in implementation
+
+### Item 8.5: Add profile-calibrated Monte Carlo comparison and P&L semantic hardening
+
+- add three-scenario panoramic comparison (`Conservative`, `Balanced`, `Growth`) evaluated from one deterministic simulation context
+- add calibration-basis controls (`monthly`, `annual`, `manual`) with explicit insufficient-sample fallback metadata
+- preserve manual parameter controls (`sims`, horizon, bust, goal, seed) while enabling profile compare toggle and quick profile apply actions
+- align route copy to portfolio P&L semantics (`realized`, `unrealized`, `period change`, `total return`) and keep business-income-statement lines out of scope
+
+Definition of Done:
+
+- backend Monte Carlo response includes `calibration_context` and ordered `profile_scenarios` payloads
+- frontend Quant/Reports renders stable side-by-side profile matrix readable at a glance
+- Home/Analytics/Quant route copy remains semantically consistent with portfolio P&L framing
+- validation gates and OpenSpec change validation are green with evidence captured in changelog
+
+### Item 8.6: Frontend dense-table and control-surface polish hardening
+
+- set hierarchy table default state to sector-collapsed for lower first-load noise
+- add explicit sortable-header affordances with visible direction arrows in hierarchy
+- redesign quant lens as semantic dense table with deterministic period-column alignment
+- compact quant report lifecycle controls into one action-prioritized surface
+- harden contribution table semantics (`signed contribution`, `net share`, `absolute share`) without changing calculations
+
+Definition of Done:
+
+- hierarchy interactions remain keyboard reachable and deterministic after sorting/collapse changes
+- quant lens and contribution tables are scan-friendly with stable labels and numeric alignment
+- lifecycle controls preserve existing behavior while reducing vertical noise
+- frontend quality gates and OpenSpec validation are green with evidence captured in changelog
+
+## Sprint 9: AI Layering v1 - Read-Only Portfolio Copilot (Post-MVP Extension)
+
+Prerequisite: Sprint 8 must be complete and the approved analytics contracts must remain stable before this sprint opens.
+
+### Item 9.1: Freeze AI safety boundary and tool contract
+
+- define the allowlisted read-only tool set over existing aggregated analytics surfaces
+- freeze privacy-minimized prompt/context rules and explicit excluded sources
+- define explicit blocked-request behavior for execution, raw-data disclosure, and guaranteed-advice asks
+
+Definition of Done:
+
+- approved tool list is documented and bounded to read-only aggregated context
+- excluded sources are explicit, especially raw canonical payloads and unrestricted DB access
+- rejection and limitation semantics are frozen before implementation
+
+### Item 9.2: Implement the read-only backend portfolio copilot contract
+
+- add typed backend request/response contracts for grounded portfolio chat
+- keep the interaction stateless and bounded in v1
+- return structured evidence and limitation metadata with every answer
+
+Definition of Done:
+
+- backend AI contract is typed, validated, and fails fast for invalid or unsafe inputs
+- grounded responses include evidence references and visible limitations
+- request handling remains read-only over canonical, ledger, lot, and market-data truth
+
+### Item 9.3: Add deterministic opportunity scanner and narration workflow
+
+- define explicit candidate filters and ranking rules for addition or "discount" ideas
+- implement explicit insufficient-input failures for incomplete scoring context
+- keep AI limited to explanation of deterministic results
+
+Definition of Done:
+
+- candidate ranking is deterministic for equivalent state and inputs
+- insufficient scoring context is exposed explicitly instead of silently degraded
+- generated narration does not replace or hide the rule-derived result
+
+### Item 9.4: Deliver the frontend copilot workspace surface
+
+- add a dedicated Copilot route or equivalent stable workspace surface
+- render `idle`, `loading`, `error`, `blocked`, and `ready` states explicitly
+- separate answer text, evidence, and opportunity-result data in the UI
+
+Definition of Done:
+
+- frontend quality gates are green (`lint`, `type-check`, `test`, `build`)
+- route-level tests cover chat lifecycle and opportunity-result rendering
+- the UI shows visible guardrails for privacy boundary and non-advice posture
+
+### Item 9.5: Close AI-layer docs, validation, and governance updates
+
+- update roadmap/backlog and implementation-facing docs with AI guardrails and non-goals
+- record validation expectations and provider/runtime configuration guidance
+- capture delivery evidence in `CHANGELOG.md` and OpenSpec artifacts
+
+Definition of Done:
+
+- docs reflect the shipped AI boundary, omission semantics, and explicit non-goals
+- OpenSpec change/spec validation is green
+- implementation evidence is recorded without broadening scope beyond the approved AI slice
+
 ## Exit Criteria for MVP
 
 - dataset 1 is extracted deterministically
@@ -359,10 +568,12 @@ Definition of Done:
 - frontend MVP meets documented accessibility and performance gates
 - repository validation baseline remains green
 - accounting rules are frozen and reflected in tests
+- mandatory refactor and code-health checkpoint is completed
+- risk-evolution and Monte Carlo diagnostics are shipped with explicit guardrails
 
-## Explicitly Deferred Beyond Sprint 5
+## Explicitly Deferred Beyond Sprint 9
 
 - authentication
-- AI features and agent workflows
+- broader AI agent workflows, persistent memory, and RAG/vector infrastructure
 - Supabase migration
 - cloud deployment

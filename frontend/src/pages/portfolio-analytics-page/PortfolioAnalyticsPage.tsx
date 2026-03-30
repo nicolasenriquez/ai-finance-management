@@ -196,7 +196,7 @@ export function PortfolioAnalyticsPage() {
 
             <WorkspaceChartPanel
               title="Contribution leaders"
-              subtitle="Top symbols by absolute contribution in selected period."
+              subtitle="Top symbols by absolute contribution to selected-period P&L."
               shortDescription="Diverging bar view with net-share and absolute-share context for attribution clarity."
               longDescription="Use net share to understand directional drag/lift versus period net result, and absolute share to quantify concentration of movers."
             >
@@ -243,8 +243,8 @@ export function PortfolioAnalyticsPage() {
                   <div className="contribution-focus__header" role="row">
                     <span role="columnheader">Symbol</span>
                     <span role="columnheader">Contribution</span>
-                    <span role="columnheader">Net share</span>
-                    <span role="columnheader">Abs share</span>
+                    <span role="columnheader">Net share (vs net period)</span>
+                    <span role="columnheader">Absolute share</span>
                   </div>
                   {contributionInsight.rows.map((row) => (
                     <div className="contribution-focus__row" key={row.instrumentSymbol} role="row">

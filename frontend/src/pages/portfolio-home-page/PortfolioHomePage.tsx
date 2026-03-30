@@ -10,7 +10,10 @@ import { MetricExplainabilityPopover } from "../../components/metric-explainabil
 import { LoadingTableSkeleton } from "../../components/skeletons/LoadingTableSkeleton";
 import { PortfolioWorkspaceLayout } from "../../components/workspace-layout/PortfolioWorkspaceLayout";
 import { PortfolioHierarchyTable } from "../../features/portfolio-hierarchy/PortfolioHierarchyTable";
-import type { PortfolioHierarchyGroupBy } from "../../core/api/schemas";
+import type {
+  PortfolioHealthProfilePosture,
+  PortfolioHierarchyGroupBy,
+} from "../../core/api/schemas";
 import { formatPricingSnapshotProvenanceLabel } from "../../core/lib/provenance";
 import { buildHomeMetricCards } from "../../features/portfolio-workspace/overview";
 import { PortfolioChartPeriodControl } from "../../features/portfolio-workspace/PortfolioChartPeriodControl";
@@ -18,6 +21,7 @@ import { resolvePortfolioChartPeriod } from "../../features/portfolio-workspace/
 import { resolveWorkspaceError } from "../../features/portfolio-workspace/errors";
 import { usePortfolioSummaryQuery } from "../../features/portfolio-summary/hooks";
 import {
+  usePortfolioHealthSynthesisQuery,
   usePortfolioHierarchyQuery,
   usePortfolioTimeSeriesQuery,
 } from "../../features/portfolio-workspace/hooks";
@@ -38,11 +42,17 @@ export function PortfolioHomePage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [hierarchyGroupBy, setHierarchyGroupBy] =
     useState<PortfolioHierarchyGroupBy>("sector");
+  const [healthProfilePosture, setHealthProfilePosture] =
+    useState<PortfolioHealthProfilePosture>("balanced");
 
   const selectedPeriod = resolvePeriodFromSearchParams(searchParams);
   const summaryQuery = usePortfolioSummaryQuery();
   const timeSeriesQuery = usePortfolioTimeSeriesQuery(selectedPeriod);
   const hierarchyQuery = usePortfolioHierarchyQuery(hierarchyGroupBy);
+  const healthQuery = usePortfolioHealthSynthesisQuery(selectedPeriod, {
+    scope: "portfolio",
+    profilePosture: healthProfilePosture,
+  });
 
   const isCoreLoading =
     summaryQuery.isLoading ||
@@ -179,9 +189,126 @@ export function PortfolioHomePage() {
           <>
             <section className="panel">
               <header className="panel__header">
+                <h2 className="panel__title">Portfolio health synthesis</h2>
+                <p className="panel__subtitle">
+                  Core 10 prioritized interpretation layer with profile-aware weighting.
+                </p>
+              </header>
+              <div className="panel__body">
+                <div className="transactions-filters">
+                  <label className="transactions-filters__field">
+                    <span>Health profile</span>
+                    <select
+                      aria-label="Health profile posture"
+                      className="transactions-filters__select"
+                      onChange={(event) => {
+                        setHealthProfilePosture(
+                          event.target.value as PortfolioHealthProfilePosture,
+                        );
+                      }}
+                      value={healthProfilePosture}
+                    >
+                      <option value="conservative">Conservative</option>
+                      <option value="balanced">Balanced</option>
+                      <option value="aggressive">Aggressive</option>
+                    </select>
+                  </label>
+                </div>
+
+                {healthQuery.isLoading ? <LoadingTableSkeleton rows={2} /> : null}
+                {healthQuery.isError ? (
+                  <ErrorBanner
+                    title="Health synthesis unavailable"
+                    message="Portfolio health synthesis could not be loaded for the selected profile."
+                    variant="warning"
+                    actions={
+                      <button
+                        className="button-primary"
+                        onClick={() => void healthQuery.refetch()}
+                        type="button"
+                      >
+                        Retry health synthesis
+                      </button>
+                    }
+                  />
+                ) : null}
+                {healthQuery.isSuccess ? (
+                  <>
+                    <div className="chart-summary-grid">
+                      <article className="chart-summary-card chart-summary-card--signal">
+                        <span className="chart-summary-card__label">Health label</span>
+                        <strong className="chart-summary-card__headline">
+                          {healthQuery.data.health_label}
+                        </strong>
+                        <p className="chart-summary-card__copy">
+                          Profile posture: {healthQuery.data.profile_posture}.
+                        </p>
+                      </article>
+                      <article className="chart-summary-card chart-summary-card--accent">
+                        <span className="chart-summary-card__label">Health score</span>
+                        <strong className="chart-summary-card__headline">
+                          {healthQuery.data.health_score}/100
+                        </strong>
+                        <p className="chart-summary-card__copy">
+                          Threshold policy {healthQuery.data.threshold_policy_version}.
+                        </p>
+                      </article>
+                      <article className="chart-summary-card">
+                        <span className="chart-summary-card__label">KPI priority model</span>
+                        <strong className="chart-summary-card__headline">
+                          Core 10 first
+                        </strong>
+                        <p className="chart-summary-card__copy">
+                          Advanced metrics remain available for drill-down diagnostics.
+                        </p>
+                      </article>
+                    </div>
+
+                    <div className="quant-lens-table" role="table" aria-label="Health pillar scores">
+                      <div className="quant-lens-table__header" role="row">
+                        <span role="columnheader">Pillar</span>
+                        <span role="columnheader">Score</span>
+                        <span role="columnheader">Status</span>
+                        <span role="columnheader">Top metric</span>
+                      </div>
+                      {healthQuery.data.pillars.map((pillar) => (
+                        <div className="quant-lens-table__row" key={pillar.pillar_id} role="row">
+                          <span role="cell">{pillar.label}</span>
+                          <span role="cell">{pillar.score}/100</span>
+                          <span role="cell">{pillar.status}</span>
+                          <span role="cell">
+                            {pillar.metrics[0]
+                              ? `${pillar.metrics[0].label} (${pillar.metrics[0].value_display})`
+                              : "—"}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+
+                    {healthQuery.data.key_drivers.length > 0 ? (
+                      <section className="context-banner context-banner--info" aria-live="polite">
+                        <h3 className="context-banner__title">Top health drivers</h3>
+                        <p className="context-banner__copy">
+                          {healthQuery.data.key_drivers
+                            .slice(0, 3)
+                            .map(
+                              (driver) =>
+                                `${driver.label}: ${driver.value_display} (${driver.direction})`,
+                            )
+                            .join(" · ")}
+                        </p>
+                      </section>
+                    ) : null}
+                  </>
+                ) : null}
+              </div>
+            </section>
+
+            <section className="panel">
+              <header className="panel__header">
                 <h2 className="panel__title">Portfolio KPIs</h2>
                 <p className="panel__subtitle">
-                  Aggregate valuation, unrealized drift, and period movement.
+                  Executive P&amp;L snapshot: market value, unrealized/realized context, and period movement.
                 </p>
               </header>
               <div className="panel__body">

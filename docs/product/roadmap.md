@@ -91,9 +91,72 @@
 - Prepare TLS-ready PostgreSQL guidance for remote or hosted deployments.
 - Re-validate extension and runtime compatibility before adopting advanced PostgreSQL features in stricter environments.
 
+## Phase 8: Refactor and Code Health Checkpoint (Mandatory)
+
+- Run a full technical-debt investigation across backend, frontend, tests, and documentation before opening new feature slices.
+- Reduce high-complexity hotspots and oversized modules while preserving existing behavior contracts.
+- Reconcile backend/frontend schema and route contracts to remove drift introduced by active delivery phases.
+- Enforce repository quality gates as release-blocking:
+  - backend: `ruff`, `black --check`, `mypy`, `pyright`, `ty`, unit tests, and integration tests
+  - frontend: `lint`, `type-check`, `test`, and `build`
+- Close governance debt in source-of-truth docs and OpenSpec artifacts so phase status and capability specs remain synchronized.
+- Refresh security and frontend evidence posture after refactor closeout (`bandit`, accessibility, keyboard walkthroughs, CWV evidence).
+- Keep this phase non-feature by default: no net-new product capability is required for completion.
+
+## Phase 9: QuantStats Monte Carlo and Risk Evolution
+
+- Extend portfolio analytics contracts with risk-evolution datasets:
+  - drawdown path timeline
+  - rolling volatility timeline
+  - rolling beta timeline
+  - deterministic return-distribution buckets
+- Add bounded Monte Carlo diagnostics for both `portfolio` and `instrument_symbol` scopes with explicit assumptions and seeded determinism.
+- Add default-on profile scenario comparison (`Conservative`, `Balanced`, `Growth`) with one-run deterministic comparability and historical calibration basis controls (`monthly`, `annual`, `manual`).
+- Extend Quant report generation metadata with explicit simulation-context lifecycle (`ready`, `unavailable`, `error`) and omission reasons.
+- Keep scope semantics symmetric across analytics, risk, simulation, and report workflows (`portfolio` vs `instrument_symbol`).
+- Keep portfolio P&L semantics explicit by route:
+  - Home: executive realized/unrealized/period P&L snapshot
+  - Analytics: contribution decomposition and concentration context
+  - Quant/Reports: scenario-forward probability diagnostics
+- Add frontend dense-table and control-surface polish for professional readability:
+  - semantic Quant lens table (`30D`/`90D`/`252D`) with aligned numeric columns
+  - compact Quant report lifecycle control cluster
+  - contribution table label hardening (`signed`, `net share`, `absolute share`)
+  - hierarchy default sector-collapsed load with sortable header affordances
+
+Explicit non-goals for this phase:
+
+- no portfolio optimization or allocation recommendation engine
+- no trade execution workflows
+- no financial-advice or predictive-certainty claims from Monte Carlo output
+- no scheduler/queue infrastructure expansion
+
+## Phase 10: AI Layering v1 - Read-Only Portfolio Copilot (Post-MVP Extension)
+
+- Add a read-only portfolio copilot that answers questions over approved aggregated analytics context rather than direct database access.
+- Freeze an AI safety envelope for v1:
+  - allowlisted read-only tools only
+  - no raw canonical PDF payload access
+  - no direct SQL or unrestricted "ask the database" workflows
+  - no trade execution, rebalancing automation, or guaranteed-return claims
+- Add deterministic opportunity-scanner workflows for candidate additions or "discount" ideas, with explicit rule-driven ranking and AI narration layered on top.
+- Add a dedicated frontend copilot workspace surface with evidence-backed responses, visible limitations, and explicit non-advice messaging.
+- Keep the first AI slice stateless and minimal:
+  - no vector store or document RAG
+  - no persistent chat memory
+  - no multi-agent orchestration
+
+Explicit non-goals for this phase:
+
+- no direct access from the model to raw canonical persistence tables
+- no autonomous trade execution or broker-side actions
+- no opaque model-only stock-picking logic without deterministic scoring evidence
+- no template-wide AI platform migration, auth expansion, or RAG/vector infrastructure
+- no financial-advice claims presented as certainty
+
 ## Deferred Phases
 
 - authentication and authorization
-- AI or agentic enrichment
+- broader agentic automation, persistent memory, and RAG beyond the read-only copilot
 - Supabase migration
 - production cloud deployment
