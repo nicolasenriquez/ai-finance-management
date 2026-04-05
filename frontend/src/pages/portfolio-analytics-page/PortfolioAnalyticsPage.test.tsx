@@ -194,7 +194,9 @@ describe("PortfolioAnalyticsPage", () => {
     expect(
       screen.getByRole("heading", { name: "Analytics workspace unavailable" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("Unsupported period value.")).toBeInTheDocument();
+    expect(
+      screen.getAllByText("Unsupported period value.").length,
+    ).toBeGreaterThan(0);
   });
 
   it("renders success modules for trend and contribution", () => {

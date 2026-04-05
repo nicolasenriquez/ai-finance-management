@@ -23,7 +23,36 @@ import {
 } from "vitest";
 
 import { ThemeProvider } from "../../app/theme";
+import type {
+  PortfolioSummaryResponse,
+  PortfolioTimeSeriesResponse,
+} from "../../core/api/schemas";
+import { fetchPortfolioSummary } from "../../features/portfolio-summary/api";
+import { fetchPortfolioTimeSeries } from "../../features/portfolio-workspace/api";
 import { PortfolioWorkspaceLayout } from "./PortfolioWorkspaceLayout";
+
+vi.mock("../../features/portfolio-summary/api", async () => {
+  const actual = await vi.importActual<
+    typeof import("../../features/portfolio-summary/api")
+  >("../../features/portfolio-summary/api");
+  return {
+    ...actual,
+    fetchPortfolioSummary: vi.fn(),
+  };
+});
+
+vi.mock("../../features/portfolio-workspace/api", async () => {
+  const actual = await vi.importActual<
+    typeof import("../../features/portfolio-workspace/api")
+  >("../../features/portfolio-workspace/api");
+  return {
+    ...actual,
+    fetchPortfolioTimeSeries: vi.fn(),
+  };
+});
+
+const mockedFetchPortfolioSummary = vi.mocked(fetchPortfolioSummary);
+const mockedFetchPortfolioTimeSeries = vi.mocked(fetchPortfolioTimeSeries);
 
 function WorkspacePathIndicator() {
   const location = useLocation();
@@ -85,9 +114,31 @@ function installMatchMediaMock(prefersDark: boolean): void {
   });
 }
 
+function buildEmptySummaryResponse(): PortfolioSummaryResponse {
+  return {
+    as_of_ledger_at: "2026-04-05T00:00:00Z",
+    pricing_snapshot_key: null,
+    pricing_snapshot_captured_at: null,
+    rows: [],
+  };
+}
+
+function buildEmptyTimeSeriesResponse(): PortfolioTimeSeriesResponse {
+  return {
+    as_of_ledger_at: "2026-04-05T00:00:00Z",
+    period: "30D",
+    frequency: "daily",
+    timezone: "UTC",
+    points: [],
+  };
+}
+
 describe("PortfolioWorkspaceLayout", () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     installMatchMediaMock(false);
+    mockedFetchPortfolioSummary.mockResolvedValue(buildEmptySummaryResponse());
+    mockedFetchPortfolioTimeSeries.mockResolvedValue(buildEmptyTimeSeriesResponse());
   });
 
   afterEach(() => {
@@ -100,11 +151,11 @@ describe("PortfolioWorkspaceLayout", () => {
       path: "/portfolio/home",
     },
     {
-      activeLabel: "Analytics (Preview)",
+      activeLabel: "Analytics",
       path: "/portfolio/analytics",
     },
     {
-      activeLabel: "Risk (Interpretation)",
+      activeLabel: "Risk",
       path: "/portfolio/risk",
     },
     {
@@ -112,7 +163,7 @@ describe("PortfolioWorkspaceLayout", () => {
       path: "/portfolio/reports",
     },
     {
-      activeLabel: "Copilot (Read-only)",
+      activeLabel: "Copilot",
       path: "/portfolio/copilot",
     },
     {
@@ -124,10 +175,10 @@ describe("PortfolioWorkspaceLayout", () => {
 
     const links = [
       "Home",
-      "Analytics (Preview)",
-      "Risk (Interpretation)",
+      "Analytics",
+      "Risk",
       "Quant/Reports",
-      "Copilot (Read-only)",
+      "Copilot",
       "Transactions",
     ].map((label) => screen.getByRole("link", { name: label }));
 
@@ -145,9 +196,9 @@ describe("PortfolioWorkspaceLayout", () => {
     renderWorkspaceRoute("/portfolio/home");
 
     const homeLink = screen.getByRole("link", { name: "Home" });
-    const analyticsLink = screen.getByRole("link", { name: "Analytics (Preview)" });
-    const copilotLink = screen.getByRole("link", { name: "Copilot (Read-only)" });
-    const riskLink = screen.getByRole("link", { name: "Risk (Interpretation)" });
+    const analyticsLink = screen.getByRole("link", { name: "Analytics" });
+    const copilotLink = screen.getByRole("link", { name: "Copilot" });
+    const riskLink = screen.getByRole("link", { name: "Risk" });
 
     async function tabUntilFocus(target: HTMLElement, maxTabs = 24): Promise<void> {
       for (let index = 0; index < maxTabs; index += 1) {
@@ -175,7 +226,7 @@ describe("PortfolioWorkspaceLayout", () => {
     expect(screen.getByTestId("workspace-current-path")).toHaveTextContent(
       "/portfolio/risk",
     );
-    expect(screen.getByRole("link", { name: "Risk (Interpretation)" })).toHaveClass(
+    expect(screen.getByRole("link", { name: "Risk" })).toHaveClass(
       "workspace-nav__link--active",
     );
   });
@@ -186,5 +237,36 @@ describe("PortfolioWorkspaceLayout", () => {
     expect(screen.getAllByText("Scope").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Provenance").length).toBeGreaterThan(0);
     expect(screen.getByLabelText("Data provenance")).toBeInTheDocument();
+  });
+
+  it("renders top mover percent without double scaling summary percentage values", async () => {
+    mockedFetchPortfolioSummary.mockResolvedValue({
+      as_of_ledger_at: "2026-04-05T00:00:00Z",
+      pricing_snapshot_key: "snapshot-1",
+      pricing_snapshot_captured_at: "2026-04-05T00:00:00Z",
+      rows: [
+        {
+          instrument_symbol: "PLTR",
+          open_quantity: "10.000000000",
+          open_cost_basis_usd: "1000.00",
+          open_lot_count: 1,
+          realized_proceeds_usd: "0.00",
+          realized_cost_basis_usd: "0.00",
+          realized_gain_usd: "0.00",
+          dividend_gross_usd: "0.00",
+          dividend_taxes_usd: "0.00",
+          dividend_net_usd: "0.00",
+          latest_close_price_usd: "156.83",
+          market_value_usd: "1568.30",
+          unrealized_gain_usd: "568.30",
+          unrealized_gain_pct: "56.83",
+        },
+      ],
+    });
+
+    renderWorkspaceRoute("/portfolio/home");
+
+    expect(await screen.findByText("PLTR +56.83%")).toBeInTheDocument();
+    expect(screen.queryByText("PLTR +5683.00%")).not.toBeInTheDocument();
   });
 });

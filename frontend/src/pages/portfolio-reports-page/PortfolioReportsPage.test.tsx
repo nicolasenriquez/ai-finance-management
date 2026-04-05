@@ -21,7 +21,11 @@ import { ThemeProvider } from "../../app/theme";
 import { AppApiError } from "../../core/api/errors";
 import type {
   PortfolioContributionResponse,
+  PortfolioEfficientFrontierResponse,
   PortfolioHealthSynthesisResponse,
+  PortfolioMLForecastResponse,
+  PortfolioMLRegistryResponse,
+  PortfolioMLSignalResponse,
   PortfolioMonteCarloRequest,
   PortfolioMonteCarloResponse,
   PortfolioQuantMetricsResponse,
@@ -33,7 +37,11 @@ import type {
 import { usePortfolioSummaryQuery } from "../../features/portfolio-summary/hooks";
 import {
   usePortfolioContributionQuery,
+  usePortfolioEfficientFrontierQuery,
   usePortfolioHealthSynthesisQuery,
+  usePortfolioMLForecastQuery,
+  usePortfolioMLRegistryQuery,
+  usePortfolioMLSignalQuery,
   usePortfolioMonteCarloMutation,
   usePortfolioQuantMetricsQuery,
   usePortfolioQuantReportGenerateMutation,
@@ -53,7 +61,11 @@ vi.mock("../../features/portfolio-workspace/hooks", async () => {
   return {
     ...actual,
     usePortfolioContributionQuery: vi.fn(),
+    usePortfolioEfficientFrontierQuery: vi.fn(),
     usePortfolioHealthSynthesisQuery: vi.fn(),
+    usePortfolioMLForecastQuery: vi.fn(),
+    usePortfolioMLRegistryQuery: vi.fn(),
+    usePortfolioMLSignalQuery: vi.fn(),
     usePortfolioMonteCarloMutation: vi.fn(),
     usePortfolioQuantMetricsQuery: vi.fn(),
     usePortfolioQuantReportGenerateMutation: vi.fn(),
@@ -83,9 +95,15 @@ type MutationState<TData, TVariables> = {
 const mockedUsePortfolioSummaryQuery = vi.mocked(usePortfolioSummaryQuery);
 const mockedUsePortfolioTimeSeriesQuery = vi.mocked(usePortfolioTimeSeriesQuery);
 const mockedUsePortfolioContributionQuery = vi.mocked(usePortfolioContributionQuery);
+const mockedUsePortfolioEfficientFrontierQuery = vi.mocked(
+  usePortfolioEfficientFrontierQuery,
+);
 const mockedUsePortfolioHealthSynthesisQuery = vi.mocked(
   usePortfolioHealthSynthesisQuery,
 );
+const mockedUsePortfolioMLSignalQuery = vi.mocked(usePortfolioMLSignalQuery);
+const mockedUsePortfolioMLForecastQuery = vi.mocked(usePortfolioMLForecastQuery);
+const mockedUsePortfolioMLRegistryQuery = vi.mocked(usePortfolioMLRegistryQuery);
 const mockedUsePortfolioQuantMetricsQuery = vi.mocked(usePortfolioQuantMetricsQuery);
 const mockedUsePortfolioMonteCarloMutation = vi.mocked(usePortfolioMonteCarloMutation);
 const mockedUsePortfolioQuantReportGenerateMutation = vi.mocked(
@@ -153,6 +171,69 @@ const contributionResponse: PortfolioContributionResponse = {
       instrument_symbol: "VOO",
       contribution_pnl_usd: "20.00",
       contribution_pct: "40.00",
+    },
+  ],
+};
+
+const efficientFrontierResponse: PortfolioEfficientFrontierResponse = {
+  as_of_ledger_at: "2026-03-28T00:00:00Z",
+  scope: "portfolio",
+  instrument_symbol: null,
+  period: "90D",
+  risk_free_rate_annual: "0.030000",
+  methodology: {
+    optimization_model: "mean_variance_long_only",
+    sampling_method: "dirichlet_mc",
+    annualization_basis: "trading_days_252",
+  },
+  frontier_points: [
+    {
+      point_id: "p01",
+      expected_return: "0.080000",
+      volatility: "0.140000",
+      sharpe_ratio: "0.357000",
+      is_max_sharpe: false,
+      is_min_volatility: true,
+    },
+    {
+      point_id: "p02",
+      expected_return: "0.120000",
+      volatility: "0.180000",
+      sharpe_ratio: "0.500000",
+      is_max_sharpe: true,
+      is_min_volatility: false,
+    },
+  ],
+  asset_points: [
+    {
+      instrument_symbol: "AAPL",
+      expected_return: "0.130000",
+      volatility: "0.240000",
+    },
+    {
+      instrument_symbol: "VOO",
+      expected_return: "0.090000",
+      volatility: "0.160000",
+    },
+  ],
+  max_sharpe_weights: [
+    {
+      instrument_symbol: "AAPL",
+      weight: "0.350000",
+    },
+    {
+      instrument_symbol: "VOO",
+      weight: "0.650000",
+    },
+  ],
+  min_volatility_weights: [
+    {
+      instrument_symbol: "AAPL",
+      weight: "0.120000",
+    },
+    {
+      instrument_symbol: "VOO",
+      weight: "0.880000",
     },
   ],
 };
@@ -322,6 +403,115 @@ const healthResponse: PortfolioHealthSynthesisResponse = {
   advanced_metric_ids: ["value_at_risk_95"],
 };
 
+const mlSignalResponse: PortfolioMLSignalResponse = {
+  state: "ready",
+  state_reason_code: "ready",
+  state_reason_detail: "signal_rows_available",
+  scope: "portfolio",
+  instrument_symbol: null,
+  as_of_ledger_at: "2026-03-28T00:00:00Z",
+  as_of_market_at: "2026-03-28T00:00:00Z",
+  evaluated_at: "2026-03-28T00:00:00Z",
+  freshness_policy: {
+    max_age_hours: 24,
+  },
+  signals: [
+    {
+      signal_id: "trend_30d",
+      label: "Trend (30D)",
+      unit: "slope_per_day",
+      interpretation_band: "favorable",
+      value: "0.001200",
+    },
+    {
+      signal_id: "drawdown_state",
+      label: "Drawdown State",
+      unit: "ratio",
+      interpretation_band: "caution",
+      value: "-0.031000",
+    },
+  ],
+  capm: {
+    beta: "0.890000",
+    alpha: "0.012000",
+    expected_return: "0.097000",
+    market_premium: "0.060000",
+    benchmark_symbol: "SPY",
+    risk_free_source: "UST_3M",
+    annualization_factor: 252,
+  },
+};
+
+const mlForecastResponse: PortfolioMLForecastResponse = {
+  state: "ready",
+  state_reason_code: "ready",
+  state_reason_detail: "forecast_horizons_available",
+  scope: "portfolio",
+  instrument_symbol: null,
+  as_of_ledger_at: "2026-03-28T00:00:00Z",
+  as_of_market_at: "2026-03-28T00:00:00Z",
+  evaluated_at: "2026-03-28T00:00:00Z",
+  freshness_policy: {
+    max_age_hours: 24,
+  },
+  model_snapshot_ref: "snapshot-portfolio-001",
+  model_family: "ets",
+  training_window_start: "2025-01-01T00:00:00Z",
+  training_window_end: "2026-03-01T00:00:00Z",
+  horizons: [
+    {
+      horizon_id: "h+1",
+      point_estimate: "0.008000",
+      lower_bound: "-0.012000",
+      upper_bound: "0.022000",
+      confidence_level: "0.950000",
+      model_snapshot_ref: "snapshot-portfolio-001",
+    },
+    {
+      horizon_id: "h+2",
+      point_estimate: "0.009000",
+      lower_bound: "-0.014000",
+      upper_bound: "0.024000",
+      confidence_level: "0.950000",
+      model_snapshot_ref: "snapshot-portfolio-001",
+    },
+  ],
+};
+
+const mlRegistryResponse: PortfolioMLRegistryResponse = {
+  state: "ready",
+  state_reason_code: "ready",
+  state_reason_detail: "registry_rows_available",
+  as_of_ledger_at: "2026-03-28T00:00:00Z",
+  as_of_market_at: "2026-03-28T00:00:00Z",
+  evaluated_at: "2026-03-28T00:00:00Z",
+  rows: [
+    {
+      snapshot_ref: "snapshot-portfolio-001",
+      scope: "portfolio",
+      instrument_symbol: null,
+      model_family: "ets",
+      lifecycle_state: "ready",
+      feature_set_hash: "hash-001",
+      data_window_start: "2025-01-01T00:00:00Z",
+      data_window_end: "2026-03-01T00:00:00Z",
+      run_status: "completed",
+      promoted_at: "2026-03-27T00:00:00Z",
+      expires_at: "2026-04-30T00:00:00Z",
+      replaced_snapshot_ref: null,
+      policy_result: {
+        qualified: true,
+      },
+      metric_vector: {
+        wmape: 0.09,
+      },
+      baseline_comparator_metrics: {
+        naive_wmape: 0.12,
+      },
+    },
+  ],
+};
+
 function installMatchMediaMock(prefersDark: boolean): void {
   Object.defineProperty(window, "matchMedia", {
     configurable: true,
@@ -413,6 +603,24 @@ function setContributionState(
   );
 }
 
+function setEfficientFrontierState(
+  state: Partial<QueryState<PortfolioEfficientFrontierResponse>>,
+): void {
+  const queryState: QueryState<PortfolioEfficientFrontierResponse> = {
+    isLoading: false,
+    isError: false,
+    isSuccess: false,
+    data: undefined,
+    error: undefined,
+    refetch: vi.fn().mockResolvedValue(undefined),
+    ...state,
+  };
+
+  mockedUsePortfolioEfficientFrontierQuery.mockReturnValue(
+    queryState as ReturnType<typeof usePortfolioEfficientFrontierQuery>,
+  );
+}
+
 function setHealthState(
   state: Partial<QueryState<PortfolioHealthSynthesisResponse>>,
 ): void {
@@ -428,6 +636,60 @@ function setHealthState(
 
   mockedUsePortfolioHealthSynthesisQuery.mockReturnValue(
     queryState as ReturnType<typeof usePortfolioHealthSynthesisQuery>,
+  );
+}
+
+function setMLSignalState(
+  state: Partial<QueryState<PortfolioMLSignalResponse>>,
+): void {
+  const queryState: QueryState<PortfolioMLSignalResponse> = {
+    isLoading: false,
+    isError: false,
+    isSuccess: false,
+    data: undefined,
+    error: undefined,
+    refetch: vi.fn().mockResolvedValue(undefined),
+    ...state,
+  };
+
+  mockedUsePortfolioMLSignalQuery.mockReturnValue(
+    queryState as ReturnType<typeof usePortfolioMLSignalQuery>,
+  );
+}
+
+function setMLForecastState(
+  state: Partial<QueryState<PortfolioMLForecastResponse>>,
+): void {
+  const queryState: QueryState<PortfolioMLForecastResponse> = {
+    isLoading: false,
+    isError: false,
+    isSuccess: false,
+    data: undefined,
+    error: undefined,
+    refetch: vi.fn().mockResolvedValue(undefined),
+    ...state,
+  };
+
+  mockedUsePortfolioMLForecastQuery.mockReturnValue(
+    queryState as ReturnType<typeof usePortfolioMLForecastQuery>,
+  );
+}
+
+function setMLRegistryState(
+  state: Partial<QueryState<PortfolioMLRegistryResponse>>,
+): void {
+  const queryState: QueryState<PortfolioMLRegistryResponse> = {
+    isLoading: false,
+    isError: false,
+    isSuccess: false,
+    data: undefined,
+    error: undefined,
+    refetch: vi.fn().mockResolvedValue(undefined),
+    ...state,
+  };
+
+  mockedUsePortfolioMLRegistryQuery.mockReturnValue(
+    queryState as ReturnType<typeof usePortfolioMLRegistryQuery>,
   );
 }
 
@@ -515,7 +777,11 @@ describe("PortfolioReportsPage", () => {
     setSummaryState({ isSuccess: true, data: summaryResponse });
     setTimeSeriesState({ isSuccess: true, data: timeSeriesResponse });
     setContributionState({ isSuccess: true, data: contributionResponse });
+    setEfficientFrontierState({ isSuccess: true, data: efficientFrontierResponse });
     setHealthState({ isSuccess: true, data: healthResponse });
+    setMLSignalState({ isSuccess: true, data: mlSignalResponse });
+    setMLForecastState({ isSuccess: true, data: mlForecastResponse });
+    setMLRegistryState({ isSuccess: true, data: mlRegistryResponse });
     setQuantMetricsState({ isSuccess: true, data: quantMetricsResponse });
     setQuantReportGenerateState({});
     setQuantReportHtmlState({});
@@ -544,7 +810,9 @@ describe("PortfolioReportsPage", () => {
     expect(
       screen.getByRole("heading", { name: "Quant diagnostics unavailable" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("Quant diagnostics are unavailable.")).toBeInTheDocument();
+    expect(
+      screen.getAllByText("Quant diagnostics are unavailable.").length,
+    ).toBeGreaterThan(0);
   });
 
   it("renders empty unavailable state before report generation", () => {
@@ -603,7 +871,7 @@ describe("PortfolioReportsPage", () => {
     renderReportsPage();
 
     expect(screen.getByRole("heading", { name: "Symbol contribution focus" })).toBeInTheDocument();
-    expect(screen.getByText("AAPL")).toBeInTheDocument();
+    expect(screen.getAllByText("AAPL").length).toBeGreaterThan(0);
     expect(screen.getByText("$30.00")).toBeInTheDocument();
     expect(screen.getByText("+60.00%")).toBeInTheDocument();
     expect(screen.queryByText("-999.00")).not.toBeInTheDocument();
@@ -614,6 +882,30 @@ describe("PortfolioReportsPage", () => {
 
     expect(container.querySelector("table.quant-lens-table")).toBeInTheDocument();
     expect(container.querySelector(".quant-lifecycle-controls")).toBeInTheDocument();
+  });
+
+  it("renders Markowitz efficient frontier module inside advanced risk lab", () => {
+    renderReportsPage();
+
+    expect(
+      screen.getByRole("heading", { name: "Efficient frontier (Markowitz)" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Method: mean_variance_long_only/i)).toBeInTheDocument();
+    expect(screen.getByRole("table", { name: /Efficient frontier weight comparison/i })).toBeInTheDocument();
+  });
+
+  it("renders ML insights modules with signal, forecast, and registry diagnostics", () => {
+    renderReportsPage();
+
+    expect(
+      screen.getByRole("heading", { name: "ML insights control tower" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Signal strip/i)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "CAPM diagnostics" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Forecast fan" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Model registry" })).toBeInTheDocument();
+    expect(screen.getByText("snapshot-portfolio-001")).toBeInTheDocument();
+    expect(screen.getByText("h+1")).toBeInTheDocument();
   });
 
   it("renders ready state metadata and html preview for generated report", () => {

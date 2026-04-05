@@ -33,6 +33,11 @@ from app.portfolio_analytics.schemas import (
     PortfolioChartPeriod,
     PortfolioContributionResponse,
     PortfolioContributionRow,
+    PortfolioEfficientFrontierAssetPoint,
+    PortfolioEfficientFrontierMethodology,
+    PortfolioEfficientFrontierPoint,
+    PortfolioEfficientFrontierResponse,
+    PortfolioEfficientFrontierWeight,
     PortfolioHealthDriver,
     PortfolioHealthLabel,
     PortfolioHealthPillar,
@@ -123,6 +128,13 @@ _MIN_MONTE_CARLO_HORIZON_DAYS = 5
 _MONTE_CARLO_DEFAULT_SEED = 20260330
 _MONTE_CARLO_MONTHLY_CALIBRATION_MIN_SAMPLE = 24
 _MONTE_CARLO_ANNUAL_CALIBRATION_MIN_SAMPLE = 5
+_EFFICIENT_FRONTIER_DEFAULT_POINTS = 24
+_EFFICIENT_FRONTIER_MIN_POINTS = 8
+_EFFICIENT_FRONTIER_MAX_POINTS = 60
+_EFFICIENT_FRONTIER_MIN_SAMPLE_COUNT = 3000
+_EFFICIENT_FRONTIER_POINT_SAMPLE_MULTIPLIER = 280
+_EFFICIENT_FRONTIER_RANDOM_SEED = 20260405
+_EFFICIENT_FRONTIER_RISK_FREE_RATE_ANNUAL = Decimal("0.03")
 _SUPPORTED_CHART_PERIOD_VALUES: tuple[str, ...] = tuple(
     period.value for period in PortfolioChartPeriod
 )
@@ -1297,6 +1309,402 @@ async def get_portfolio_return_distribution_response(
         instrument_symbol=response.instrument_symbol,
         sample_size=response.sample_size,
         bin_count=response.bucket_policy.bin_count,
+        as_of_ledger_at=response.as_of_ledger_at.isoformat(),
+    )
+    return response
+
+
+def _build_efficient_frontier_weight_rows(
+    *,
+    ordered_symbols: Sequence[str],
+    weight_vector: np.ndarray,
+) -> list[PortfolioEfficientFrontierWeight]:
+    """Build normalized symbol-weight rows from one sampled portfolio vector."""
+
+    if len(ordered_symbols) != len(weight_vector):
+        raise PortfolioAnalyticsClientError(
+            "Efficient frontier weight vector dimensions do not match symbol set.",
+            status_code=422,
+        )
+    if not np.isfinite(weight_vector).all():
+        raise PortfolioAnalyticsClientError(
+            "Efficient frontier weight vector contains non-finite values.",
+            status_code=422,
+        )
+
+    clipped_weights = np.clip(weight_vector.astype(np.float64), a_min=0.0, a_max=None)
+    total_weight = float(np.sum(clipped_weights))
+    if total_weight <= 0:
+        raise PortfolioAnalyticsClientError(
+            "Efficient frontier weight vector normalization failed.",
+            status_code=422,
+        )
+    normalized_weights = clipped_weights / total_weight
+    return [
+        PortfolioEfficientFrontierWeight(
+            instrument_symbol=symbol,
+            weight=_quantize_ratio(
+                _decimal_from_float(
+                    value=float(weight_value),
+                    field=f"efficient_frontier_weight_{symbol}",
+                )
+            ),
+        )
+        for symbol, weight_value in zip(
+            ordered_symbols,
+            normalized_weights,
+            strict=True,
+        )
+    ]
+
+
+async def get_portfolio_efficient_frontier_response(
+    *,
+    db: AsyncSession,
+    period: PortfolioChartPeriod,
+    scope: PortfolioQuantReportScope,
+    instrument_symbol: str | None,
+    frontier_points: int = _EFFICIENT_FRONTIER_DEFAULT_POINTS,
+) -> PortfolioEfficientFrontierResponse:
+    """Return deterministic Markowitz efficient-frontier diagnostics for selected scope."""
+
+    normalized_scope, normalized_instrument_symbol = normalize_chart_scope(
+        scope_value=scope,
+        instrument_symbol_value=instrument_symbol,
+    )
+    if (
+        frontier_points < _EFFICIENT_FRONTIER_MIN_POINTS
+        or frontier_points > _EFFICIENT_FRONTIER_MAX_POINTS
+    ):
+        raise PortfolioAnalyticsClientError(
+            "frontier_points must be between 8 and 60.",
+            status_code=422,
+        )
+
+    logger.info(
+        "portfolio_analytics.efficient_frontier_started",
+        period=period.value,
+        scope=normalized_scope.value,
+        instrument_symbol=normalized_instrument_symbol,
+        frontier_points=frontier_points,
+    )
+    insufficient_history_detail = (
+        f"Insufficient persisted history for efficient frontier period {period.value}."
+    )
+    required_points = _PERIOD_TO_REQUIRED_POINTS[period]
+    minimum_timestamp = _resolve_period_minimum_timestamp(period=period)
+    risk_free_rate_annual = float(_EFFICIENT_FRONTIER_RISK_FREE_RATE_ANNUAL)
+
+    try:
+        async with db.begin():
+            await _set_repeatable_read_snapshot(db=db)
+            (
+                open_quantity_by_symbol,
+                _total_open_cost_basis_usd,
+                price_series_by_symbol,
+                _optional_price_series_by_symbol,
+            ) = await _load_open_position_price_inputs(
+                db=db,
+                instrument_symbol=(
+                    normalized_instrument_symbol
+                    if normalized_scope == PortfolioQuantReportScope.INSTRUMENT_SYMBOL
+                    else None
+                ),
+            )
+            aligned_timestamps = _select_aligned_timestamps(
+                price_series_by_symbol=price_series_by_symbol,
+                required_points=required_points,
+                minimum_points=2,
+                minimum_timestamp=minimum_timestamp,
+                insufficient_history_detail=insufficient_history_detail,
+            )
+            price_frame = _build_aligned_price_frame(
+                aligned_timestamps=aligned_timestamps,
+                price_series_by_symbol=price_series_by_symbol,
+            )
+            returns_frame = price_frame.pct_change().dropna()
+            if returns_frame.empty or len(returns_frame.index) < 2:
+                raise PortfolioAnalyticsClientError(
+                    insufficient_history_detail,
+                    status_code=409,
+                )
+            if not np.isfinite(returns_frame.to_numpy(dtype=np.float64)).all():
+                raise PortfolioAnalyticsClientError(
+                    "Efficient frontier requires finite aligned return values.",
+                    status_code=422,
+                )
+
+            ordered_symbols = [str(column_name) for column_name in price_frame.columns]
+            symbol_count = len(ordered_symbols)
+            if symbol_count == 0:
+                raise PortfolioAnalyticsClientError(
+                    "Efficient frontier requires at least one open-position symbol.",
+                    status_code=409,
+                )
+            expected_returns_by_symbol = returns_frame.mean().to_numpy(dtype=np.float64) * 252.0
+            covariance_matrix = returns_frame.cov().to_numpy(dtype=np.float64) * 252.0
+            if (
+                not np.isfinite(expected_returns_by_symbol).all()
+                or not np.isfinite(covariance_matrix).all()
+            ):
+                raise PortfolioAnalyticsClientError(
+                    "Efficient frontier requires finite expected-return and covariance inputs.",
+                    status_code=422,
+                )
+            if covariance_matrix.shape != (symbol_count, symbol_count):
+                raise PortfolioAnalyticsClientError(
+                    "Efficient frontier covariance matrix dimensions are invalid.",
+                    status_code=422,
+                )
+
+            asset_volatility = np.sqrt(
+                np.clip(
+                    np.diag(covariance_matrix),
+                    a_min=1e-12,
+                    a_max=None,
+                )
+            )
+            asset_points = [
+                PortfolioEfficientFrontierAssetPoint(
+                    instrument_symbol=symbol,
+                    expected_return=_quantize_ratio(
+                        _decimal_from_float(
+                            value=float(expected_return_value),
+                            field=f"efficient_frontier_asset_return_{symbol}",
+                        )
+                    ),
+                    volatility=_quantize_ratio(
+                        _decimal_from_float(
+                            value=float(volatility_value),
+                            field=f"efficient_frontier_asset_volatility_{symbol}",
+                        )
+                    ),
+                )
+                for symbol, expected_return_value, volatility_value in zip(
+                    ordered_symbols,
+                    expected_returns_by_symbol,
+                    asset_volatility,
+                    strict=True,
+                )
+            ]
+
+            if symbol_count == 1:
+                single_expected_return = float(expected_returns_by_symbol[0])
+                single_volatility = float(asset_volatility[0])
+                single_sharpe = (
+                    (single_expected_return - risk_free_rate_annual) / single_volatility
+                    if single_volatility > 0
+                    else 0.0
+                )
+                single_weight_rows = [
+                    PortfolioEfficientFrontierWeight(
+                        instrument_symbol=ordered_symbols[0],
+                        weight=Decimal("1.000000"),
+                    )
+                ]
+                as_of_ledger_at = await _fetch_as_of_ledger_at(db=db)
+                response = PortfolioEfficientFrontierResponse(
+                    as_of_ledger_at=as_of_ledger_at,
+                    scope=normalized_scope,
+                    instrument_symbol=normalized_instrument_symbol,
+                    period=period,
+                    risk_free_rate_annual=_quantize_ratio(
+                        _EFFICIENT_FRONTIER_RISK_FREE_RATE_ANNUAL
+                    ),
+                    methodology=PortfolioEfficientFrontierMethodology(
+                        optimization_model="mean_variance_long_only",
+                        sampling_method="single_asset_degenerate_case",
+                        annualization_basis="trading_days_252",
+                    ),
+                    frontier_points=[
+                        PortfolioEfficientFrontierPoint(
+                            point_id="p01",
+                            expected_return=_quantize_ratio(
+                                _decimal_from_float(
+                                    value=single_expected_return,
+                                    field="efficient_frontier_single_expected_return",
+                                )
+                            ),
+                            volatility=_quantize_ratio(
+                                _decimal_from_float(
+                                    value=single_volatility,
+                                    field="efficient_frontier_single_volatility",
+                                )
+                            ),
+                            sharpe_ratio=_quantize_ratio(
+                                _decimal_from_float(
+                                    value=single_sharpe,
+                                    field="efficient_frontier_single_sharpe_ratio",
+                                )
+                            ),
+                            is_max_sharpe=True,
+                            is_min_volatility=True,
+                        )
+                    ],
+                    asset_points=asset_points,
+                    max_sharpe_weights=single_weight_rows,
+                    min_volatility_weights=single_weight_rows,
+                )
+                logger.info(
+                    "portfolio_analytics.efficient_frontier_completed",
+                    period=response.period.value,
+                    scope=response.scope.value,
+                    instrument_symbol=response.instrument_symbol,
+                    symbol_count=symbol_count,
+                    frontier_points=len(response.frontier_points),
+                    as_of_ledger_at=response.as_of_ledger_at.isoformat(),
+                )
+                return response
+
+            sample_count = max(
+                _EFFICIENT_FRONTIER_MIN_SAMPLE_COUNT,
+                frontier_points * _EFFICIENT_FRONTIER_POINT_SAMPLE_MULTIPLIER,
+            )
+            random_generator = np.random.default_rng(_EFFICIENT_FRONTIER_RANDOM_SEED)
+            sampled_weights = random_generator.dirichlet(
+                alpha=np.ones(symbol_count, dtype=np.float64),
+                size=sample_count,
+            )
+            sampled_expected_returns = sampled_weights @ expected_returns_by_symbol
+            sampled_variances = np.einsum(
+                "ij,jk,ik->i",
+                sampled_weights,
+                covariance_matrix,
+                sampled_weights,
+            )
+            sampled_variances = np.clip(sampled_variances, a_min=1e-12, a_max=None)
+            sampled_volatility = np.sqrt(sampled_variances)
+            sampled_sharpe = (sampled_expected_returns - risk_free_rate_annual) / sampled_volatility
+            finite_mask = (
+                np.isfinite(sampled_expected_returns)
+                & np.isfinite(sampled_volatility)
+                & np.isfinite(sampled_sharpe)
+            )
+            if not finite_mask.any():
+                raise PortfolioAnalyticsClientError(
+                    "Efficient frontier sampling produced no finite candidate portfolios.",
+                    status_code=409,
+                )
+            sampled_weights = sampled_weights[finite_mask]
+            sampled_expected_returns = sampled_expected_returns[finite_mask]
+            sampled_volatility = sampled_volatility[finite_mask]
+            sampled_sharpe = sampled_sharpe[finite_mask]
+            if len(sampled_expected_returns) == 0:
+                raise PortfolioAnalyticsClientError(
+                    "Efficient frontier sampling produced no candidate portfolios.",
+                    status_code=409,
+                )
+
+            min_volatility_index = int(np.argmin(sampled_volatility))
+            max_sharpe_index = int(np.argmax(sampled_sharpe))
+            sorted_indices = np.argsort(sampled_expected_returns)
+            frontier_candidate_indices: list[int] = []
+            for index_bucket in np.array_split(sorted_indices, frontier_points):
+                if len(index_bucket) == 0:
+                    continue
+                bucket_volatility = sampled_volatility[index_bucket]
+                bucket_choice = int(index_bucket[int(np.argmin(bucket_volatility))])
+                frontier_candidate_indices.append(bucket_choice)
+            frontier_candidate_indices.append(min_volatility_index)
+            frontier_candidate_indices.append(max_sharpe_index)
+            unique_frontier_indices = sorted(
+                set(frontier_candidate_indices),
+                key=lambda index_value: float(sampled_expected_returns[index_value]),
+            )
+
+            frontier_rows = [
+                PortfolioEfficientFrontierPoint(
+                    point_id=f"p{row_index + 1:02d}",
+                    expected_return=_quantize_ratio(
+                        _decimal_from_float(
+                            value=float(sampled_expected_returns[frontier_index]),
+                            field=f"efficient_frontier_expected_return_{row_index}",
+                        )
+                    ),
+                    volatility=_quantize_ratio(
+                        _decimal_from_float(
+                            value=float(sampled_volatility[frontier_index]),
+                            field=f"efficient_frontier_volatility_{row_index}",
+                        )
+                    ),
+                    sharpe_ratio=_quantize_ratio(
+                        _decimal_from_float(
+                            value=float(sampled_sharpe[frontier_index]),
+                            field=f"efficient_frontier_sharpe_ratio_{row_index}",
+                        )
+                    ),
+                    is_max_sharpe=frontier_index == max_sharpe_index,
+                    is_min_volatility=frontier_index == min_volatility_index,
+                )
+                for row_index, frontier_index in enumerate(unique_frontier_indices)
+            ]
+
+            max_sharpe_weights = _build_efficient_frontier_weight_rows(
+                ordered_symbols=ordered_symbols,
+                weight_vector=sampled_weights[max_sharpe_index],
+            )
+            min_volatility_weights = _build_efficient_frontier_weight_rows(
+                ordered_symbols=ordered_symbols,
+                weight_vector=sampled_weights[min_volatility_index],
+            )
+
+            as_of_ledger_at = await _fetch_as_of_ledger_at(db=db)
+            response = PortfolioEfficientFrontierResponse(
+                as_of_ledger_at=as_of_ledger_at,
+                scope=normalized_scope,
+                instrument_symbol=normalized_instrument_symbol,
+                period=period,
+                risk_free_rate_annual=_quantize_ratio(_EFFICIENT_FRONTIER_RISK_FREE_RATE_ANNUAL),
+                methodology=PortfolioEfficientFrontierMethodology(
+                    optimization_model="mean_variance_long_only",
+                    sampling_method="dirichlet_mc",
+                    annualization_basis="trading_days_252",
+                ),
+                frontier_points=frontier_rows,
+                asset_points=asset_points,
+                max_sharpe_weights=max_sharpe_weights,
+                min_volatility_weights=min_volatility_weights,
+            )
+    except MarketDataClientError as exc:
+        logger.error(
+            "portfolio_analytics.efficient_frontier_failed",
+            period=period.value,
+            scope=normalized_scope.value,
+            instrument_symbol=normalized_instrument_symbol,
+            frontier_points=frontier_points,
+            error=str(exc),
+            error_type=type(exc).__name__,
+            exc_info=True,
+        )
+        raise PortfolioAnalyticsClientError(
+            str(exc),
+            status_code=exc.status_code,
+        ) from exc
+    except PortfolioAnalyticsClientError:
+        raise
+    except SQLAlchemyError as exc:
+        logger.error(
+            "portfolio_analytics.efficient_frontier_failed",
+            period=period.value,
+            scope=normalized_scope.value,
+            instrument_symbol=normalized_instrument_symbol,
+            frontier_points=frontier_points,
+            error=str(exc),
+            error_type=type(exc).__name__,
+            exc_info=True,
+        )
+        raise PortfolioAnalyticsClientError(
+            "Failed to build efficient frontier due to a database error.",
+            status_code=500,
+        ) from exc
+
+    logger.info(
+        "portfolio_analytics.efficient_frontier_completed",
+        period=response.period.value,
+        scope=response.scope.value,
+        instrument_symbol=response.instrument_symbol,
+        symbol_count=len(open_quantity_by_symbol),
+        frontier_points=len(response.frontier_points),
         as_of_ledger_at=response.as_of_ledger_at.isoformat(),
     )
     return response

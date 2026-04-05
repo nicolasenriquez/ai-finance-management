@@ -16,6 +16,26 @@ The ML and time-series references include many useful techniques, but the curren
 - Add optional prompt-suggestion metadata in copilot responses so frontend chips can guide high-value follow-up questions without changing read-only boundaries.
 - Explicitly defer high-complexity reference techniques (LSTM/RNN, Prophet, customer segmentation, and any trade-execution or autonomous advice workflows).
 
+## Frozen v1 Method Policy
+
+- Included deterministic signal methods: trend slope (windowed OLS), momentum return windows, realized-volatility regime banding, drawdown state classification.
+- Included CAPM metrics: `beta`, `alpha`, `expected_return`, `market_premium` with explicit benchmark and risk-free provenance.
+- Included forecast baseline family: naive, seasonal-naive, EWMA/Holt, ARIMA-family baseline, ridge lag-regression baseline.
+- Deferred methods: LSTM, generic RNN, Prophet, customer segmentation, and execution/rebalancing workflows.
+
+## Frozen Promotion Policy Thresholds
+
+- Primary gate: candidate weighted-MAPE (`wMAPE`) must improve by at least `5.0%` versus naive baseline across walk-forward folds.
+- Regression gate: no forecast horizon may degrade by more than `2.0%` wMAPE versus naive baseline.
+- Interval gate: 80% prediction-interval empirical coverage must remain in `[0.72, 0.88]`.
+- Champion expiry: active champion snapshot is treated as stale at `168` hours (7 days) without qualified replacement.
+
+## Frozen API State Contract
+
+- Shared lifecycle states are frozen as `ready|unavailable|stale|error`.
+- Every signal/forecast/registry response includes factual lifecycle metadata (`state`, `state_reason_code`, `state_reason_detail`) and explicit source/evaluation timestamps.
+- Endpoints remain read-only and non-executional; no action directives or guaranteed-return language are permitted in payload contracts.
+
 ## Capabilities
 
 ### New Capabilities

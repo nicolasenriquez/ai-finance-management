@@ -13,6 +13,7 @@ Constraints:
 - Preserve the current backend contract posture; this phase is primarily frontend and information-architecture work.
 - Keep `Recharts` as the v1 chart foundation unless a separate evidence-backed decision changes that.
 - Avoid direct code reuse from AGPL repositories; inspiration is limited to patterns and heuristics.
+- Treat `.codex/skills/emil-design-eng/SKILL.md` as a required implementation rubric for UI polish, animation/easing choices, and component interaction quality.
 
 ## Goals / Non-Goals
 
@@ -190,3 +191,118 @@ Rollback:
 
 - Do we want recent items only in the first command palette release, or also saved views/watchlists?
 - Which goal-progress metric can be derived from current contracts, and which part requires a later planning/budget capability?
+
+## Frozen Execution Baseline (2026-04-05)
+
+This section freezes scope for tasks `1.1` through `1.4` so page refactors can proceed without
+re-opening information architecture decisions.
+
+### 1) Workspace Audit Snapshot
+
+#### Current route and first-viewport audit
+
+| Route | First viewport now | Observed issue to replace in phase-j |
+| --- | --- | --- |
+| `/portfolio/home` | Health synthesis plus KPI cards and trend start | Competes between "executive summary" and "analysis launchpad"; period/profile controls are route-local only. |
+| `/portfolio/analytics` | Trend chart followed by contribution diagnostics | Two near-primary interpretation blocks in first viewport; no shared "current context" carryover contract. |
+| `/portfolio/risk` | Scope + symbol + period controls plus estimator/risk modules | Most control-dense first viewport; route-specific scope reset behavior is not shared with other routes. |
+| `/portfolio/reports` | Quant scorecards and report lifecycle controls | First viewport is operationally heavy; report lifecycle actions compete with interpretation context. |
+| `/portfolio/copilot` | Full-page composer/state/evidence stack | Copilot is isolated to one route; no persistent launcher from analysis routes. |
+| `/portfolio/transactions` | Filters and ledger table | Route lives in same shell but has no consistent context-carryover semantics with analytical routes. |
+
+#### Shared primitive and duplication audit
+
+- `PortfolioWorkspaceLayout` gives stable nav + trust strip, but no command palette or shared context
+  state machine.
+- `actions` are injected per route, causing repeated control construction (`PortfolioChartPeriodControl`,
+  scope selects, symbol inputs, and back links) with route-specific behavior differences.
+- Search-param parsing (`period`, `scope`, `instrument_symbol`) is implemented independently in pages.
+- State copy for `loading`, `ready`, `unavailable`, `error`, and `retry` is route-authored, not governed
+  by one shared trust-state copy registry.
+- `Copilot` exists only as a dedicated route; there is no persistent shell-level entry pattern for quick
+  launch and context-preserving return.
+
+### 2) Frozen Information Architecture (phase-j)
+
+#### Shell zones (frozen)
+
+1. Masthead zone: brand and theme toggle (keep existing).
+2. Navigation + command zone: route list plus global command palette trigger.
+3. Context strip zone: active scope/symbol/period/freshness/provenance tokens.
+4. Main route canvas: one primary first-viewport analytical job per route.
+5. Copilot zone: persistent launcher everywhere; docked panel on desktop and full-screen presentation on mobile.
+
+#### Command palette v1 scope (frozen)
+
+- Route jump: `home`, `analytics`, `risk`, `reports`, `copilot`, `transactions`.
+- Symbol lookup: quick jump into symbol-compatible destinations (`risk`, `copilot`, lot detail).
+- Approved analytical actions:
+  - "Open risk for <symbol>"
+  - "Open copilot with current context"
+  - "Open reports for current period"
+- Out of scope for v1: saved views, watchlists, free-form command execution.
+
+#### Context carryover and reset contract (frozen)
+
+- Shared workspace context keys: `period`, `scope`, `instrument_symbol`, `source_route`.
+- Carry forward compatible keys on route transitions.
+- Reset rules:
+  - if destination does not support instrument scope, set `scope=portfolio` and clear `instrument_symbol`;
+  - if destination supports instrument scope but symbol is invalid/empty, clear `instrument_symbol` and show explicit reset copy;
+  - do not silently submit stale symbol/scope to unsupported routes.
+- Explicit reset copy is required whenever incompatible context is cleared.
+
+#### Copilot launch modes (frozen)
+
+- Desktop (`>= 1024px`): right-docked panel with collapse/expand; conversation state preserved.
+- Mobile (`< 1024px`): full-screen copilot presentation.
+- Expanded deep-session mode remains available as dedicated copilot route.
+- Context handoff payload into copilot launch: `route`, `period`, `scope`, `instrument_symbol` when present.
+
+### 3) Frozen Core 10 KPI Catalog
+
+`Core 10` metrics are the promoted first-pass interpretation layer. Advanced diagnostics remain below.
+
+| Core KPI ID | Route owner | Decision tags | Primary interpretation |
+| --- | --- | --- | --- |
+| `market_value_usd` | Home | `allocation_review` | Current portfolio scale and exposure. |
+| `unrealized_gain_pct` | Home | `allocation_review`, `risk_posture` | Open-position mark-to-market posture. |
+| `realized_gain_usd` | Home | `goal_progress` | Locked gains/losses versus plan. |
+| `dividend_net_usd` | Home | `income_monitoring` | Net income contribution from dividends. |
+| `top_contribution_concentration_pct` | Analytics | `allocation_review`, `risk_posture` | How much of period move is concentrated in one symbol. |
+| `max_drawdown_pct` | Risk | `risk_posture` | Peak-to-trough stress magnitude. |
+| `volatility_annualized_pct` | Risk | `risk_posture` | Realized dispersion/risk budget pressure. |
+| `beta_ratio` | Risk | `risk_posture` | Market sensitivity relative to benchmark context. |
+| `goal_hit_probability_pct` | Quant/Reports | `goal_progress` | Probability of reaching selected goal threshold. |
+| `forecast_confidence_pct` | Quant/Reports | `forecast_interpretation` | Confidence quality for promoted forecast outputs. |
+
+#### Additional governance freeze
+
+- Every promoted KPI must include: tier (`core_10` or `advanced`), owning route, decision tags,
+  and one plain-language interpretation sentence.
+- Freshness/provenance tokens are mandatory route context, but not counted as Core 10 KPIs.
+
+### 4) Emil Design Rubric Scope (frozen for shell/navigation/copilot)
+
+The `emil-design-eng` skill is mandatory for this phase. The following principles are in scope:
+
+- High-frequency interaction rule:
+  - keyboard-open command palette should avoid open/close animation.
+- Purpose-first motion only:
+  - animation must communicate hierarchy/state, not decorative movement.
+- Easing discipline:
+  - entering UI surfaces use strong `ease-out`; avoid `ease-in` in UI transitions.
+- Duration bounds:
+  - interaction transitions target `100-250ms`; common UI transitions stay `<300ms`.
+- Press feedback:
+  - interactive buttons/controls provide explicit active-state response.
+- Origin-aware surface motion:
+  - anchored popovers scale from trigger origin; modals remain centered.
+- State consistency:
+  - transitions avoid `all`; animate explicit properties only.
+
+## Implementation Rubric
+
+- Implementation and review for this change MUST apply the `emil-design-eng` skill in `.codex/skills/emil-design-eng/SKILL.md`.
+- Animation decisions MUST use the skill's decision framework (frequency, purpose, easing, duration) and avoid frequent-use motion overhead.
+- UI review artifacts for interaction/motion choices SHOULD use the skill's required Before/After/Why table format for consistency.

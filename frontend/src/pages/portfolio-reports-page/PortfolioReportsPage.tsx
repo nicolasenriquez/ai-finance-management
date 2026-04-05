@@ -4,6 +4,7 @@ import {
 } from "react-router-dom";
 import {
   useEffect,
+  useMemo,
   useState,
 } from "react";
 
@@ -14,11 +15,16 @@ import { ErrorBanner } from "../../components/error-banner/ErrorBanner";
 import { MetricExplainabilityPopover } from "../../components/metric-explainability/MetricExplainabilityPopover";
 import { LoadingTableSkeleton } from "../../components/skeletons/LoadingTableSkeleton";
 import { PortfolioWorkspaceLayout } from "../../components/workspace-layout/PortfolioWorkspaceLayout";
+import { WorkspacePrimaryJobPanel } from "../../components/workspace-layout/WorkspacePrimaryJobPanel";
+import { WorkspaceStateBanner } from "../../components/workspace-layout/WorkspaceStateBanner";
 import { AppApiError } from "../../core/api/errors";
 import type {
   PortfolioChartPeriod,
   PortfolioContributionRow,
   PortfolioHealthProfilePosture,
+  PortfolioMLForecastHorizonRow,
+  PortfolioMLSignalRow,
+  PortfolioMLState,
   PortfolioMonteCarloProfileScenario,
   PortfolioMonteCarloRequest,
   PortfolioQuantMetric,
@@ -27,11 +33,16 @@ import type {
   PortfolioTimeSeriesScope,
 } from "../../core/api/schemas";
 import { formatUsdMoney } from "../../core/lib/formatters";
+import { formatDateTimeLabel } from "../../core/lib/dates";
 import { PortfolioChartPeriodControl } from "../../features/portfolio-workspace/PortfolioChartPeriodControl";
 import { resolveWorkspaceError } from "../../features/portfolio-workspace/errors";
 import {
   usePortfolioContributionQuery,
+  usePortfolioEfficientFrontierQuery,
   usePortfolioHealthSynthesisQuery,
+  usePortfolioMLForecastQuery,
+  usePortfolioMLRegistryQuery,
+  usePortfolioMLSignalQuery,
   usePortfolioQuantMetricsQuery,
   usePortfolioMonteCarloMutation,
   usePortfolioQuantReportGenerateMutation,
@@ -43,6 +54,7 @@ import {
   topContributionRows,
 } from "../../features/portfolio-workspace/overview";
 import { resolvePortfolioChartPeriod } from "../../features/portfolio-workspace/period";
+import { getCoreTenEntriesForRoute } from "../../features/portfolio-workspace/core-ten-catalog";
 import { usePortfolioSummaryQuery } from "../../features/portfolio-summary/hooks";
 
 function resolvePeriodFromSearchParams(searchParams: URLSearchParams) {
@@ -149,6 +161,99 @@ function formatBoundedPercent(value: string | number | null | undefined): string
   return `${(boundedValue * 100).toFixed(2)}%`;
 }
 
+function formatPortfolioMLStateLabel(state: PortfolioMLState): string {
+  if (state === "ready") {
+    return "ready";
+  }
+  if (state === "error") {
+    return "error";
+  }
+  if (state === "stale") {
+    return "stale";
+  }
+  return "unavailable";
+}
+
+function resolvePortfolioMLStateToneClass(state: PortfolioMLState): string {
+  if (state === "ready") {
+    return "status-pill--positive";
+  }
+  if (state === "error") {
+    return "status-pill--negative";
+  }
+  return "status-pill--neutral";
+}
+
+function formatPortfolioMLSignalValue(signalRow: PortfolioMLSignalRow): string {
+  const normalizedUnit = signalRow.unit.toLowerCase();
+  if (normalizedUnit.includes("ratio")) {
+    return formatRatioPercent(signalRow.value, {
+      signed: true,
+    });
+  }
+  const numericValue = toFiniteRatio(signalRow.value);
+  if (numericValue === null) {
+    return String(signalRow.value);
+  }
+  if (normalizedUnit.includes("slope")) {
+    return `${numericValue.toFixed(4)} / day`;
+  }
+  return numericValue.toFixed(4);
+}
+
+function buildMLForecastFanRows(horizons: PortfolioMLForecastHorizonRow[]): Array<{
+  horizonId: string;
+  confidenceLabel: string;
+  lowerBoundLabel: string;
+  pointEstimateLabel: string;
+  upperBoundLabel: string;
+  rangeLeftPct: number;
+  rangeWidthPct: number;
+  pointPct: number;
+}> {
+  if (horizons.length === 0) {
+    return [];
+  }
+  const allBoundValues = horizons.flatMap((horizonRow) => {
+    return [
+      toFiniteRatio(horizonRow.lower_bound),
+      toFiniteRatio(horizonRow.upper_bound),
+      toFiniteRatio(horizonRow.point_estimate),
+    ].filter((value): value is number => value !== null);
+  });
+  const domainMin =
+    allBoundValues.length > 0 ? Math.min(-0.2, ...allBoundValues) : -0.2;
+  const domainMax =
+    allBoundValues.length > 0 ? Math.max(0.2, ...allBoundValues) : 0.2;
+  const domainSpan = Math.max(0.05, domainMax - domainMin);
+  function toDomainPercent(value: number | null): number {
+    if (value === null) {
+      return 50;
+    }
+    const rawValue = ((value - domainMin) / domainSpan) * 100;
+    return Math.max(0, Math.min(100, rawValue));
+  }
+  return horizons.map((horizonRow) => {
+    const lowerBound = toFiniteRatio(horizonRow.lower_bound);
+    const upperBound = toFiniteRatio(horizonRow.upper_bound);
+    const pointEstimate = toFiniteRatio(horizonRow.point_estimate);
+    const lowerPct = toDomainPercent(lowerBound);
+    const upperPct = toDomainPercent(upperBound);
+    const rangeLeftPct = Math.min(lowerPct, upperPct);
+    const rangeWidthPct = Math.max(2, Math.abs(upperPct - lowerPct));
+    return {
+      horizonId: horizonRow.horizon_id,
+      confidenceLabel: formatBoundedPercent(horizonRow.confidence_level),
+      lowerBoundLabel: formatRatioPercent(horizonRow.lower_bound, { signed: true }),
+      pointEstimateLabel: formatRatioPercent(horizonRow.point_estimate, { signed: true }),
+      upperBoundLabel: formatRatioPercent(horizonRow.upper_bound, { signed: true }),
+      rangeLeftPct,
+      rangeWidthPct,
+      pointPct: toDomainPercent(pointEstimate),
+    };
+  });
+}
+
 function formatScopeNarrative(
   scope: PortfolioQuantReportScope,
   instrumentSymbol: string | null,
@@ -217,6 +322,73 @@ function resolveProfileScenarioById(
     return null;
   }
   return profileRows.find((row) => row.profile_id === profileId) ?? null;
+}
+
+function downloadTextFile(filename: string, content: string): void {
+  const blob = new Blob([content], {
+    type: "text/markdown;charset=utf-8",
+  });
+  const objectUrl = window.URL.createObjectURL(blob);
+  const linkElement = document.createElement("a");
+  linkElement.href = objectUrl;
+  linkElement.download = filename;
+  document.body.append(linkElement);
+  linkElement.click();
+  linkElement.remove();
+  window.URL.revokeObjectURL(objectUrl);
+}
+
+function buildAnalystPackMarkdown(params: {
+  generatedAt: string;
+  period: PortfolioChartPeriod;
+  reportScope: PortfolioQuantReportScope;
+  reportInstrumentSymbol: string | null;
+  lifecycleState: string;
+  monteCarloSignalLabel: string;
+  bustProbabilityLabel: string;
+  goalProbabilityLabel: string;
+  medianEndingValueLabel: string;
+  concentrationPctLabel: string;
+  topPositiveLeader: string | null;
+  topNegativeLeader: string | null;
+  riskLabNarrative: string;
+}): string {
+  const scopeLabel =
+    params.reportScope === "instrument_symbol" && params.reportInstrumentSymbol
+      ? `${params.reportInstrumentSymbol} instrument`
+      : "portfolio";
+  const lines = [
+    `# Analyst Pack (${params.period})`,
+    "",
+    `Generated: ${params.generatedAt}`,
+    "",
+    "## Scope",
+    "",
+    `- Scope: ${scopeLabel}`,
+    `- Lifecycle: ${params.lifecycleState}`,
+    "",
+    "## Monte Carlo signal",
+    "",
+    `- Interpretation signal: ${params.monteCarloSignalLabel}`,
+    `- Bust probability: ${params.bustProbabilityLabel}`,
+    `- Goal probability: ${params.goalProbabilityLabel}`,
+    `- Median ending value: ${params.medianEndingValueLabel}`,
+    "",
+    "## Contribution diagnostics",
+    "",
+    `- Top positive leader: ${params.topPositiveLeader || "n/a"}`,
+    `- Top negative leader: ${params.topNegativeLeader || "n/a"}`,
+    `- Contribution concentration: ${params.concentrationPctLabel}`,
+    "",
+    "## Advanced risk lab",
+    "",
+    `- ${params.riskLabNarrative}`,
+    "",
+    "## Governance note",
+    "",
+    "- This pack is generated from deterministic workspace data and remains informational.",
+  ];
+  return lines.join("\n");
 }
 
 function buildContributionRows(rows: PortfolioContributionRow[]): {
@@ -412,6 +584,7 @@ export function PortfolioReportsPage() {
   const [monteCarloCalibrationBasis, setMonteCarloCalibrationBasis] =
     useState<MonteCarloCalibrationBasis>("monthly");
   const [monteCarloValidationError, setMonteCarloValidationError] = useState<string | null>(null);
+  const [lastExportedAt, setLastExportedAt] = useState<string | null>(null);
 
   const summaryQuery = usePortfolioSummaryQuery();
   const normalizedReportInstrumentSymbol = reportInstrumentSymbol.trim().toUpperCase();
@@ -428,6 +601,12 @@ export function PortfolioReportsPage() {
     enabled: isHeatmapScopeReady,
   });
   const contributionQuery = usePortfolioContributionQuery(selectedPeriod);
+  const efficientFrontierQuery = usePortfolioEfficientFrontierQuery(selectedPeriod, {
+    scope: reportScope,
+    instrumentSymbol: isReportInstrumentScope ? normalizedReportInstrumentSymbol : null,
+    frontierPoints: 24,
+    enabled: isHealthScopeReady,
+  });
   const quantMetricsQuery = usePortfolioQuantMetricsQuery(selectedPeriod);
   const quantMetrics30Query = usePortfolioQuantMetricsQuery("30D");
   const quantMetrics90Query = usePortfolioQuantMetricsQuery("90D");
@@ -440,6 +619,19 @@ export function PortfolioReportsPage() {
     instrumentSymbol: isReportInstrumentScope ? normalizedReportInstrumentSymbol : null,
     profilePosture: healthProfilePosture,
     enabled: isHealthScopeReady,
+  });
+  const mlSignalQuery = usePortfolioMLSignalQuery({
+    scope: reportScope,
+    instrumentSymbol: isReportInstrumentScope ? normalizedReportInstrumentSymbol : null,
+    enabled: isHealthScopeReady,
+  });
+  const mlForecastQuery = usePortfolioMLForecastQuery({
+    scope: reportScope,
+    instrumentSymbol: isReportInstrumentScope ? normalizedReportInstrumentSymbol : null,
+    enabled: isHealthScopeReady,
+  });
+  const mlRegistryQuery = usePortfolioMLRegistryQuery({
+    scope: reportScope,
   });
 
   const quantErrorCopy = resolveWorkspaceError(
@@ -632,10 +824,98 @@ export function PortfolioReportsPage() {
   const quantMetricCards = quantMetricsQuery.isSuccess
     ? buildQuantMetricCards(quantMetricsQuery.data.metrics)
     : [];
+  const reportsCoreTenMetrics = getCoreTenEntriesForRoute("reports");
+  const goalHitProbabilityRatio = toFiniteRatio(
+    monteCarloMutation.data?.summary.goal_probability,
+  );
   const contributionFocus =
     contributionQuery.isSuccess && contributionQuery.data.rows.length > 0
       ? buildContributionRows(contributionQuery.data.rows)
       : null;
+  const mlSignalRows = mlSignalQuery.isSuccess ? mlSignalQuery.data.signals : [];
+  const mlForecastFanRows = useMemo(() => {
+    if (!mlForecastQuery.isSuccess || mlForecastQuery.data.horizons.length === 0) {
+      return [] as ReturnType<typeof buildMLForecastFanRows>;
+    }
+    return buildMLForecastFanRows(mlForecastQuery.data.horizons);
+  }, [mlForecastQuery.data, mlForecastQuery.isSuccess]);
+  const mlCapmRows = useMemo(() => {
+    if (!mlSignalQuery.isSuccess) {
+      return [] as Array<{
+        metricId: string;
+        label: string;
+        valueLabel: string;
+        widthPct: number;
+        tone: "positive" | "negative" | "neutral";
+      }>;
+    }
+    const capmMetrics = mlSignalQuery.data.capm;
+    const metricRows = [
+      {
+        metricId: "beta",
+        label: "Beta",
+        value: toFiniteRatio(capmMetrics.beta),
+        scale: 2,
+        format: (value: number) => value.toFixed(2),
+      },
+      {
+        metricId: "alpha",
+        label: "Alpha",
+        value: toFiniteRatio(capmMetrics.alpha),
+        scale: 0.2,
+        format: (value: number) => formatRatioPercent(value, { signed: true }),
+      },
+      {
+        metricId: "expected_return",
+        label: "Expected return",
+        value: toFiniteRatio(capmMetrics.expected_return),
+        scale: 0.35,
+        format: (value: number) => formatRatioPercent(value, { signed: true }),
+      },
+      {
+        metricId: "market_premium",
+        label: "Market premium",
+        value: toFiniteRatio(capmMetrics.market_premium),
+        scale: 0.35,
+        format: (value: number) => formatRatioPercent(value, { signed: true }),
+      },
+    ];
+    return metricRows.map((metricRow) => {
+      if (metricRow.value === null) {
+        return {
+          metricId: metricRow.metricId,
+          label: metricRow.label,
+          valueLabel: "—",
+          widthPct: 8,
+          tone: "neutral" as const,
+        };
+      }
+      const tone: "positive" | "negative" | "neutral" =
+        metricRow.value > 0 ? "positive" : metricRow.value < 0 ? "negative" : "neutral";
+      const widthPct = Math.max(
+        8,
+        Math.min(100, (Math.abs(metricRow.value) / metricRow.scale) * 100),
+      );
+      return {
+        metricId: metricRow.metricId,
+        label: metricRow.label,
+        valueLabel: metricRow.format(metricRow.value),
+        widthPct,
+        tone,
+      };
+    });
+  }, [mlSignalQuery.data, mlSignalQuery.isSuccess]);
+  const mlRegistryRows = mlRegistryQuery.isSuccess ? mlRegistryQuery.data.rows.slice(0, 6) : [];
+  const forecastConfidenceHeadline =
+    mlForecastQuery.isLoading
+      ? "Loading"
+      : mlForecastQuery.isSuccess && mlForecastQuery.data.state === "ready"
+        ? mlForecastFanRows[0]?.confidenceLabel || "Ready"
+        : "Unavailable";
+  const forecastConfidenceCopy =
+    mlForecastQuery.isSuccess && mlForecastQuery.data.state === "ready"
+      ? `${mlForecastFanRows.length} forecast horizons from ${mlForecastQuery.data.model_family || "governed baseline"} snapshot.`
+      : "Forecast confidence appears here when ML forecast payload enters ready state.";
 
   const quantBenchmarkContext = quantMetricsQuery.data?.benchmark_context;
   const omittedMetricIds = quantBenchmarkContext?.omitted_metric_ids || [];
@@ -844,6 +1124,203 @@ export function PortfolioReportsPage() {
         monteCarloMutation.data.calibration_context.effective_basis as MonteCarloCalibrationBasis,
       )
     : formatCalibrationBasisLabel(monteCarloCalibrationBasis);
+  const advancedRiskProfiles = useMemo(() => {
+    return monteCarloProfileRows.map((profileRow) => {
+      const bustProbabilityRatio = toFiniteRatio(profileRow.bust_probability);
+      const goalProbabilityRatio = toFiniteRatio(profileRow.goal_probability);
+      const frontierScore =
+        bustProbabilityRatio !== null && goalProbabilityRatio !== null
+          ? goalProbabilityRatio - bustProbabilityRatio
+          : null;
+      return {
+        profileId: profileRow.profile_id,
+        label: profileRow.label,
+        bustProbabilityRatio,
+        goalProbabilityRatio,
+        frontierScore,
+      };
+    });
+  }, [monteCarloProfileRows]);
+  const bestFrontierProfile = useMemo(() => {
+    const rankedProfiles = advancedRiskProfiles
+      .filter((profile) => profile.frontierScore !== null)
+      .sort(
+        (left, right) =>
+          (right.frontierScore ?? Number.NEGATIVE_INFINITY) -
+          (left.frontierScore ?? Number.NEGATIVE_INFINITY),
+      );
+    return rankedProfiles[0] || null;
+  }, [advancedRiskProfiles]);
+  const riskContributionRows = contributionFocus?.rows.slice(0, 6) || [];
+  const riskContributionConcentrationRatio = useMemo(() => {
+    if (riskContributionRows.length === 0) {
+      return null;
+    }
+    const herfindahlRatio = riskContributionRows.reduce((accumulator, row) => {
+      const shareRatio = row.absSharePct / 100;
+      return accumulator + shareRatio * shareRatio;
+    }, 0);
+    return Math.max(0, Math.min(1, herfindahlRatio));
+  }, [riskContributionRows]);
+  const frontierPointPositions = useMemo(() => {
+    if (!efficientFrontierQuery.isSuccess) {
+      return [] as Array<{
+        pointId: string;
+        label: string;
+        leftPct: number;
+        bottomPct: number;
+        expectedReturnLabel: string;
+        volatilityLabel: string;
+        toneClass: string;
+      }>;
+    }
+    const frontierRows = efficientFrontierQuery.data.frontier_points;
+    if (frontierRows.length === 0) {
+      return [] as Array<{
+        pointId: string;
+        label: string;
+        leftPct: number;
+        bottomPct: number;
+        expectedReturnLabel: string;
+        volatilityLabel: string;
+        toneClass: string;
+      }>;
+    }
+    const frontierVolatilityValues = frontierRows
+      .map((row) => toFiniteRatio(row.volatility))
+      .filter((value): value is number => value !== null);
+    const frontierReturnValues = frontierRows
+      .map((row) => toFiniteRatio(row.expected_return))
+      .filter((value): value is number => value !== null);
+    const assetVolatilityValues = efficientFrontierQuery.data.asset_points
+      .map((row) => toFiniteRatio(row.volatility))
+      .filter((value): value is number => value !== null);
+    const assetReturnValues = efficientFrontierQuery.data.asset_points
+      .map((row) => toFiniteRatio(row.expected_return))
+      .filter((value): value is number => value !== null);
+    const allVolatilityValues = [...frontierVolatilityValues, ...assetVolatilityValues];
+    const allReturnValues = [...frontierReturnValues, ...assetReturnValues];
+    const minVolatility = allVolatilityValues.length > 0 ? Math.min(...allVolatilityValues) : 0;
+    const maxVolatility = allVolatilityValues.length > 0 ? Math.max(...allVolatilityValues) : 1;
+    const minReturn = allReturnValues.length > 0 ? Math.min(...allReturnValues) : 0;
+    const maxReturn = allReturnValues.length > 0 ? Math.max(...allReturnValues) : 1;
+    const volatilitySpan = Math.max(0.0001, maxVolatility - minVolatility);
+    const returnSpan = Math.max(0.0001, maxReturn - minReturn);
+    return frontierRows.map((frontierRow) => {
+      const volatilityValue = toFiniteRatio(frontierRow.volatility) ?? minVolatility;
+      const returnValue = toFiniteRatio(frontierRow.expected_return) ?? minReturn;
+      const leftPct = Math.max(
+        4,
+        Math.min(96, ((volatilityValue - minVolatility) / volatilitySpan) * 100),
+      );
+      const bottomPct = Math.max(
+        4,
+        Math.min(96, ((returnValue - minReturn) / returnSpan) * 100),
+      );
+      const toneClass = frontierRow.is_max_sharpe
+        ? "advanced-risk-lab__point--best"
+        : frontierRow.is_min_volatility
+          ? "advanced-risk-lab__point--stable"
+          : "";
+      return {
+        pointId: frontierRow.point_id,
+        label: frontierRow.is_max_sharpe
+          ? "Max Sharpe"
+          : frontierRow.is_min_volatility
+            ? "Min Vol"
+            : frontierRow.point_id.toUpperCase(),
+        leftPct,
+        bottomPct,
+        expectedReturnLabel: formatRatioPercent(frontierRow.expected_return, {
+          signed: true,
+        }),
+        volatilityLabel: formatRatioPercent(frontierRow.volatility, {
+          signed: false,
+        }),
+        toneClass,
+      };
+    });
+  }, [efficientFrontierQuery.data, efficientFrontierQuery.isSuccess]);
+  const frontierWeightRows = useMemo(() => {
+    if (!efficientFrontierQuery.isSuccess) {
+      return [] as Array<{
+        instrumentSymbol: string;
+        maxSharpeWeightLabel: string;
+        minVolatilityWeightLabel: string;
+      }>;
+    }
+    const maxSharpeBySymbol = new Map(
+      efficientFrontierQuery.data.max_sharpe_weights.map((row) => [
+        row.instrument_symbol,
+        row.weight,
+      ]),
+    );
+    const minVolatilityBySymbol = new Map(
+      efficientFrontierQuery.data.min_volatility_weights.map((row) => [
+        row.instrument_symbol,
+        row.weight,
+      ]),
+    );
+    const symbolSet = new Set([
+      ...Array.from(maxSharpeBySymbol.keys()),
+      ...Array.from(minVolatilityBySymbol.keys()),
+    ]);
+    return Array.from(symbolSet)
+      .sort((left, right) => left.localeCompare(right))
+      .map((instrumentSymbol) => {
+        const maxSharpeWeight = maxSharpeBySymbol.get(instrumentSymbol) ?? "0";
+        const minVolatilityWeight = minVolatilityBySymbol.get(instrumentSymbol) ?? "0";
+        return {
+          instrumentSymbol,
+          maxSharpeWeightLabel: formatRatioPercent(maxSharpeWeight, {
+            signed: false,
+          }),
+          minVolatilityWeightLabel: formatRatioPercent(minVolatilityWeight, {
+            signed: false,
+          }),
+        };
+      });
+  }, [efficientFrontierQuery.data, efficientFrontierQuery.isSuccess]);
+
+  function exportAnalystPack(): void {
+    const exportTimestamp = new Date().toISOString();
+    const normalizedExportSymbol =
+      reportScope === "instrument_symbol"
+        ? reportInstrumentSymbol.trim().toUpperCase() || null
+        : null;
+    const riskLabNarrative = bestFrontierProfile
+      ? `${bestFrontierProfile.label} profile currently has the highest goal-minus-bust frontier score (${((bestFrontierProfile.frontierScore ?? 0) * 100).toFixed(2)}%).`
+      : "Frontier ranking is pending Monte Carlo profile diagnostics.";
+    const analystPackMarkdown = buildAnalystPackMarkdown({
+      generatedAt: exportTimestamp,
+      period: selectedPeriod,
+      reportScope: reportScope,
+      reportInstrumentSymbol: normalizedExportSymbol,
+      lifecycleState: lifecycleLabelMap[reportLifecycleState],
+      monteCarloSignalLabel,
+      bustProbabilityLabel: formatBoundedPercent(
+        monteCarloMutation.data?.summary.bust_probability,
+      ),
+      goalProbabilityLabel: formatBoundedPercent(
+        monteCarloMutation.data?.summary.goal_probability,
+      ),
+      medianEndingValueLabel: monteCarloMutation.data
+        ? formatUsdMoney(monteCarloMutation.data.summary.median_ending_value_usd)
+        : "n/a",
+      concentrationPctLabel: contributionFocus
+        ? `${contributionFocus.concentrationPct}%`
+        : "n/a",
+      topPositiveLeader: contributionFocus?.positiveLeader || null,
+      topNegativeLeader: contributionFocus?.negativeLeader || null,
+      riskLabNarrative,
+    });
+    const exportDate = exportTimestamp.slice(0, 10);
+    downloadTextFile(
+      `portfolio-analyst-pack-${selectedPeriod}-${exportDate}.md`,
+      analystPackMarkdown,
+    );
+    setLastExportedAt(exportTimestamp);
+  }
 
   return (
     <PortfolioWorkspaceLayout
@@ -872,6 +1349,48 @@ export function PortfolioReportsPage() {
       frequencyLabel={timeSeriesQuery.data?.frequency}
       timezoneLabel={timeSeriesQuery.data?.timezone}
     >
+      <WorkspacePrimaryJobPanel
+        routeLabel="Quant/Reports"
+        jobTitle="Goal progress and confidence interpretation"
+        jobDescription="Prioritize goal-progress and confidence framing before artifact and simulation deep dives."
+        decisionTags={["goal_progress", "forecast_interpretation"]}
+        coreTenMetrics={reportsCoreTenMetrics}
+        supplementary={
+          <div className="chart-summary-grid">
+            <article className="chart-summary-card chart-summary-card--accent">
+              <span className="chart-summary-card__label">Goal progress</span>
+              <strong className="chart-summary-card__headline">
+                {goalHitProbabilityRatio === null
+                  ? "Unavailable"
+                  : `${(goalHitProbabilityRatio * 100).toFixed(2)}%`}
+              </strong>
+              <p className="chart-summary-card__copy">
+                Monte Carlo goal-threshold probability for current scope.
+              </p>
+            </article>
+            <article className="chart-summary-card chart-summary-card--signal">
+              <span className="chart-summary-card__label">Forecast confidence</span>
+              <strong className="chart-summary-card__headline">
+                {forecastConfidenceHeadline}
+              </strong>
+              <p className="chart-summary-card__copy">
+                {forecastConfidenceCopy}
+              </p>
+            </article>
+          </div>
+        }
+      />
+
+      {quantMetricsQuery.isLoading ? (
+        <WorkspaceStateBanner state="loading" />
+      ) : quantMetricsQuery.isError ? (
+        <WorkspaceStateBanner state="error" message={quantErrorCopy.message} />
+      ) : quantMetricsQuery.isSuccess && quantMetricCards.length === 0 ? (
+        <WorkspaceStateBanner state="unavailable" />
+      ) : quantMetricsQuery.isSuccess ? (
+        <WorkspaceStateBanner state="ready" />
+      ) : null}
+
       <WorkspaceChartPanel
         title="Quant scorecards"
         subtitle="Analyst diagnostics with explicit benchmark-context omission handling."
@@ -1030,6 +1549,13 @@ export function PortfolioReportsPage() {
               ) : null}
               {quantReportGenerateMutation.isPending ? "Generating report..." : "Generate HTML report"}
             </button>
+            <button
+              className="button-secondary"
+              onClick={exportAnalystPack}
+              type="button"
+            >
+              Export analyst pack (.md)
+            </button>
           </div>
 
           <div className="quant-lifecycle-controls__meta">
@@ -1037,6 +1563,11 @@ export function PortfolioReportsPage() {
               <span className={`status-pill ${lifecyclePillToneClass}`}>
                 Lifecycle: {lifecycleLabelMap[reportLifecycleState]}
               </span>
+              {lastExportedAt ? (
+                <span className="status-pill status-pill--neutral">
+                  Exported {formatDateTimeLabel(lastExportedAt)}
+                </span>
+              ) : null}
             </div>
 
             <ol className="lifecycle-stepper" aria-label="Quant report lifecycle steps">
@@ -1623,6 +2154,456 @@ export function PortfolioReportsPage() {
             </div>
           </>
         ) : null}
+      </WorkspaceChartPanel>
+
+      <WorkspaceChartPanel
+        title="Advanced risk lab"
+        subtitle="Frontier and contribution risk budget diagnostics in one view."
+        shortDescription="Compares Monte Carlo profile trade-offs and current contribution concentration to expose where risk is paid and where it is concentrated."
+        longDescription="Frontier view maps bust probability versus goal probability for profile scenarios. Contribution diagnostics complement this with symbol-level concentration so profile settings can be interpreted in portfolio context."
+      >
+        <div className="advanced-risk-lab">
+          <section className="advanced-risk-lab__module">
+            <header className="advanced-risk-lab__module-header">
+              <h3>Efficient frontier (Markowitz)</h3>
+              <p>
+                Annualized expected return versus volatility using long-only mean-variance
+                sampling.
+              </p>
+            </header>
+            {efficientFrontierQuery.isLoading ? <LoadingTableSkeleton rows={2} /> : null}
+            {efficientFrontierQuery.isError ? (
+              <ErrorBanner
+                title="Efficient frontier unavailable"
+                message="Efficient frontier inputs could not be computed for selected scope and period."
+                variant="warning"
+                actions={
+                  <button
+                    className="button-primary"
+                    onClick={() => void efficientFrontierQuery.refetch()}
+                    type="button"
+                  >
+                    Retry efficient frontier
+                  </button>
+                }
+              />
+            ) : null}
+            {efficientFrontierQuery.isSuccess && frontierPointPositions.length > 0 ? (
+              <div className="advanced-risk-lab__frontier" role="img" aria-label="Profile frontier plot">
+                <div className="advanced-risk-lab__frontier-grid" aria-hidden="true" />
+                {frontierPointPositions.map((frontierPoint) => {
+                  const isFeaturedPoint = frontierPoint.toneClass.length > 0;
+                  return (
+                    <article
+                      className={
+                        isFeaturedPoint
+                          ? `advanced-risk-lab__point advanced-risk-lab__point--featured ${frontierPoint.toneClass}`
+                          : "advanced-risk-lab__point advanced-risk-lab__point--dot"
+                      }
+                      key={frontierPoint.pointId}
+                      style={{
+                        left: `${frontierPoint.leftPct}%`,
+                        bottom: `${frontierPoint.bottomPct}%`,
+                      }}
+                      title={`${frontierPoint.label}: return ${frontierPoint.expectedReturnLabel}, volatility ${frontierPoint.volatilityLabel}`}
+                    >
+                      {isFeaturedPoint ? (
+                        <>
+                          <strong>{frontierPoint.label}</strong>
+                          <span>
+                            R {frontierPoint.expectedReturnLabel} · V {frontierPoint.volatilityLabel}
+                          </span>
+                        </>
+                      ) : null}
+                    </article>
+                  );
+                })}
+                <span className="advanced-risk-lab__axis advanced-risk-lab__axis--x">
+                  Volatility →
+                </span>
+                <span className="advanced-risk-lab__axis advanced-risk-lab__axis--y">
+                  Expected return →
+                </span>
+              </div>
+            ) : (
+              <EmptyState
+                title="Efficient frontier unavailable"
+                message="Efficient frontier points are unavailable for current scope/period."
+              />
+            )}
+            {efficientFrontierQuery.isSuccess ? (
+              <p className="advanced-risk-lab__meta">
+                Method: {efficientFrontierQuery.data.methodology.optimization_model} ·
+                Risk-free {formatRatioPercent(efficientFrontierQuery.data.risk_free_rate_annual)}
+              </p>
+            ) : null}
+          </section>
+
+          <section className="advanced-risk-lab__module">
+            <header className="advanced-risk-lab__module-header">
+              <h3>Risk contribution budget</h3>
+              <p>
+                Compare frontier allocations with current contribution concentration to expose
+                concentration drift.
+              </p>
+            </header>
+            {efficientFrontierQuery.isSuccess && frontierWeightRows.length > 0 ? (
+              <div
+                className="advanced-risk-lab__weights"
+                role="table"
+                aria-label="Efficient frontier weight comparison"
+              >
+                <div className="advanced-risk-lab__weights-row advanced-risk-lab__weights-row--header" role="row">
+                  <span role="columnheader">Symbol</span>
+                  <span role="columnheader">Max Sharpe</span>
+                  <span role="columnheader">Min Vol</span>
+                </div>
+                {frontierWeightRows.map((weightRow) => (
+                  <div className="advanced-risk-lab__weights-row" key={weightRow.instrumentSymbol} role="row">
+                    <span role="cell">{weightRow.instrumentSymbol}</span>
+                    <span role="cell">{weightRow.maxSharpeWeightLabel}</span>
+                    <span role="cell">{weightRow.minVolatilityWeightLabel}</span>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+            {riskContributionRows.length > 0 ? (
+              <div className="advanced-risk-lab__contrib-list" role="table" aria-label="Risk contribution budget table">
+                {riskContributionRows.map((row) => (
+                  <div className="advanced-risk-lab__contrib-row" key={row.instrumentSymbol} role="row">
+                    <span className="advanced-risk-lab__contrib-symbol" role="cell">
+                      {row.instrumentSymbol} budget
+                    </span>
+                    <span className="advanced-risk-lab__contrib-bar-shell" role="cell">
+                      <span
+                        className={`advanced-risk-lab__contrib-bar advanced-risk-lab__contrib-bar--${row.tone}`}
+                        style={{ width: `${Math.max(8, row.absSharePct)}%` }}
+                      />
+                    </span>
+                    <strong className={`advanced-risk-lab__contrib-value tone-${row.tone}`} role="cell">
+                      {row.absSharePct.toFixed(2)}%
+                    </strong>
+                  </div>
+                ))}
+                <p className="advanced-risk-lab__meta">
+                  Concentration index:{" "}
+                  {riskContributionConcentrationRatio === null
+                    ? "n/a"
+                    : `${(riskContributionConcentrationRatio * 100).toFixed(2)}%`}
+                </p>
+              </div>
+            ) : (
+              <EmptyState
+                title="Contribution budget unavailable"
+                message="Contribution rows are required to compute risk budget concentration."
+              />
+            )}
+          </section>
+        </div>
+
+        {bestFrontierProfile ? (
+          <section className="context-banner context-banner--info" aria-live="polite">
+            <h3 className="context-banner__title">Frontier lead profile</h3>
+            <p className="context-banner__copy">
+              {bestFrontierProfile.label} currently leads with goal-minus-bust spread{" "}
+              {bestFrontierProfile.frontierScore === null
+                ? "n/a"
+                : `${(bestFrontierProfile.frontierScore * 100).toFixed(2)}%`}
+              . Validate this against concentration and downside tolerance before rebalancing decisions.
+            </p>
+          </section>
+        ) : null}
+      </WorkspaceChartPanel>
+
+      <WorkspaceChartPanel
+        title="ML insights control tower"
+        subtitle="Signal contracts, CAPM diagnostics, probabilistic forecast fan, and registry governance."
+        shortDescription="Operational view to inspect time-series signal state, CAPM interpretation, forecast interval shape, and promoted model lineage."
+        longDescription="Use this panel to validate that ML contracts are ready, interpretable, and governed before relying on generated narratives."
+      >
+        {!isHealthScopeReady ? (
+          <ErrorBanner
+            title="ML scope requires symbol"
+            message="Provide instrument symbol when scope is instrument to load signal and forecast contracts."
+            variant="warning"
+          />
+        ) : null}
+
+        <div className="ml-insights-grid">
+          <section className="ml-insights-module">
+            <header className="ml-insights-module__header">
+              <h3>Signal strip</h3>
+              {mlSignalQuery.isSuccess ? (
+                <span
+                  className={`status-pill ${resolvePortfolioMLStateToneClass(mlSignalQuery.data.state)}`}
+                >
+                  State: {formatPortfolioMLStateLabel(mlSignalQuery.data.state)}
+                </span>
+              ) : mlSignalQuery.isError ? (
+                <span className="status-pill status-pill--negative">State: error</span>
+              ) : mlSignalQuery.isLoading ? (
+                <span className="status-pill status-pill--neutral">State: loading</span>
+              ) : (
+                <span className="status-pill status-pill--neutral">State: unavailable</span>
+              )}
+            </header>
+            <p className="ml-insights-module__meta">
+              Scope {reportScope}
+              {isReportInstrumentScope && normalizedReportInstrumentSymbol.length > 0
+                ? ` · ${normalizedReportInstrumentSymbol}`
+                : ""}
+            </p>
+            {mlSignalQuery.isLoading ? <LoadingTableSkeleton rows={2} /> : null}
+            {mlSignalQuery.isError ? (
+              <ErrorBanner
+                title="Signal strip unavailable"
+                message="Portfolio ML signal contract request failed."
+                variant="warning"
+                actions={
+                  <button
+                    className="button-primary"
+                    onClick={() => void mlSignalQuery.refetch()}
+                    type="button"
+                  >
+                    Retry signal strip
+                  </button>
+                }
+              />
+            ) : null}
+            {mlSignalQuery.isSuccess && mlSignalRows.length > 0 ? (
+              <div className="ml-signal-strip" role="list" aria-label="ML signal strip">
+                {mlSignalRows.map((signalRow) => (
+                  <article
+                    className={`ml-signal-card ml-signal-card--${signalRow.interpretation_band}`}
+                    key={signalRow.signal_id}
+                    role="listitem"
+                  >
+                    <span className="ml-signal-card__label">{signalRow.label}</span>
+                    <strong className="ml-signal-card__value">
+                      {formatPortfolioMLSignalValue(signalRow)}
+                    </strong>
+                    <span className="ml-signal-card__meta">
+                      {signalRow.signal_id} · {signalRow.interpretation_band}
+                    </span>
+                  </article>
+                ))}
+              </div>
+            ) : null}
+            {mlSignalQuery.isSuccess &&
+            mlSignalQuery.data.state !== "ready" &&
+            mlSignalRows.length === 0 ? (
+              <EmptyState
+                title="Signal strip not ready"
+                message={mlSignalQuery.data.state_reason_detail}
+              />
+            ) : null}
+          </section>
+
+          <section className="ml-insights-module">
+            <header className="ml-insights-module__header">
+              <h3>CAPM diagnostics</h3>
+              {mlSignalQuery.isSuccess ? (
+                <span
+                  className={`status-pill ${resolvePortfolioMLStateToneClass(mlSignalQuery.data.state)}`}
+                >
+                  Model: {mlSignalQuery.data.capm.benchmark_symbol || "n/a"}
+                </span>
+              ) : (
+                <span className="status-pill status-pill--neutral">Model: n/a</span>
+              )}
+            </header>
+            {mlSignalQuery.isSuccess ? (
+              <>
+                <div className="ml-capm-grid" role="table" aria-label="CAPM diagnostics table">
+                  {mlCapmRows.map((capmMetric) => (
+                    <div className="ml-capm-row" key={capmMetric.metricId} role="row">
+                      <span className="ml-capm-row__label" role="cell">
+                        {capmMetric.label}
+                      </span>
+                      <span className="ml-capm-row__bar-shell" role="cell">
+                        <span
+                          className={`ml-capm-row__bar ml-capm-row__bar--${capmMetric.tone}`}
+                          style={{ width: `${capmMetric.widthPct}%` }}
+                        />
+                      </span>
+                      <strong
+                        className={`ml-capm-row__value tone-${capmMetric.tone}`}
+                        role="cell"
+                      >
+                        {capmMetric.valueLabel}
+                      </strong>
+                    </div>
+                  ))}
+                </div>
+                <p className="ml-insights-module__meta">
+                  Risk-free: {mlSignalQuery.data.capm.risk_free_source || "n/a"} ·
+                  Annualization {mlSignalQuery.data.capm.annualization_factor || "n/a"}
+                </p>
+              </>
+            ) : (
+              <EmptyState
+                title="CAPM diagnostics pending"
+                message="CAPM cards render after successful signal contract retrieval."
+              />
+            )}
+          </section>
+
+          <section className="ml-insights-module">
+            <header className="ml-insights-module__header">
+              <h3>Forecast fan</h3>
+              {mlForecastQuery.isSuccess ? (
+                <span
+                  className={`status-pill ${resolvePortfolioMLStateToneClass(mlForecastQuery.data.state)}`}
+                >
+                  State: {formatPortfolioMLStateLabel(mlForecastQuery.data.state)}
+                </span>
+              ) : mlForecastQuery.isError ? (
+                <span className="status-pill status-pill--negative">State: error</span>
+              ) : mlForecastQuery.isLoading ? (
+                <span className="status-pill status-pill--neutral">State: loading</span>
+              ) : (
+                <span className="status-pill status-pill--neutral">State: unavailable</span>
+              )}
+            </header>
+            <p className="ml-insights-module__meta">
+              Model family {mlForecastQuery.data?.model_family || "n/a"} · Snapshot{" "}
+              {mlForecastQuery.data?.model_snapshot_ref || "n/a"}
+            </p>
+            {mlForecastQuery.isLoading ? <LoadingTableSkeleton rows={2} /> : null}
+            {mlForecastQuery.isError ? (
+              <ErrorBanner
+                title="Forecast fan unavailable"
+                message="Portfolio ML forecast contract request failed."
+                variant="warning"
+                actions={
+                  <button
+                    className="button-primary"
+                    onClick={() => void mlForecastQuery.refetch()}
+                    type="button"
+                  >
+                    Retry forecast fan
+                  </button>
+                }
+              />
+            ) : null}
+            {mlForecastQuery.isSuccess && mlForecastFanRows.length > 0 ? (
+              <div className="ml-forecast-fan" role="table" aria-label="Forecast fan table">
+                {mlForecastFanRows.map((forecastRow) => (
+                  <div className="ml-forecast-fan__row" key={forecastRow.horizonId} role="row">
+                    <span className="ml-forecast-fan__horizon" role="cell">
+                      {forecastRow.horizonId}
+                    </span>
+                    <span className="ml-forecast-fan__track" role="cell">
+                      <span
+                        className="ml-forecast-fan__range"
+                        style={{
+                          left: `${forecastRow.rangeLeftPct}%`,
+                          width: `${forecastRow.rangeWidthPct}%`,
+                        }}
+                      />
+                      <span
+                        className="ml-forecast-fan__point"
+                        style={{ left: `${forecastRow.pointPct}%` }}
+                      />
+                    </span>
+                    <strong className="ml-forecast-fan__point-value" role="cell">
+                      {forecastRow.pointEstimateLabel}
+                    </strong>
+                    <span className="ml-forecast-fan__bounds" role="cell">
+                      {forecastRow.lowerBoundLabel} / {forecastRow.upperBoundLabel}
+                    </span>
+                    <span className="ml-forecast-fan__confidence" role="cell">
+                      {forecastRow.confidenceLabel}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+            {mlForecastQuery.isSuccess &&
+            mlForecastQuery.data.state !== "ready" &&
+            mlForecastFanRows.length === 0 ? (
+              <EmptyState
+                title="Forecast fan not ready"
+                message={mlForecastQuery.data.state_reason_detail}
+              />
+            ) : null}
+          </section>
+
+          <section className="ml-insights-module">
+            <header className="ml-insights-module__header">
+              <h3>Model registry</h3>
+              {mlRegistryQuery.isSuccess ? (
+                <span
+                  className={`status-pill ${resolvePortfolioMLStateToneClass(mlRegistryQuery.data.state)}`}
+                >
+                  State: {formatPortfolioMLStateLabel(mlRegistryQuery.data.state)}
+                </span>
+              ) : mlRegistryQuery.isError ? (
+                <span className="status-pill status-pill--negative">State: error</span>
+              ) : mlRegistryQuery.isLoading ? (
+                <span className="status-pill status-pill--neutral">State: loading</span>
+              ) : (
+                <span className="status-pill status-pill--neutral">State: unavailable</span>
+              )}
+            </header>
+            <p className="ml-insights-module__meta">
+              Governance snapshots filtered by scope {reportScope}.
+            </p>
+            {mlRegistryQuery.isLoading ? <LoadingTableSkeleton rows={2} /> : null}
+            {mlRegistryQuery.isError ? (
+              <ErrorBanner
+                title="Model registry unavailable"
+                message="Portfolio ML registry request failed."
+                variant="warning"
+                actions={
+                  <button
+                    className="button-primary"
+                    onClick={() => void mlRegistryQuery.refetch()}
+                    type="button"
+                  >
+                    Retry registry
+                  </button>
+                }
+              />
+            ) : null}
+            {mlRegistryQuery.isSuccess && mlRegistryRows.length > 0 ? (
+              <div className="ml-registry-table" role="table" aria-label="ML model registry table">
+                <div className="ml-registry-table__row ml-registry-table__row--header" role="row">
+                  <span role="columnheader">Snapshot</span>
+                  <span role="columnheader">Family</span>
+                  <span role="columnheader">Scope</span>
+                  <span role="columnheader">Lifecycle</span>
+                  <span role="columnheader">Window</span>
+                </div>
+                {mlRegistryRows.map((registryRow) => (
+                  <div className="ml-registry-table__row" key={registryRow.snapshot_ref} role="row">
+                    <span role="cell">{registryRow.snapshot_ref}</span>
+                    <span role="cell">{registryRow.model_family}</span>
+                    <span role="cell">
+                      {registryRow.scope}
+                      {registryRow.instrument_symbol
+                        ? ` · ${registryRow.instrument_symbol}`
+                        : ""}
+                    </span>
+                    <span role="cell">{registryRow.lifecycle_state}</span>
+                    <span role="cell">
+                      {formatDateTimeLabel(registryRow.data_window_start)} to{" "}
+                      {formatDateTimeLabel(registryRow.data_window_end)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+            {mlRegistryQuery.isSuccess &&
+            mlRegistryQuery.data.state !== "ready" &&
+            mlRegistryRows.length === 0 ? (
+              <EmptyState
+                title="Registry unavailable"
+                message={mlRegistryQuery.data.state_reason_detail}
+              />
+            ) : null}
+          </section>
+        </div>
       </WorkspaceChartPanel>
 
       <WorkspaceChartPanel

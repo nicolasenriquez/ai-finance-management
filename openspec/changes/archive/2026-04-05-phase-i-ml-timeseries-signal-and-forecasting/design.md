@@ -52,6 +52,17 @@ This design narrows scope to what brings immediate value:
   - start with LSTM/RNN from references: rejected due to higher complexity and weaker explainability/governance in v1.
   - start with Prophet: rejected due to dependency and tuning complexity before baseline quality gates are established.
 
+Frozen policy list for task 1.1:
+- Included methods:
+  - deterministic trend/momentum/volatility/drawdown signal extraction
+  - CAPM signal contract (`beta`, `alpha`, `expected_return`, `market_premium`)
+  - forecast candidates: naive, seasonal-naive, EWMA/Holt, ARIMA-family, ridge lag-regression
+- Deferred methods:
+  - LSTM/generic RNN
+  - Prophet
+  - customer segmentation
+  - any trade-execution workflows
+
 ### Decision 3: Implement CAPM as deterministic signal contract, not as forecast model
 - Decision: CAPM outputs are produced in signal endpoints using explicit benchmark and risk-free inputs and annualization metadata.
 - Rationale: CAPM is useful for portfolio management explainability and risk decomposition, and it aligns with deterministic read-only contracts.
@@ -65,6 +76,14 @@ This design narrows scope to what brings immediate value:
 - Alternatives considered:
   - publish best model regardless of baseline: rejected because it can degrade quality silently.
   - manual analyst promotion without metrics: rejected because it breaks deterministic governance.
+
+Frozen thresholds for task 1.2:
+- `wmape_improvement_min_pct = 5.0`
+- `max_horizon_regression_pct = 2.0`
+- `prediction_interval_nominal = 0.80`
+- `prediction_interval_coverage_floor = 0.72`
+- `prediction_interval_coverage_ceiling = 0.88`
+- `champion_ttl_hours = 168`
 
 ### Decision 5: Expose probabilistic read-only forecast contracts with lifecycle states
 - Decision: API returns horizon-level point + interval outputs and one state in `ready|unavailable|stale|error`.
@@ -112,6 +131,29 @@ This design narrows scope to what brings immediate value:
 - Rationale: frontend can adopt suggestion chips incrementally without reworking backend semantics later.
 - Alternatives considered:
   - keep suggestion generation frontend-only: rejected because backend has more reliable context about active tools, states, and unavailable reasons.
+
+### Decision 12: Freeze phase-i API contracts for signals, CAPM, forecasts, and registry
+- Decision: lock one shared lifecycle envelope and route shape before service implementation.
+- Rationale: prevents contract drift across independent slices and keeps frontend/copilot integration deterministic.
+- Frozen contract:
+  - routes:
+    - `GET /api/portfolio/ml/signals`
+    - `GET /api/portfolio/ml/forecasts`
+    - `GET /api/portfolio/ml/registry`
+  - shared response envelope fields:
+    - `state` in `ready|unavailable|stale|error`
+    - `state_reason_code`
+    - `state_reason_detail`
+    - `evaluated_at`
+    - `as_of_ledger_at`
+    - `as_of_market_at`
+    - `freshness_policy`
+  - scope semantics:
+    - `scope=portfolio` returns aggregate scope with `instrument_symbol` null/omitted by schema
+    - `scope=instrument_symbol` requires validated `instrument_symbol`
+- Alternatives considered:
+  - endpoint-specific state enums: rejected because consumer logic becomes inconsistent.
+  - nullable lifecycle fields without reason code/detail: rejected because clients cannot distinguish stale vs unavailable vs error deterministically.
 
 ## Risks / Trade-offs
 

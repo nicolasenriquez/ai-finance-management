@@ -8,6 +8,8 @@ import type {
   PortfolioChartPeriod,
   PortfolioHealthProfilePosture,
   PortfolioHierarchyGroupBy,
+  PortfolioMLScope,
+  PortfolioMLState,
   PortfolioMonteCarloRequest,
   PortfolioMonteCarloResponse,
   PortfolioQuantReportGenerateRequest,
@@ -18,8 +20,12 @@ import type {
 } from "../../core/api/schemas";
 import {
   fetchPortfolioContribution,
+  fetchPortfolioEfficientFrontier,
   fetchPortfolioHealthSynthesis,
   fetchPortfolioHierarchy,
+  fetchPortfolioMLForecasts,
+  fetchPortfolioMLRegistry,
+  fetchPortfolioMLSignals,
   fetchPortfolioReturnDistribution,
   fetchPortfolioRiskEvolution,
   fetchPortfolioQuantMetrics,
@@ -244,6 +250,127 @@ export function usePortfolioQuantMetricsQuery(period: PortfolioChartPeriod) {
   return useQuery({
     queryKey: ["portfolio", "quant-metrics", period],
     queryFn: () => fetchPortfolioQuantMetrics(period),
+    staleTime: 30_000,
+    retry: (failureCount, error) =>
+      failureCount < 1 && shouldRetryApiError(error),
+  });
+}
+
+export function usePortfolioEfficientFrontierQuery(
+  period: PortfolioChartPeriod,
+  options: {
+    scope: PortfolioTimeSeriesScope;
+    instrumentSymbol?: string | null;
+    frontierPoints?: number;
+    enabled?: boolean;
+  },
+) {
+  const normalizedInstrumentSymbol =
+    options.instrumentSymbol?.trim().toUpperCase() || null;
+  const isValidScopeRequest =
+    options.scope === "portfolio" || normalizedInstrumentSymbol !== null;
+  return useQuery({
+    queryKey: [
+      "portfolio",
+      "efficient-frontier",
+      period,
+      options.scope,
+      normalizedInstrumentSymbol,
+      options.frontierPoints ?? 24,
+    ],
+    queryFn: () =>
+      fetchPortfolioEfficientFrontier(period, {
+        scope: options.scope,
+        instrumentSymbol: normalizedInstrumentSymbol,
+        frontierPoints: options.frontierPoints,
+      }),
+    enabled: options.enabled ?? isValidScopeRequest,
+    staleTime: 30_000,
+    retry: (failureCount, error) =>
+      failureCount < 1 && shouldRetryApiError(error),
+  });
+}
+
+export function usePortfolioMLSignalQuery(options: {
+  scope: PortfolioMLScope;
+  instrumentSymbol?: string | null;
+  enabled?: boolean;
+}) {
+  const normalizedInstrumentSymbol =
+    options.instrumentSymbol?.trim().toUpperCase() || null;
+  const isValidScopeRequest =
+    options.scope === "portfolio" || normalizedInstrumentSymbol !== null;
+  return useQuery({
+    queryKey: [
+      "portfolio",
+      "ml",
+      "signals",
+      options.scope,
+      normalizedInstrumentSymbol,
+    ],
+    queryFn: () =>
+      fetchPortfolioMLSignals({
+        scope: options.scope,
+        instrumentSymbol: normalizedInstrumentSymbol,
+      }),
+    enabled: options.enabled ?? isValidScopeRequest,
+    staleTime: 30_000,
+    retry: (failureCount, error) =>
+      failureCount < 1 && shouldRetryApiError(error),
+  });
+}
+
+export function usePortfolioMLForecastQuery(options: {
+  scope: PortfolioMLScope;
+  instrumentSymbol?: string | null;
+  enabled?: boolean;
+}) {
+  const normalizedInstrumentSymbol =
+    options.instrumentSymbol?.trim().toUpperCase() || null;
+  const isValidScopeRequest =
+    options.scope === "portfolio" || normalizedInstrumentSymbol !== null;
+  return useQuery({
+    queryKey: [
+      "portfolio",
+      "ml",
+      "forecasts",
+      options.scope,
+      normalizedInstrumentSymbol,
+    ],
+    queryFn: () =>
+      fetchPortfolioMLForecasts({
+        scope: options.scope,
+        instrumentSymbol: normalizedInstrumentSymbol,
+      }),
+    enabled: options.enabled ?? isValidScopeRequest,
+    staleTime: 30_000,
+    retry: (failureCount, error) =>
+      failureCount < 1 && shouldRetryApiError(error),
+  });
+}
+
+export function usePortfolioMLRegistryQuery(options?: {
+  scope?: PortfolioMLScope | null;
+  modelFamily?: string | null;
+  lifecycleState?: PortfolioMLState | null;
+  enabled?: boolean;
+}) {
+  return useQuery({
+    queryKey: [
+      "portfolio",
+      "ml",
+      "registry",
+      options?.scope ?? null,
+      options?.modelFamily ?? null,
+      options?.lifecycleState ?? null,
+    ],
+    queryFn: () =>
+      fetchPortfolioMLRegistry({
+        scope: options?.scope ?? null,
+        modelFamily: options?.modelFamily ?? null,
+        lifecycleState: options?.lifecycleState ?? null,
+      }),
+    enabled: options?.enabled ?? true,
     staleTime: 30_000,
     retry: (failureCount, error) =>
       failureCount < 1 && shouldRetryApiError(error),

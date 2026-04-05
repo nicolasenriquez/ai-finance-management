@@ -345,6 +345,55 @@ class PortfolioQuantReportScope(StrEnum):
     INSTRUMENT_SYMBOL = "instrument_symbol"
 
 
+class PortfolioEfficientFrontierMethodology(BaseModel):
+    """Methodology metadata for efficient-frontier response interpretation."""
+
+    optimization_model: str = Field(min_length=1)
+    sampling_method: str = Field(min_length=1)
+    annualization_basis: str = Field(min_length=1)
+
+
+class PortfolioEfficientFrontierPoint(BaseModel):
+    """One point along the efficient-frontier approximation curve."""
+
+    point_id: str = Field(min_length=1)
+    expected_return: Decimal
+    volatility: Decimal
+    sharpe_ratio: Decimal
+    is_max_sharpe: bool = False
+    is_min_volatility: bool = False
+
+
+class PortfolioEfficientFrontierAssetPoint(BaseModel):
+    """One single-asset point shown alongside the efficient frontier."""
+
+    instrument_symbol: str = Field(min_length=1)
+    expected_return: Decimal
+    volatility: Decimal
+
+
+class PortfolioEfficientFrontierWeight(BaseModel):
+    """One symbol weight row for selected frontier allocations."""
+
+    instrument_symbol: str = Field(min_length=1)
+    weight: Decimal
+
+
+class PortfolioEfficientFrontierResponse(BaseModel):
+    """Efficient-frontier response payload for Markowitz diagnostics modules."""
+
+    as_of_ledger_at: datetime
+    scope: PortfolioQuantReportScope
+    instrument_symbol: str | None = None
+    period: PortfolioChartPeriod
+    risk_free_rate_annual: Decimal
+    methodology: PortfolioEfficientFrontierMethodology
+    frontier_points: list[PortfolioEfficientFrontierPoint]
+    asset_points: list[PortfolioEfficientFrontierAssetPoint]
+    max_sharpe_weights: list[PortfolioEfficientFrontierWeight]
+    min_volatility_weights: list[PortfolioEfficientFrontierWeight]
+
+
 class PortfolioQuantReportLifecycleStatus(StrEnum):
     """Lifecycle statuses exposed by quant report generation contract."""
 

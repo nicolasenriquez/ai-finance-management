@@ -205,6 +205,138 @@ export const portfolioQuantMetricsResponseSchema = z.object({
   metrics: z.array(portfolioQuantMetricSchema),
 });
 
+export const portfolioEfficientFrontierMethodologySchema = z.object({
+  optimization_model: z.string().min(1),
+  sampling_method: z.string().min(1),
+  annualization_basis: z.string().min(1),
+});
+
+export const portfolioEfficientFrontierPointSchema = z.object({
+  point_id: z.string().min(1),
+  expected_return: decimalFieldSchema,
+  volatility: decimalFieldSchema,
+  sharpe_ratio: decimalFieldSchema,
+  is_max_sharpe: z.boolean(),
+  is_min_volatility: z.boolean(),
+});
+
+export const portfolioEfficientFrontierAssetPointSchema = z.object({
+  instrument_symbol: z.string().min(1),
+  expected_return: decimalFieldSchema,
+  volatility: decimalFieldSchema,
+});
+
+export const portfolioEfficientFrontierWeightSchema = z.object({
+  instrument_symbol: z.string().min(1),
+  weight: decimalFieldSchema,
+});
+
+export const portfolioEfficientFrontierResponseSchema = z.object({
+  as_of_ledger_at: z.string().min(1),
+  scope: z.enum(["portfolio", "instrument_symbol"]),
+  instrument_symbol: z.string().min(1).nullable(),
+  period: portfolioChartPeriodSchema,
+  risk_free_rate_annual: decimalFieldSchema,
+  methodology: portfolioEfficientFrontierMethodologySchema,
+  frontier_points: z.array(portfolioEfficientFrontierPointSchema),
+  asset_points: z.array(portfolioEfficientFrontierAssetPointSchema),
+  max_sharpe_weights: z.array(portfolioEfficientFrontierWeightSchema),
+  min_volatility_weights: z.array(portfolioEfficientFrontierWeightSchema),
+});
+
+export const portfolioMLScopeSchema = z.enum([
+  "portfolio",
+  "instrument_symbol",
+]);
+export const portfolioMLStateSchema = z.enum([
+  "ready",
+  "unavailable",
+  "stale",
+  "error",
+]);
+export const portfolioMLFreshnessPolicySchema = z.object({
+  max_age_hours: z.number().int().positive(),
+});
+export const portfolioMLSignalRowSchema = z.object({
+  signal_id: z.string().min(1),
+  label: z.string().min(1),
+  unit: z.string().min(1),
+  interpretation_band: z.string().min(1),
+  value: decimalFieldSchema,
+});
+export const portfolioMLCapmMetricsSchema = z.object({
+  beta: nullableDecimalFieldSchema,
+  alpha: nullableDecimalFieldSchema,
+  expected_return: nullableDecimalFieldSchema,
+  market_premium: nullableDecimalFieldSchema,
+  benchmark_symbol: z.string().min(1).nullable(),
+  risk_free_source: z.string().min(1).nullable(),
+  annualization_factor: z.number().int().positive().nullable(),
+});
+export const portfolioMLSignalResponseSchema = z.object({
+  state: portfolioMLStateSchema,
+  state_reason_code: z.string().min(1),
+  state_reason_detail: z.string().min(1),
+  scope: portfolioMLScopeSchema,
+  instrument_symbol: z.string().min(1).nullable(),
+  as_of_ledger_at: z.string().min(1),
+  as_of_market_at: z.string().min(1),
+  evaluated_at: z.string().min(1),
+  freshness_policy: portfolioMLFreshnessPolicySchema,
+  signals: z.array(portfolioMLSignalRowSchema),
+  capm: portfolioMLCapmMetricsSchema,
+});
+export const portfolioMLForecastHorizonRowSchema = z.object({
+  horizon_id: z.string().min(1),
+  point_estimate: decimalFieldSchema,
+  lower_bound: decimalFieldSchema,
+  upper_bound: decimalFieldSchema,
+  confidence_level: decimalFieldSchema,
+  model_snapshot_ref: z.string().min(1),
+});
+export const portfolioMLForecastResponseSchema = z.object({
+  state: portfolioMLStateSchema,
+  state_reason_code: z.string().min(1),
+  state_reason_detail: z.string().min(1),
+  scope: portfolioMLScopeSchema,
+  instrument_symbol: z.string().min(1).nullable(),
+  as_of_ledger_at: z.string().min(1),
+  as_of_market_at: z.string().min(1),
+  evaluated_at: z.string().min(1),
+  freshness_policy: portfolioMLFreshnessPolicySchema,
+  model_snapshot_ref: z.string().min(1).nullable(),
+  model_family: z.string().min(1).nullable(),
+  training_window_start: z.string().min(1).nullable(),
+  training_window_end: z.string().min(1).nullable(),
+  horizons: z.array(portfolioMLForecastHorizonRowSchema),
+});
+export const portfolioMLRegistryRowSchema = z.object({
+  snapshot_ref: z.string().min(1),
+  scope: portfolioMLScopeSchema,
+  instrument_symbol: z.string().min(1).nullable(),
+  model_family: z.string().min(1),
+  lifecycle_state: portfolioMLStateSchema,
+  feature_set_hash: z.string().min(1),
+  data_window_start: z.string().min(1),
+  data_window_end: z.string().min(1),
+  run_status: z.string().min(1),
+  promoted_at: z.string().min(1).nullable(),
+  expires_at: z.string().min(1).nullable(),
+  replaced_snapshot_ref: z.string().min(1).nullable(),
+  policy_result: z.record(z.string(), z.unknown()),
+  metric_vector: z.record(z.string(), z.unknown()),
+  baseline_comparator_metrics: z.record(z.string(), z.unknown()),
+});
+export const portfolioMLRegistryResponseSchema = z.object({
+  state: portfolioMLStateSchema,
+  state_reason_code: z.string().min(1),
+  state_reason_detail: z.string().min(1),
+  as_of_ledger_at: z.string().min(1),
+  as_of_market_at: z.string().min(1),
+  evaluated_at: z.string().min(1),
+  rows: z.array(portfolioMLRegistryRowSchema),
+});
+
 export const portfolioQuantReportScopeSchema = z.enum([
   "portfolio",
   "instrument_symbol",
@@ -495,6 +627,7 @@ export const portfolioCopilotChatRequestSchema = z.object({
   scope: portfolioQuantReportScopeSchema.default("portfolio"),
   instrument_symbol: z.string().min(1).nullable().optional(),
   max_tool_calls: z.number().int().min(1).max(6).default(6),
+  document_ids: z.array(z.number().int().positive()).max(8).default([]),
 });
 
 export const portfolioCopilotChatResponseSchema = z.object({
@@ -505,6 +638,7 @@ export const portfolioCopilotChatResponseSchema = z.object({
   reason_code: portfolioCopilotReasonCodeSchema.nullable(),
   opportunity_candidates: z.array(portfolioCopilotOpportunityCandidateSchema),
   opportunity_narration: z.string().nullable(),
+  prompt_suggestions: z.array(z.string().min(1)).max(4).default([]),
 });
 
 export type PortfolioSummaryRow = z.infer<typeof portfolioSummaryRowSchema>;
@@ -559,6 +693,41 @@ export type PortfolioQuantBenchmarkContext = z.infer<
 >;
 export type PortfolioQuantMetricsResponse = z.infer<
   typeof portfolioQuantMetricsResponseSchema
+>;
+export type PortfolioEfficientFrontierMethodology = z.infer<
+  typeof portfolioEfficientFrontierMethodologySchema
+>;
+export type PortfolioEfficientFrontierPoint = z.infer<
+  typeof portfolioEfficientFrontierPointSchema
+>;
+export type PortfolioEfficientFrontierAssetPoint = z.infer<
+  typeof portfolioEfficientFrontierAssetPointSchema
+>;
+export type PortfolioEfficientFrontierWeight = z.infer<
+  typeof portfolioEfficientFrontierWeightSchema
+>;
+export type PortfolioEfficientFrontierResponse = z.infer<
+  typeof portfolioEfficientFrontierResponseSchema
+>;
+export type PortfolioMLScope = z.infer<typeof portfolioMLScopeSchema>;
+export type PortfolioMLState = z.infer<typeof portfolioMLStateSchema>;
+export type PortfolioMLFreshnessPolicy = z.infer<
+  typeof portfolioMLFreshnessPolicySchema
+>;
+export type PortfolioMLSignalRow = z.infer<typeof portfolioMLSignalRowSchema>;
+export type PortfolioMLCapmMetrics = z.infer<typeof portfolioMLCapmMetricsSchema>;
+export type PortfolioMLSignalResponse = z.infer<
+  typeof portfolioMLSignalResponseSchema
+>;
+export type PortfolioMLForecastHorizonRow = z.infer<
+  typeof portfolioMLForecastHorizonRowSchema
+>;
+export type PortfolioMLForecastResponse = z.infer<
+  typeof portfolioMLForecastResponseSchema
+>;
+export type PortfolioMLRegistryRow = z.infer<typeof portfolioMLRegistryRowSchema>;
+export type PortfolioMLRegistryResponse = z.infer<
+  typeof portfolioMLRegistryResponseSchema
 >;
 export type PortfolioQuantReportScope = z.infer<
   typeof portfolioQuantReportScopeSchema

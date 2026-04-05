@@ -197,3 +197,19 @@ When planning implementation:
 - use official library docs for technical implementation details
 - use official PostgreSQL and extension docs for database behavior and performance decisions
 - use external portfolio repos for architecture and analytics inspiration only after mapping them to this repo's scope
+
+## Finance Visualization Standards References
+
+Primary chart-selection and accessibility references for portfolio analytics UX:
+
+- Financial Times Visual Vocabulary (repo): https://github.com/Financial-Times/chart-doctor/tree/main/visual-vocabulary
+- Financial Times Visual Vocabulary poster (EN PDF): https://raw.githubusercontent.com/Financial-Times/chart-doctor/main/visual-vocabulary/Visual-vocabulary-en.pdf
+- Tableau chart selection guide: https://help.tableau.com/current/pro/desktop/en-us/what_chart_example.htm
+- Tableau chart-type whitepaper: https://www.tableau.com/learn/whitepapers/which-type-chart-or-graph-right-for-you-ungated
+- WCAG 2.2 focus visible (SC 2.4.7): https://www.w3.org/WAI/WCAG22/Understanding/focus-visible.html
+- WCAG 2.2 target size minimum (SC 2.5.8): https://www.w3.org/WAI/WCAG22/Understanding/target-size-minimum
+- WCAG contrast minimum (SC 1.4.3): https://www.w3.org/WAI/WCAG21/Understanding/contrast-minimum
+- Portfolio Charts drawdowns: https://portfoliocharts.com/charts/drawdowns/
+- Portfolio Charts rolling returns: https://portfoliocharts.com/charts/rolling-returns/
+- Portfolio Charts heat map: https://portfoliocharts.com/charts/heat-map/
+- Portfolio Charts annual returns: https://portfoliocharts.com/charts/annual-returns/

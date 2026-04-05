@@ -18,34 +18,39 @@ export const appRouter = createBrowserRouter([
   },
   {
     path: "/portfolio",
-    element: <Navigate to="/portfolio/home" replace />,
-  },
-  {
-    path: "/portfolio/home",
-    element: <PortfolioHomePage />,
-  },
-  {
-    path: "/portfolio/analytics",
-    element: <PortfolioAnalyticsPage />,
-  },
-  {
-    path: "/portfolio/risk",
-    element: <PortfolioRiskPage />,
-  },
-  {
-    path: "/portfolio/reports",
-    element: <PortfolioReportsPage />,
-  },
-  {
-    path: "/portfolio/copilot",
-    element: <PortfolioCopilotPage />,
-  },
-  {
-    path: "/portfolio/transactions",
-    element: <PortfolioTransactionsPage />,
-  },
-  {
-    path: "/portfolio/:symbol",
-    element: <PortfolioLotDetailPage />,
+    children: [
+      {
+        index: true,
+        element: <Navigate to="home" replace />,
+      },
+      {
+        path: "home",
+        element: <PortfolioHomePage />,
+      },
+      {
+        path: "analytics",
+        element: <PortfolioAnalyticsPage />,
+      },
+      {
+        path: "risk",
+        element: <PortfolioRiskPage />,
+      },
+      {
+        path: "reports",
+        element: <PortfolioReportsPage />,
+      },
+      {
+        path: "copilot",
+        element: <PortfolioCopilotPage />,
+      },
+      {
+        path: "transactions",
+        element: <PortfolioTransactionsPage />,
+      },
+      {
+        path: ":symbol",
+        element: <PortfolioLotDetailPage />,
+      },
+    ],
   },
 ]);

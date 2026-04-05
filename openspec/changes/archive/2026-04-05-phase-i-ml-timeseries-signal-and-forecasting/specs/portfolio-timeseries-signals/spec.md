@@ -39,6 +39,19 @@ The system SHALL provide a unified signal contract for both aggregate portfolio 
 - **THEN** the system returns signal values computed for that instrument only
 - **THEN** the response includes the validated instrument symbol and scope metadata
 
+### Requirement: Time-series signal API SHALL expose one frozen lifecycle contract
+The system SHALL expose `GET /api/portfolio/ml/signals` with a shared lifecycle envelope so clients can process readiness uniformly.
+
+#### Scenario: Ready signal contract uses frozen envelope fields
+- **WHEN** required signal inputs and CAPM inputs are present and within freshness policy
+- **THEN** response includes `state=ready` plus `state_reason_code`, `state_reason_detail`, `evaluated_at`, `as_of_ledger_at`, `as_of_market_at`, and `freshness_policy`
+- **THEN** response includes signal rows with stable `signal_id` values and CAPM metrics with provenance
+
+#### Scenario: Unavailable, stale, and error states are explicit and non-null
+- **WHEN** required inputs are insufficient, stale, or service execution fails
+- **THEN** response state is one of `unavailable`, `stale`, or `error`
+- **THEN** `state_reason_code` and `state_reason_detail` are populated with factual cause metadata
+
 ### Requirement: Portfolio time-series signals SHALL expose stable signal identifiers
 The system SHALL publish stable signal identifiers and units so consumers can render and compare values across releases.
 

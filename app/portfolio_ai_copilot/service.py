@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import math
 import re
@@ -13,6 +14,7 @@ from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from typing import cast
 
 from pydantic import BaseModel
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logging import get_logger
@@ -21,6 +23,7 @@ from app.market_data.service import (
     list_market_data_library_symbols,
     list_price_history_for_symbol,
 )
+from app.pdf_persistence.models import SourceDocument
 from app.portfolio_ai_copilot.provider_groq import (
     GroqProviderError,
     build_groq_chat_completions_adapter_config,
@@ -41,6 +44,7 @@ from app.portfolio_analytics.schemas import (
     PortfolioHierarchyGroupBy,
     PortfolioMonteCarloCalibrationBasis,
     PortfolioMonteCarloRequest,
+    PortfolioQuantReportScope,
 )
 from app.portfolio_analytics.service import (
     PortfolioAnalyticsClientError,
@@ -54,6 +58,13 @@ from app.portfolio_analytics.service import (
     get_portfolio_risk_evolution_response,
     get_portfolio_summary_response,
     get_portfolio_time_series_response,
+)
+from app.portfolio_ml.schemas import PortfolioMLScope, PortfolioMLState
+from app.portfolio_ml.service import (
+    PortfolioMLClientError,
+    get_portfolio_ml_forecast_response,
+    get_portfolio_ml_registry_response,
+    get_portfolio_ml_signal_response,
 )
 
 logger = get_logger(__name__)
@@ -93,6 +104,28 @@ _RISK_WINDOW_BY_PERIOD: dict[PortfolioChartPeriod, int] = {
 }
 
 _QUANTIZE_6DP = Decimal("0.000001")
+_MAX_DOCUMENT_REFERENCES = 8
+_MAX_PROMPT_SUGGESTIONS = 4
+_GOVERNED_SQL_DEFAULT_MAX_ROWS = 25
+_GOVERNED_SQL_MAX_ROWS_CAP = 50
+_GOVERNED_SQL_TIMEOUT_SECONDS = 2.0
+
+_GOVERNED_SQL_LATEST_FORECAST_STATES = """
+SELECT
+    snapshot_ref,
+    scope,
+    instrument_symbol,
+    model_family,
+    lifecycle_state,
+    run_status,
+    promoted_at,
+    expires_at
+FROM portfolio_ml_model_snapshot
+WHERE (:scope IS NULL OR scope = :scope)
+  AND (:lifecycle_state IS NULL OR lifecycle_state = :lifecycle_state)
+ORDER BY promoted_at DESC NULLS LAST, id DESC
+LIMIT :limit_rows
+"""
 
 
 class PortfolioAiCopilotClientError(ValueError):
@@ -145,6 +178,17 @@ class _OpportunityCandidateInput:
     volatility_30d: Decimal
     history_points_count: int
     currently_held: bool
+
+
+@dataclass(frozen=True)
+class _GovernedSqlTemplate:
+    """One allowlisted governed SQL template contract."""
+
+    template_id: str
+    sql_text: str
+    default_max_rows: int
+    max_rows_cap: int
+    timeout_seconds: float
 
 
 def sanitize_model_context_payload(*, context_payload: dict[str, object]) -> dict[str, object]:
@@ -451,6 +495,336 @@ def _extract_latest_user_message(*, request: PortfolioCopilotChatRequest) -> str
     return ""
 
 
+def _build_governed_sql_template_registry() -> dict[str, _GovernedSqlTemplate]:
+    """Build allowlisted governed SQL template registry for copilot SQL tooling."""
+
+    return {
+        "portfolio_ml_latest_forecast_states": _GovernedSqlTemplate(
+            template_id="portfolio_ml_latest_forecast_states",
+            sql_text=_GOVERNED_SQL_LATEST_FORECAST_STATES,
+            default_max_rows=_GOVERNED_SQL_DEFAULT_MAX_ROWS,
+            max_rows_cap=_GOVERNED_SQL_MAX_ROWS_CAP,
+            timeout_seconds=_GOVERNED_SQL_TIMEOUT_SECONDS,
+        )
+    }
+
+
+def _normalize_governed_sql_params(
+    *,
+    template: _GovernedSqlTemplate,
+    template_params: Mapping[str, object],
+) -> dict[str, object]:
+    """Validate and normalize governed SQL template parameters."""
+
+    if template.template_id != "portfolio_ml_latest_forecast_states":
+        raise PortfolioAiCopilotClientError(
+            "governed_sql_template_not_allowlisted: unsupported template.",
+            status_code=422,
+            reason_code=CopilotReasonCode.BOUNDARY_RESTRICTED,
+        )
+
+    allowed_keys = {"scope", "lifecycle_state", "max_rows"}
+    unknown_keys = sorted(
+        str(key) for key in template_params.keys() if str(key) not in allowed_keys
+    )
+    if len(unknown_keys) > 0:
+        raise PortfolioAiCopilotClientError(
+            "governed_sql_invalid_parameters: unrecognized parameter keys "
+            f"{', '.join(unknown_keys)}.",
+            status_code=422,
+            reason_code=CopilotReasonCode.BOUNDARY_RESTRICTED,
+        )
+
+    scope_value = template_params.get("scope")
+    normalized_scope: str | None = None
+    if scope_value is not None:
+        if not isinstance(scope_value, str):
+            raise PortfolioAiCopilotClientError(
+                "governed_sql_invalid_parameters: scope must be a string.",
+                status_code=422,
+                reason_code=CopilotReasonCode.BOUNDARY_RESTRICTED,
+            )
+        candidate_scope = scope_value.strip().lower()
+        if candidate_scope not in {
+            PortfolioMLScope.PORTFOLIO.value,
+            PortfolioMLScope.INSTRUMENT_SYMBOL.value,
+        }:
+            raise PortfolioAiCopilotClientError(
+                "governed_sql_invalid_parameters: unsupported scope value.",
+                status_code=422,
+                reason_code=CopilotReasonCode.BOUNDARY_RESTRICTED,
+            )
+        normalized_scope = candidate_scope
+
+    lifecycle_state_value = template_params.get("lifecycle_state")
+    normalized_lifecycle_state: str | None = None
+    if lifecycle_state_value is not None:
+        if not isinstance(lifecycle_state_value, str):
+            raise PortfolioAiCopilotClientError(
+                "governed_sql_invalid_parameters: lifecycle_state must be a string.",
+                status_code=422,
+                reason_code=CopilotReasonCode.BOUNDARY_RESTRICTED,
+            )
+        candidate_lifecycle_state = lifecycle_state_value.strip().lower()
+        if candidate_lifecycle_state not in {state.value for state in PortfolioMLState}:
+            raise PortfolioAiCopilotClientError(
+                "governed_sql_invalid_parameters: unsupported lifecycle_state value.",
+                status_code=422,
+                reason_code=CopilotReasonCode.BOUNDARY_RESTRICTED,
+            )
+        normalized_lifecycle_state = candidate_lifecycle_state
+
+    max_rows_value = template_params.get("max_rows")
+    normalized_max_rows = template.default_max_rows
+    if max_rows_value is not None:
+        if not isinstance(max_rows_value, int):
+            raise PortfolioAiCopilotClientError(
+                "governed_sql_invalid_parameters: max_rows must be an integer.",
+                status_code=422,
+                reason_code=CopilotReasonCode.BOUNDARY_RESTRICTED,
+            )
+        if max_rows_value < 1 or max_rows_value > template.max_rows_cap:
+            raise PortfolioAiCopilotClientError(
+                "governed_sql_invalid_parameters: max_rows is outside allowed bounds.",
+                status_code=422,
+                reason_code=CopilotReasonCode.BOUNDARY_RESTRICTED,
+            )
+        normalized_max_rows = max_rows_value
+
+    return {
+        "scope": normalized_scope,
+        "lifecycle_state": normalized_lifecycle_state,
+        "limit_rows": normalized_max_rows,
+    }
+
+
+async def execute_governed_sql_template(
+    *,
+    db: AsyncSession | None,
+    template_id: str,
+    template_params: Mapping[str, object],
+    raw_sql: str | None = None,
+) -> dict[str, object]:
+    """Execute one allowlisted read-only SQL template with strict policy controls."""
+
+    if raw_sql is not None and raw_sql.strip() != "":
+        raise PortfolioAiCopilotClientError(
+            "governed_sql_policy: free-form SQL input is prohibited.",
+            status_code=422,
+            reason_code=CopilotReasonCode.BOUNDARY_RESTRICTED,
+        )
+
+    normalized_template_id = template_id.strip()
+    registry = _build_governed_sql_template_registry()
+    template = registry.get(normalized_template_id)
+    if template is None:
+        raise PortfolioAiCopilotClientError(
+            "governed_sql_template_not_allowlisted: template_id is not allowlisted.",
+            status_code=422,
+            reason_code=CopilotReasonCode.BOUNDARY_RESTRICTED,
+        )
+
+    normalized_params = _normalize_governed_sql_params(
+        template=template,
+        template_params=template_params,
+    )
+    if db is None:
+        raise PortfolioAiCopilotClientError(
+            "governed_sql_execution_unavailable: database session is required.",
+            status_code=500,
+            reason_code=CopilotReasonCode.PROVIDER_UNAVAILABLE,
+        )
+
+    try:
+        execution_result = await asyncio.wait_for(
+            db.execute(text(template.sql_text), normalized_params),
+            timeout=template.timeout_seconds,
+        )
+    except TimeoutError as exc:
+        raise PortfolioAiCopilotClientError(
+            "governed_sql_timeout: template execution exceeded timeout limit.",
+            status_code=504,
+            reason_code=CopilotReasonCode.PROVIDER_UNAVAILABLE,
+        ) from exc
+
+    rows: list[dict[str, object]] = []
+    for row_mapping in execution_result.mappings().all():
+        row_payload: dict[str, object] = {}
+        for key, value in row_mapping.items():
+            row_payload[str(key)] = value
+        rows.append(row_payload)
+
+    executed_at = datetime.now(UTC).isoformat()
+    audit_id = f"governed_sql_{normalized_template_id}_{datetime.now(UTC):%Y%m%dT%H%M%SZ}"
+    return {
+        "template_id": normalized_template_id,
+        "audit_id": audit_id,
+        "bounded_row_count": len(rows),
+        "max_rows": normalized_params["limit_rows"],
+        "timeout_ms": int(template.timeout_seconds * 1000),
+        "as_of_ledger_at": executed_at,
+        "rows": rows,
+    }
+
+
+async def validate_document_references(
+    *,
+    db: AsyncSession,
+    document_ids: Sequence[int],
+) -> list[int]:
+    """Validate bounded document references against persisted source-document rows."""
+
+    normalized_document_ids: list[int] = []
+    for document_id in document_ids:
+        if document_id <= 0:
+            raise PortfolioAiCopilotClientError(
+                "document_reference_invalid: document_id values must be positive integers.",
+                status_code=422,
+                reason_code=CopilotReasonCode.INSUFFICIENT_CONTEXT,
+            )
+        if document_id not in normalized_document_ids:
+            normalized_document_ids.append(document_id)
+
+    if len(normalized_document_ids) > _MAX_DOCUMENT_REFERENCES:
+        raise PortfolioAiCopilotClientError(
+            "document_reference_invalid: too many document references for one request.",
+            status_code=422,
+            reason_code=CopilotReasonCode.INSUFFICIENT_CONTEXT,
+        )
+    if len(normalized_document_ids) == 0:
+        return []
+
+    existing_rows_result = await db.execute(
+        select(SourceDocument.id).where(SourceDocument.id.in_(normalized_document_ids))
+    )
+    existing_ids = {int(document_id) for document_id in existing_rows_result.scalars().all()}
+    missing_ids = [
+        document_id for document_id in normalized_document_ids if document_id not in existing_ids
+    ]
+    if len(missing_ids) > 0:
+        missing_ids_text = ", ".join(str(document_id) for document_id in missing_ids)
+        raise PortfolioAiCopilotClientError(
+            "document_reference_not_found: unresolved document_id values " f"{missing_ids_text}.",
+            status_code=422,
+            reason_code=CopilotReasonCode.INSUFFICIENT_CONTEXT,
+        )
+    return normalized_document_ids
+
+
+async def _build_document_reference_context(
+    *,
+    db: AsyncSession,
+    document_ids: Sequence[int],
+) -> list[dict[str, object]]:
+    """Build one bounded document-reference context payload from ingestion records."""
+
+    if len(document_ids) == 0:
+        return []
+
+    result = await db.execute(select(SourceDocument).where(SourceDocument.id.in_(document_ids)))
+    rows = result.scalars().all()
+
+    by_id: dict[int, SourceDocument] = {}
+    for row in rows:
+        by_id[row.id] = row
+
+    normalized_context: list[dict[str, object]] = []
+    for document_id in document_ids:
+        source_document = by_id.get(document_id)
+        if source_document is None:
+            continue
+        normalized_context.append(
+            {
+                "document_id": source_document.id,
+                "storage_key": source_document.storage_key,
+                "original_filename": source_document.original_filename,
+                "content_type": source_document.content_type,
+                "created_at": (
+                    source_document.created_at.isoformat()
+                    if isinstance(source_document.created_at, datetime)
+                    else str(source_document.created_at)
+                ),
+            }
+        )
+    return normalized_context
+
+
+def _safe_prompt_suggestions(
+    *,
+    request: PortfolioCopilotChatRequest,
+    state: CopilotResponseState,
+    selected_tool_ids: Sequence[str],
+    reason_code: CopilotReasonCode | None,
+    has_document_references: bool,
+) -> list[str]:
+    """Build prompt suggestions defensively without masking primary response semantics."""
+
+    try:
+        return _build_prompt_suggestions(
+            request=request,
+            state=state,
+            selected_tool_ids=selected_tool_ids,
+            reason_code=reason_code,
+            has_document_references=has_document_references,
+        )
+    except Exception:
+        logger.info(
+            "portfolio_ai_copilot.prompt_suggestion_failed",
+            operation=request.operation.value,
+            scope=request.scope.value,
+            state=state.value,
+            reason_code=reason_code.value if reason_code else None,
+            exc_info=True,
+        )
+        return []
+
+
+def _build_prompt_suggestions(
+    *,
+    request: PortfolioCopilotChatRequest,
+    state: CopilotResponseState,
+    selected_tool_ids: Sequence[str],
+    reason_code: CopilotReasonCode | None,
+    has_document_references: bool,
+) -> list[str]:
+    """Build bounded prompt suggestion metadata from active context and lifecycle state."""
+
+    suggestions: list[str] = []
+
+    if "portfolio_ml_forecasts" in selected_tool_ids:
+        suggestions.append("Show the current forecast champion lifecycle state and expiry window.")
+    if "portfolio_ml_capm" in selected_tool_ids or "portfolio_ml_signals" in selected_tool_ids:
+        suggestions.append("Explain CAPM beta and expected return with benchmark provenance.")
+    if "portfolio_ml_registry" in selected_tool_ids:
+        suggestions.append("List the latest registry promotion decisions and replacement lineage.")
+    if "portfolio_sql_template" in selected_tool_ids:
+        suggestions.append("Inspect governed SQL template output metadata and row bounds.")
+    if has_document_references:
+        suggestions.append(
+            "Summarize key findings from the referenced documents before forecasting."
+        )
+    if (
+        state == CopilotResponseState.BLOCKED
+        and reason_code == CopilotReasonCode.INSUFFICIENT_CONTEXT
+    ):
+        suggestions.append(
+            "Retry with one valid document_id or switch scope to portfolio for broader context."
+        )
+    if request.scope == PortfolioQuantReportScope.INSTRUMENT_SYMBOL:
+        suggestions.append(
+            "Compare instrument signal and forecast state against portfolio aggregate context."
+        )
+
+    if len(suggestions) == 0:
+        suggestions.append("Explain portfolio risk and trend movement over the selected period.")
+
+    deduplicated_suggestions: list[str] = []
+    for suggestion in suggestions:
+        if suggestion not in deduplicated_suggestions:
+            deduplicated_suggestions.append(suggestion)
+    return deduplicated_suggestions[:_MAX_PROMPT_SUGGESTIONS]
+
+
 async def get_portfolio_copilot_chat_response(
     *,
     db: AsyncSession,
@@ -459,6 +833,8 @@ async def get_portfolio_copilot_chat_response(
     """Return one typed copilot response for chat or opportunity scan operation."""
 
     latest_user_message = _extract_latest_user_message(request=request)
+    validated_document_ids: list[int] = []
+    document_reference_context: list[dict[str, object]] = []
     logger.info(
         "portfolio_ai_copilot.chat_started",
         operation=request.operation.value,
@@ -466,6 +842,7 @@ async def get_portfolio_copilot_chat_response(
         scope=request.scope.value,
         instrument_symbol=request.instrument_symbol,
         message_count=len(request.messages),
+        document_id_count=len(request.document_ids),
     )
     try:
         enforce_copilot_request_boundary(user_message=latest_user_message)
@@ -475,12 +852,21 @@ async def get_portfolio_copilot_chat_response(
                 status_code=422,
                 reason_code=CopilotReasonCode.BOUNDARY_RESTRICTED,
             )
+        validated_document_ids = await validate_document_references(
+            db=db,
+            document_ids=request.document_ids,
+        )
+        document_reference_context = await _build_document_reference_context(
+            db=db,
+            document_ids=validated_document_ids,
+        )
 
         if request.operation == CopilotOperation.OPPORTUNITY_SCAN:
             response = await _build_opportunity_scan_response(
                 db=db,
                 request=request,
                 latest_user_message=latest_user_message,
+                document_reference_context=document_reference_context,
             )
             logger.info(
                 "portfolio_ai_copilot.chat_completed",
@@ -497,28 +883,48 @@ async def get_portfolio_copilot_chat_response(
             request=request,
             latest_user_message=latest_user_message,
         )
+        selected_tool_ids = [result.tool_id for result in tool_results]
         prompt_context = _build_prompt_context_from_tool_results(
             request=request,
             tool_results=tool_results,
+            document_reference_context=document_reference_context,
         )
         answer_text = await _request_provider_narration(
             request=request,
             latest_user_message=latest_user_message,
             prompt_context=prompt_context,
         )
+
+        evidence_rows = [
+            CopilotEvidenceReference(
+                tool_id=result.tool_id,
+                metric_id=result.metric_id,
+                as_of_ledger_at=result.as_of_ledger_at,
+            )
+            for result in tool_results
+        ]
+        if len(validated_document_ids) > 0:
+            evidence_rows.append(
+                CopilotEvidenceReference(
+                    tool_id="document_reference_context",
+                    metric_id="document_ids",
+                    as_of_ledger_at=datetime.now(UTC).isoformat(),
+                )
+            )
+
         response = PortfolioCopilotChatResponse(
             state=CopilotResponseState.READY,
             answer_text=answer_text,
-            evidence=[
-                CopilotEvidenceReference(
-                    tool_id=result.tool_id,
-                    metric_id=result.metric_id,
-                    as_of_ledger_at=result.as_of_ledger_at,
-                )
-                for result in tool_results
-            ],
+            evidence=evidence_rows,
             limitations=_default_limitations(),
             reason_code=None,
+            prompt_suggestions=_safe_prompt_suggestions(
+                request=request,
+                state=CopilotResponseState.READY,
+                selected_tool_ids=selected_tool_ids,
+                reason_code=None,
+                has_document_references=len(validated_document_ids) > 0,
+            ),
         )
         logger.info(
             "portfolio_ai_copilot.chat_completed",
@@ -530,7 +936,18 @@ async def get_portfolio_copilot_chat_response(
         )
         return response
     except PortfolioAiCopilotClientError as exc:
-        response = _response_for_client_error(error=exc)
+        blocked_or_error_response = _response_for_client_error(error=exc)
+        response = blocked_or_error_response.model_copy(
+            update={
+                "prompt_suggestions": _safe_prompt_suggestions(
+                    request=request,
+                    state=blocked_or_error_response.state,
+                    selected_tool_ids=[],
+                    reason_code=blocked_or_error_response.reason_code,
+                    has_document_references=len(validated_document_ids) > 0,
+                )
+            }
+        )
         logger.info(
             "portfolio_ai_copilot.chat_rejected",
             operation=request.operation.value,
@@ -539,7 +956,7 @@ async def get_portfolio_copilot_chat_response(
             error=str(exc),
         )
         return response
-    except (PortfolioAnalyticsClientError, MarketDataClientError) as exc:
+    except (PortfolioAnalyticsClientError, MarketDataClientError, PortfolioMLClientError) as exc:
         logger.info(
             "portfolio_ai_copilot.chat_rejected",
             operation=request.operation.value,
@@ -556,6 +973,13 @@ async def get_portfolio_copilot_chat_response(
                 "Required portfolio or market-data context was unavailable for this request.",
             ],
             reason_code=CopilotReasonCode.INSUFFICIENT_CONTEXT,
+            prompt_suggestions=_safe_prompt_suggestions(
+                request=request,
+                state=CopilotResponseState.BLOCKED,
+                selected_tool_ids=[],
+                reason_code=CopilotReasonCode.INSUFFICIENT_CONTEXT,
+                has_document_references=len(validated_document_ids) > 0,
+            ),
         )
     except GroqProviderError as exc:
         mapped_failure = map_provider_failure_to_copilot_state(
@@ -563,10 +987,21 @@ async def get_portfolio_copilot_chat_response(
             provider_error_code=exc.provider_error_code,
             error_type=exc.error_type,
         )
-        response = _response_for_provider_failure(
+        provider_failure_response = _response_for_provider_failure(
             mapped_state=mapped_failure.get("state"),
             mapped_reason_code=mapped_failure.get("reason_code"),
             error_message=str(exc),
+        )
+        response = provider_failure_response.model_copy(
+            update={
+                "prompt_suggestions": _safe_prompt_suggestions(
+                    request=request,
+                    state=provider_failure_response.state,
+                    selected_tool_ids=[],
+                    reason_code=provider_failure_response.reason_code,
+                    has_document_references=len(validated_document_ids) > 0,
+                )
+            }
         )
         logger.info(
             "portfolio_ai_copilot.chat_failed",
@@ -595,6 +1030,13 @@ async def get_portfolio_copilot_chat_response(
                 "Unexpected runtime failure occurred while processing this copilot request.",
             ],
             reason_code=CopilotReasonCode.PROVIDER_UNAVAILABLE,
+            prompt_suggestions=_safe_prompt_suggestions(
+                request=request,
+                state=CopilotResponseState.ERROR,
+                selected_tool_ids=[],
+                reason_code=CopilotReasonCode.PROVIDER_UNAVAILABLE,
+                has_document_references=len(validated_document_ids) > 0,
+            ),
         )
 
 
@@ -700,6 +1142,7 @@ def _build_prompt_context_from_tool_results(
     *,
     request: PortfolioCopilotChatRequest,
     tool_results: Sequence[_ToolExecutionResult],
+    document_reference_context: Sequence[Mapping[str, object]],
 ) -> dict[str, object]:
     """Build one privacy-minimized prompt context from tool execution outputs."""
 
@@ -709,6 +1152,7 @@ def _build_prompt_context_from_tool_results(
         "scope": request.scope.value,
         "instrument_symbol": request.instrument_symbol,
         "tool_context": {result.tool_id: result.payload for result in tool_results},
+        "document_references": list(document_reference_context),
     }
     return sanitize_model_context_payload(context_payload=context_payload)
 
@@ -718,6 +1162,7 @@ async def _build_opportunity_scan_response(
     db: AsyncSession,
     request: PortfolioCopilotChatRequest,
     latest_user_message: str,
+    document_reference_context: Sequence[Mapping[str, object]],
 ) -> PortfolioCopilotChatResponse:
     """Build one deterministic opportunity-scan response with separate narration."""
 
@@ -737,27 +1182,44 @@ async def _build_opportunity_scan_response(
         "instrument_symbol": request.instrument_symbol,
         "candidate_count": len(top_candidates_raw),
         "candidates": top_candidates_raw,
+        "document_references": list(document_reference_context),
     }
     answer_text = await _request_provider_narration(
         request=request,
         latest_user_message=latest_user_message,
         prompt_context=sanitize_model_context_payload(context_payload=prompt_context),
     )
+    evidence_rows = [
+        CopilotEvidenceReference(
+            tool_id="opportunity_scanner",
+            metric_id="opportunity_score",
+            as_of_ledger_at=datetime.now(UTC).isoformat(),
+        )
+    ]
+    if len(document_reference_context) > 0:
+        evidence_rows.append(
+            CopilotEvidenceReference(
+                tool_id="document_reference_context",
+                metric_id="document_ids",
+                as_of_ledger_at=datetime.now(UTC).isoformat(),
+            )
+        )
     return PortfolioCopilotChatResponse(
         state=CopilotResponseState.READY,
         answer_text=answer_text,
-        evidence=[
-            CopilotEvidenceReference(
-                tool_id="opportunity_scanner",
-                metric_id="opportunity_score",
-                as_of_ledger_at=datetime.now(UTC).isoformat(),
-            )
-        ],
+        evidence=evidence_rows,
         limitations=[
             *_default_limitations(),
             "Deterministic candidate ranking precedes AI narration in this workflow.",
         ],
         reason_code=None,
+        prompt_suggestions=_safe_prompt_suggestions(
+            request=request,
+            state=CopilotResponseState.READY,
+            selected_tool_ids=["opportunity_scanner"],
+            reason_code=None,
+            has_document_references=len(document_reference_context) > 0,
+        ),
         opportunity_candidates=top_candidates,
         opportunity_narration=answer_text,
     )
@@ -957,6 +1419,8 @@ def _select_allowlisted_tool_ids(
     ]
     if request.scope.value == "instrument_symbol":
         selected_tool_ids.append("portfolio_time_series")
+    if request.sql_template_id is not None:
+        selected_tool_ids.append("portfolio_sql_template")
     keyword_to_tool_id: tuple[tuple[str, str], ...] = (
         ("time series", "portfolio_time_series"),
         ("trend", "portfolio_time_series"),
@@ -974,6 +1438,14 @@ def _select_allowlisted_tool_ids(
         ("sharpe", "portfolio_quant_metrics"),
         ("sortino", "portfolio_quant_metrics"),
         ("beta", "portfolio_quant_metrics"),
+        ("ml signal", "portfolio_ml_signals"),
+        ("signal", "portfolio_ml_signals"),
+        ("capm", "portfolio_ml_capm"),
+        ("forecast", "portfolio_ml_forecasts"),
+        ("registry", "portfolio_ml_registry"),
+        ("champion", "portfolio_ml_registry"),
+        ("model governance", "portfolio_ml_registry"),
+        ("sql template", "portfolio_sql_template"),
     )
     for keyword, tool_id in keyword_to_tool_id:
         if keyword in normalized_message and tool_id not in selected_tool_ids:
@@ -1039,6 +1511,31 @@ def _build_allowlisted_tool_registry() -> dict[str, _CopilotToolDefinition]:
             tool_id="portfolio_quant_metrics",
             metric_id="metrics",
             execute=_tool_portfolio_quant_metrics,
+        ),
+        "portfolio_ml_signals": _CopilotToolDefinition(
+            tool_id="portfolio_ml_signals",
+            metric_id="signals",
+            execute=_tool_portfolio_ml_signals,
+        ),
+        "portfolio_ml_capm": _CopilotToolDefinition(
+            tool_id="portfolio_ml_capm",
+            metric_id="capm",
+            execute=_tool_portfolio_ml_capm,
+        ),
+        "portfolio_ml_forecasts": _CopilotToolDefinition(
+            tool_id="portfolio_ml_forecasts",
+            metric_id="horizons",
+            execute=_tool_portfolio_ml_forecasts,
+        ),
+        "portfolio_ml_registry": _CopilotToolDefinition(
+            tool_id="portfolio_ml_registry",
+            metric_id="rows",
+            execute=_tool_portfolio_ml_registry,
+        ),
+        "portfolio_sql_template": _CopilotToolDefinition(
+            tool_id="portfolio_sql_template",
+            metric_id="rows",
+            execute=_tool_portfolio_sql_template,
         ),
     }
 
@@ -1177,4 +1674,96 @@ async def _tool_portfolio_quant_metrics(
     return await get_portfolio_quant_metrics_response(
         db=db,
         period=request.period,
+    )
+
+
+def _resolve_portfolio_ml_scope(
+    *,
+    request: PortfolioCopilotChatRequest,
+) -> PortfolioMLScope:
+    """Resolve one portfolio_ml scope enum from copilot request scope."""
+
+    if request.scope == PortfolioQuantReportScope.INSTRUMENT_SYMBOL:
+        return PortfolioMLScope.INSTRUMENT_SYMBOL
+    return PortfolioMLScope.PORTFOLIO
+
+
+async def _tool_portfolio_ml_signals(
+    db: AsyncSession,
+    request: PortfolioCopilotChatRequest,
+) -> object:
+    """Execute allowlisted portfolio_ml signals tool."""
+
+    del db
+    return await get_portfolio_ml_signal_response(
+        scope=_resolve_portfolio_ml_scope(request=request),
+        instrument_symbol=request.instrument_symbol,
+    )
+
+
+async def _tool_portfolio_ml_capm(
+    db: AsyncSession,
+    request: PortfolioCopilotChatRequest,
+) -> object:
+    """Execute allowlisted portfolio_ml CAPM summary tool."""
+
+    del db
+    signal_response = await get_portfolio_ml_signal_response(
+        scope=_resolve_portfolio_ml_scope(request=request),
+        instrument_symbol=request.instrument_symbol,
+    )
+    capm_payload = cast(dict[str, object], signal_response.capm.model_dump(mode="python"))
+    return {
+        "state": signal_response.state.value,
+        "state_reason_code": signal_response.state_reason_code,
+        "state_reason_detail": signal_response.state_reason_detail,
+        "as_of_ledger_at": signal_response.as_of_ledger_at,
+        "as_of_market_at": signal_response.as_of_market_at,
+        "evaluated_at": signal_response.evaluated_at,
+        "capm": capm_payload,
+    }
+
+
+async def _tool_portfolio_ml_forecasts(
+    db: AsyncSession,
+    request: PortfolioCopilotChatRequest,
+) -> object:
+    """Execute allowlisted portfolio_ml forecasts tool."""
+
+    return await get_portfolio_ml_forecast_response(
+        scope=_resolve_portfolio_ml_scope(request=request),
+        instrument_symbol=request.instrument_symbol,
+        db=db,
+    )
+
+
+async def _tool_portfolio_ml_registry(
+    db: AsyncSession,
+    request: PortfolioCopilotChatRequest,
+) -> object:
+    """Execute allowlisted portfolio_ml registry tool."""
+
+    return await get_portfolio_ml_registry_response(
+        db=db,
+        scope=request.scope.value,
+    )
+
+
+async def _tool_portfolio_sql_template(
+    db: AsyncSession,
+    request: PortfolioCopilotChatRequest,
+) -> object:
+    """Execute one governed SQL template via allowlisted read-only tool path."""
+
+    if request.sql_template_id is None:
+        raise PortfolioAiCopilotClientError(
+            "governed_sql_template_not_allowlisted: missing template_id.",
+            status_code=422,
+            reason_code=CopilotReasonCode.BOUNDARY_RESTRICTED,
+        )
+    return await execute_governed_sql_template(
+        db=db,
+        template_id=request.sql_template_id,
+        template_params=request.sql_template_params,
+        raw_sql=request.raw_sql,
     )

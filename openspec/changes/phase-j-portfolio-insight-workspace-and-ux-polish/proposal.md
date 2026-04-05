@@ -31,5 +31,6 @@ The portfolio workspace is functionally solid but still feels fragmented, visual
 - Contracts: no new backend analytics math is required in this phase, but frontend route behavior and capability contracts change materially.
 - Copilot UX contracts: consume backend prompt suggestions and document-reference attachments introduced in `phase-i` without introducing raw-file upload behavior in chat routes.
 - UX/design system: new layout rules, typography/motion tokens, state semantics, and accessibility/performance acceptance criteria for analytical surfaces.
+- Design implementation process: apply the local `emil-design-eng` skill at `.codex/skills/emil-design-eng/SKILL.md` as a required UI polish rubric for interaction and motion decisions.
 - Delivery sequencing: this phase should follow `phase-i` contract stabilization, but it can begin design and shell groundwork before all ML endpoints are implemented.
 - Compliance/licensing: public repos such as OpenStock and impeccable are reference inputs for product patterns and design heuristics only; no direct code adoption is assumed by this proposal.
