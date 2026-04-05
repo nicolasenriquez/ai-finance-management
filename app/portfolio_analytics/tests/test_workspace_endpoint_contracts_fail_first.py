@@ -572,11 +572,13 @@ def test_risk_estimators_endpoint_infers_period_from_window_when_period_omitted(
 
     with TestClient(app) as client:
         response_90 = client.get(endpoint_path, params={"window_days": 90})
+        response_126 = client.get(endpoint_path, params={"window_days": 126})
         response_default = client.get(endpoint_path)
 
     assert response_90.status_code == 200
+    assert response_126.status_code == 200
     assert response_default.status_code == 200
-    assert captured_period_values == ["90D", "30D"]
+    assert captured_period_values == ["90D", "6M", "30D"]
 
 
 @pytest.mark.integration

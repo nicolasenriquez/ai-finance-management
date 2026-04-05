@@ -66,6 +66,7 @@ DbSession = Annotated[AsyncSession, Depends(get_db)]
 _RISK_ESTIMATOR_PERIOD_BY_WINDOW: dict[int, PortfolioChartPeriod] = {
     30: PortfolioChartPeriod.D30,
     90: PortfolioChartPeriod.D90,
+    126: PortfolioChartPeriod.D6M,
     252: PortfolioChartPeriod.D252,
 }
 
@@ -176,7 +177,7 @@ async def get_portfolio_time_series(
     db: DbSession,
     period: Annotated[
         str,
-        Query(description="Supported chart period enum: 30D, 90D, 252D, MAX."),
+        Query(description="Supported chart period enum: 30D, 90D, 6M, 252D, YTD, MAX."),
     ] = PortfolioChartPeriod.D30.value,
     scope: Annotated[
         str,
@@ -240,7 +241,7 @@ async def get_portfolio_contribution(
     db: DbSession,
     period: Annotated[
         str,
-        Query(description="Supported chart period enum: 30D, 90D, 252D, MAX."),
+        Query(description="Supported chart period enum: 30D, 90D, 6M, 252D, YTD, MAX."),
     ] = PortfolioChartPeriod.D30.value,
 ) -> PortfolioContributionResponse:
     """Return per-symbol contribution aggregates for selected chart period."""
@@ -284,7 +285,7 @@ async def get_portfolio_risk_estimators(
     db: DbSession,
     window_days: Annotated[
         int,
-        Query(description="Supported v1 risk windows: 30, 90, 252."),
+        Query(description="Supported v1 risk windows: 30, 90, 126, 252."),
     ] = 30,
     scope: Annotated[
         str,
@@ -298,7 +299,7 @@ async def get_portfolio_risk_estimators(
         str | None,
         Query(
             description=(
-                "Supported chart period enum: 30D, 90D, 252D, MAX. "
+                "Supported chart period enum: 30D, 90D, 6M, 252D, YTD, MAX. "
                 "When omitted, period is inferred from window_days."
             )
         ),
@@ -368,7 +369,7 @@ async def get_portfolio_risk_evolution(
     db: DbSession,
     period: Annotated[
         str,
-        Query(description="Supported chart period enum: 30D, 90D, 252D, MAX."),
+        Query(description="Supported chart period enum: 30D, 90D, 6M, 252D, YTD, MAX."),
     ] = PortfolioChartPeriod.D252.value,
     scope: Annotated[
         str,
@@ -433,7 +434,7 @@ async def get_portfolio_return_distribution(
     db: DbSession,
     period: Annotated[
         str,
-        Query(description="Supported chart period enum: 30D, 90D, 252D, MAX."),
+        Query(description="Supported chart period enum: 30D, 90D, 6M, 252D, YTD, MAX."),
     ] = PortfolioChartPeriod.D252.value,
     scope: Annotated[
         str,
@@ -565,7 +566,7 @@ async def get_portfolio_health_synthesis(
     db: DbSession,
     period: Annotated[
         str,
-        Query(description="Supported chart period enum: 30D, 90D, 252D, MAX."),
+        Query(description="Supported chart period enum: 30D, 90D, 6M, 252D, YTD, MAX."),
     ] = PortfolioChartPeriod.D90.value,
     scope: Annotated[
         str,
@@ -640,7 +641,7 @@ async def get_portfolio_quant_metrics(
     db: DbSession,
     period: Annotated[
         str,
-        Query(description="Supported chart period enum: 30D, 90D, 252D, MAX."),
+        Query(description="Supported chart period enum: 30D, 90D, 6M, 252D, YTD, MAX."),
     ] = PortfolioChartPeriod.D90.value,
 ) -> PortfolioQuantMetricsResponse:
     """Return QuantStats-derived metrics for the selected portfolio chart period."""

@@ -158,3 +158,37 @@ def test_settings_case_insensitive() -> None:
 
         assert settings.app_name == "Lower Case App"
         assert settings.environment == "PRODUCTION"
+
+
+def test_portfolio_ai_copilot_model_allowlist_parses_json() -> None:
+    """Test copilot allowlist accepts JSON array string."""
+    with patch.dict(
+        os.environ,
+        {
+            "PORTFOLIO_AI_COPILOT_MODEL_ALLOWLIST": '["openai/gpt-oss-20b","llama-3.1-8b-instant"]',
+            "DATABASE_URL": "postgresql+asyncpg://test:test@localhost:5432/test",
+        },
+    ):
+        settings = create_settings()
+
+        assert settings.portfolio_ai_copilot_model_allowlist == [
+            "openai/gpt-oss-20b",
+            "llama-3.1-8b-instant",
+        ]
+
+
+def test_portfolio_ai_copilot_model_allowlist_parses_csv() -> None:
+    """Test copilot allowlist accepts CSV string."""
+    with patch.dict(
+        os.environ,
+        {
+            "PORTFOLIO_AI_COPILOT_MODEL_ALLOWLIST": "openai/gpt-oss-20b, llama-3.1-8b-instant",
+            "DATABASE_URL": "postgresql+asyncpg://test:test@localhost:5432/test",
+        },
+    ):
+        settings = create_settings()
+
+        assert settings.portfolio_ai_copilot_model_allowlist == [
+            "openai/gpt-oss-20b",
+            "llama-3.1-8b-instant",
+        ]

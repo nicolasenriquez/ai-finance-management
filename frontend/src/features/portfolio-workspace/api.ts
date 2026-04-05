@@ -95,7 +95,7 @@ export function fetchPortfolioHealthSynthesis(
 }
 
 export function fetchPortfolioRiskEstimators(
-  windowDays: 30 | 90 | 252,
+  windowDays: 30 | 90 | 126 | 252,
   options?: {
     scope?: PortfolioTimeSeriesScope;
     instrumentSymbol?: string | null;

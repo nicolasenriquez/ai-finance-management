@@ -8,6 +8,10 @@ The repository now has the core ingredients AI actually needs to be useful: pers
 - Add a deterministic opportunity-scanner workflow that computes candidate additions or "discount" ideas from explicit rules first, then lets AI narrate the result in plain language.
 - Add a dedicated frontend copilot workspace surface for chat, evidence-backed explanations, and opportunity-scan results with visible privacy and non-advice guardrails.
 - Freeze AI safety boundaries for v1: no direct SQL/database agent access, no raw canonical PDF payload access, no trade execution, no order routing, and no silent fallback when required context is unavailable.
+- Freeze the Groq provider contract for v1: one OpenAI-compatible chat-completions adapter, one model allowlist, explicit unsupported-parameter validation, and bounded timeout/retry behavior.
+- Freeze typed response-state semantics for backend/frontend parity: `ready`, `blocked`, and `error` with stable reason codes for rate-limit, provider policy block, provider misconfiguration, and provider unavailability.
+- Freeze concrete request bounds for v1 stateless chat: capped prior-turn history, capped user-input length, and capped tool invocations per request.
+- Freeze an audited grounding-tool matrix: include only approved aggregated analytics seams and explicitly exclude lot-detail payloads, raw transaction-event streams, quant-report artifact HTML, raw canonical payloads, and direct SQL access.
 - Add fail-first validation coverage for tool orchestration, privacy boundaries, prompt/tool regressions, and grounded-response behavior before implementation begins.
 
 ## Capabilities
@@ -23,5 +27,5 @@ The repository now has the core ingredients AI actually needs to be useful: pers
 
 - Backend: new AI-focused vertical slice under `app/` plus API routes, schemas, service orchestration, and tests; no direct changes to canonical, ledger, or market-data persistence boundaries should be required.
 - Frontend: new workspace route or panel, typed client contracts, response rendering states, and explicit disclaimer/evidence UX.
-- Dependencies: likely a single approved model-provider SDK plus minimal adapter/config wiring; no vector database, scheduler, or multi-agent framework in v1.
-- Governance: roadmap/backlog updates, OpenSpec specs/tasks, operator-facing guardrails, and changelog evidence.
+- Dependencies: one provider SDK path for Groq OpenAI-compatible chat completions plus minimal adapter/config wiring (`GROQ_API_KEY`, model id, timeout, retry caps); no vector database, scheduler, or multi-agent framework in v1.
+- Governance: roadmap/backlog updates, OpenSpec specs/tasks, operator-facing guardrails, provider-operations runbook (project keys, spend limits, model permissions), and changelog evidence.

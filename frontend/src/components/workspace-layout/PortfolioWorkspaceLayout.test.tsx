@@ -56,6 +56,7 @@ function renderWorkspaceRoute(path: string) {
           <Route path="/portfolio/analytics" element={<WorkspaceHarness />} />
           <Route path="/portfolio/risk" element={<WorkspaceHarness />} />
           <Route path="/portfolio/reports" element={<WorkspaceHarness />} />
+          <Route path="/portfolio/copilot" element={<WorkspaceHarness />} />
           <Route path="/portfolio/transactions" element={<WorkspaceHarness />} />
         </Routes>
       </MemoryRouter>
@@ -111,6 +112,10 @@ describe("PortfolioWorkspaceLayout", () => {
       path: "/portfolio/reports",
     },
     {
+      activeLabel: "Copilot (Read-only)",
+      path: "/portfolio/copilot",
+    },
+    {
       activeLabel: "Transactions",
       path: "/portfolio/transactions",
     },
@@ -122,6 +127,7 @@ describe("PortfolioWorkspaceLayout", () => {
       "Analytics (Preview)",
       "Risk (Interpretation)",
       "Quant/Reports",
+      "Copilot (Read-only)",
       "Transactions",
     ].map((label) => screen.getByRole("link", { name: label }));
 
@@ -140,30 +146,28 @@ describe("PortfolioWorkspaceLayout", () => {
 
     const homeLink = screen.getByRole("link", { name: "Home" });
     const analyticsLink = screen.getByRole("link", { name: "Analytics (Preview)" });
+    const copilotLink = screen.getByRole("link", { name: "Copilot (Read-only)" });
     const riskLink = screen.getByRole("link", { name: "Risk (Interpretation)" });
 
-    for (let index = 0; index < 8; index += 1) {
-      await user.tab();
-      if (homeLink === document.activeElement) {
-        break;
+    async function tabUntilFocus(target: HTMLElement, maxTabs = 24): Promise<void> {
+      for (let index = 0; index < maxTabs; index += 1) {
+        await user.tab();
+        if (target === document.activeElement) {
+          return;
+        }
       }
     }
+
+    await tabUntilFocus(homeLink);
     expect(homeLink).toHaveFocus();
 
-    for (let index = 0; index < 4; index += 1) {
-      await user.tab();
-      if (analyticsLink === document.activeElement) {
-        break;
-      }
-    }
+    await tabUntilFocus(analyticsLink);
     expect(analyticsLink).toHaveFocus();
 
-    for (let index = 0; index < 4; index += 1) {
-      await user.tab();
-      if (riskLink === document.activeElement) {
-        break;
-      }
-    }
+    await tabUntilFocus(copilotLink);
+    expect(copilotLink).toHaveFocus();
+
+    await tabUntilFocus(riskLink);
     expect(riskLink).toHaveFocus();
 
     await user.keyboard("{Enter}");

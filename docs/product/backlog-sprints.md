@@ -499,6 +499,11 @@ Definition of Done:
 
 Prerequisite: Sprint 8 must be complete and the approved analytics contracts must remain stable before this sprint opens.
 
+Current status (`2026-04-04`):
+
+- Items `9.1` through `9.4` are implemented in the repository.
+- Item `9.5` remains the active closeout track (docs + governance evidence sync).
+
 ### Item 9.1: Freeze AI safety boundary and tool contract
 
 - define the allowlisted read-only tool set over existing aggregated analytics surfaces

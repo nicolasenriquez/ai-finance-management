@@ -16,6 +16,7 @@ import { LoadingTableSkeleton } from "../../components/skeletons/LoadingTableSke
 import { PortfolioWorkspaceLayout } from "../../components/workspace-layout/PortfolioWorkspaceLayout";
 import { AppApiError } from "../../core/api/errors";
 import type {
+  PortfolioChartPeriod,
   PortfolioContributionRow,
   PortfolioHealthProfilePosture,
   PortfolioMonteCarloProfileScenario,
@@ -49,22 +50,26 @@ function resolvePeriodFromSearchParams(searchParams: URLSearchParams) {
 }
 
 const MONTE_CARLO_RECOMMENDED_HORIZON_BY_PERIOD: Record<
-  "30D" | "90D" | "252D" | "MAX",
+  PortfolioChartPeriod,
   number
 > = {
   "30D": 20,
   "90D": 60,
+  "6M": 84,
   "252D": 126,
+  YTD: 60,
   MAX: 252,
 };
 
 const MONTE_CARLO_MAX_HORIZON_BY_PERIOD: Record<
-  "30D" | "90D" | "252D" | "MAX",
+  PortfolioChartPeriod,
   number
 > = {
   "30D": 29,
   "90D": 89,
+  "6M": 125,
   "252D": 251,
+  YTD: 251,
   MAX: 756,
 };
 
@@ -488,7 +493,7 @@ export function PortfolioReportsPage() {
     );
   }, [monteCarloHorizonTouched, selectedPeriod]);
 
-  function handlePeriodChange(nextPeriod: "30D" | "90D" | "252D" | "MAX"): void {
+  function handlePeriodChange(nextPeriod: PortfolioChartPeriod): void {
     setSearchParams((previous) => {
       const next = new URLSearchParams(previous);
       next.set("period", nextPeriod);
@@ -1106,7 +1111,7 @@ export function PortfolioReportsPage() {
             <article className="chart-summary-card chart-summary-card--signal">
               <span className="chart-summary-card__label">Artifact</span>
               <a
-                className="row-link"
+                className="row-link quant-report-summary-grid__artifact-link"
                 href={quantReportGenerateMutation.data.report_url_path}
                 rel="noreferrer"
                 target="_blank"

@@ -97,20 +97,26 @@ _RATIO_SCALE = Decimal("0.000001")
 _PERIOD_TO_REQUIRED_POINTS: dict[PortfolioChartPeriod, int | None] = {
     PortfolioChartPeriod.D30: 30,
     PortfolioChartPeriod.D90: 90,
+    PortfolioChartPeriod.D6M: 126,
     PortfolioChartPeriod.D252: 252,
+    PortfolioChartPeriod.YTD: None,
     PortfolioChartPeriod.MAX: None,
 }
-_SUPPORTED_RISK_WINDOWS: set[int] = {30, 90, 252}
+_SUPPORTED_RISK_WINDOWS: set[int] = {30, 90, 126, 252}
 _DEFAULT_ROLLING_WINDOW_BY_PERIOD: dict[PortfolioChartPeriod, int] = {
     PortfolioChartPeriod.D30: 10,
     PortfolioChartPeriod.D90: 30,
+    PortfolioChartPeriod.D6M: 30,
     PortfolioChartPeriod.D252: 30,
+    PortfolioChartPeriod.YTD: 30,
     PortfolioChartPeriod.MAX: 30,
 }
 _DEFAULT_MONTE_CARLO_HORIZON_BY_PERIOD: dict[PortfolioChartPeriod, int] = {
     PortfolioChartPeriod.D30: 20,
     PortfolioChartPeriod.D90: 60,
+    PortfolioChartPeriod.D6M: 84,
     PortfolioChartPeriod.D252: 126,
+    PortfolioChartPeriod.YTD: 60,
     PortfolioChartPeriod.MAX: 252,
 }
 _MIN_MONTE_CARLO_HORIZON_DAYS = 5
@@ -302,6 +308,15 @@ def normalize_chart_period(*, period_value: object) -> PortfolioChartPeriod:
         f"Supported periods are: {', '.join(_SUPPORTED_CHART_PERIOD_VALUES)}.",
         status_code=422,
     )
+
+
+def _resolve_period_minimum_timestamp(*, period: PortfolioChartPeriod) -> datetime | None:
+    """Return optional period floor timestamp used for aligned-series selection."""
+
+    if period != PortfolioChartPeriod.YTD:
+        return None
+    now_utc = utcnow()
+    return datetime(year=now_utc.year, month=1, day=1, tzinfo=UTC)
 
 
 def normalize_chart_scope(
@@ -573,6 +588,7 @@ async def get_portfolio_time_series_response(
         instrument_symbol=normalized_instrument_symbol,
     )
     required_points = _PERIOD_TO_REQUIRED_POINTS[period]
+    minimum_timestamp = _resolve_period_minimum_timestamp(period=period)
     insufficient_history_detail = (
         f"Insufficient persisted history for requested period {period.value}."
     )
@@ -593,6 +609,7 @@ async def get_portfolio_time_series_response(
                 price_series_by_symbol=price_series_by_symbol,
                 required_points=required_points,
                 minimum_points=1,
+                minimum_timestamp=minimum_timestamp,
                 insufficient_history_detail=insufficient_history_detail,
             )
             points_payload = build_portfolio_time_series_points(
@@ -673,6 +690,7 @@ async def get_portfolio_contribution_response(
         period=period.value,
     )
     required_points = _PERIOD_TO_REQUIRED_POINTS[period]
+    minimum_timestamp = _resolve_period_minimum_timestamp(period=period)
     insufficient_history_detail = (
         f"Insufficient persisted history for contribution period {period.value}."
     )
@@ -690,6 +708,7 @@ async def get_portfolio_contribution_response(
                 price_series_by_symbol=price_series_by_symbol,
                 required_points=required_points,
                 minimum_points=2,
+                minimum_timestamp=minimum_timestamp,
                 insufficient_history_detail=insufficient_history_detail,
             )
             contribution_rows_payload = build_portfolio_contribution_rows(
@@ -1633,6 +1652,7 @@ async def get_portfolio_quant_metrics_response(
         period=period.value,
     )
     required_points = _PERIOD_TO_REQUIRED_POINTS[period]
+    minimum_timestamp = _resolve_period_minimum_timestamp(period=period)
     insufficient_history_detail = (
         f"Insufficient persisted history for quant metrics period {period.value}."
     )
@@ -1649,6 +1669,7 @@ async def get_portfolio_quant_metrics_response(
                 price_series_by_symbol=price_series_by_symbol,
                 required_points=required_points,
                 minimum_points=2,
+                minimum_timestamp=minimum_timestamp,
                 insufficient_history_detail=insufficient_history_detail,
             )
             returns_series = _build_portfolio_returns_series(
@@ -2935,6 +2956,7 @@ def _select_aligned_timestamps(
     price_series_by_symbol: Mapping[str, Mapping[datetime, Decimal]],
     required_points: int | None,
     minimum_points: int,
+    minimum_timestamp: datetime | None = None,
     insufficient_history_detail: str,
 ) -> list[datetime]:
     """Select deterministic aligned timestamps across all required symbols."""
@@ -2953,6 +2975,11 @@ def _select_aligned_timestamps(
         common_timestamps &= symbol_timestamps
 
     ordered_timestamps: list[datetime] = sorted(common_timestamps)
+    if minimum_timestamp is not None:
+        ordered_timestamps = [
+            timestamp for timestamp in ordered_timestamps if timestamp >= minimum_timestamp
+        ]
+
     if required_points is not None:
         if len(ordered_timestamps) < required_points:
             raise PortfolioAnalyticsClientError(
@@ -3546,6 +3573,7 @@ def _build_scope_value_series_result(
     """Build deterministic value/return series for portfolio or instrument scope."""
 
     required_points = _PERIOD_TO_REQUIRED_POINTS[period]
+    minimum_timestamp = _resolve_period_minimum_timestamp(period=period)
     insufficient_history_detail = (
         f"Insufficient persisted history for {context_label} period {period.value}."
     )
@@ -3559,6 +3587,7 @@ def _build_scope_value_series_result(
             price_series_by_symbol=price_series_by_symbol,
             required_points=required_points,
             minimum_points=2,
+            minimum_timestamp=minimum_timestamp,
             insufficient_history_detail=insufficient_history_detail,
         )
         price_frame = _build_aligned_price_frame(
@@ -3634,6 +3663,7 @@ def _build_scope_value_series_result(
         price_series_by_symbol={instrument_symbol: symbol_series},
         required_points=required_points,
         minimum_points=2,
+        minimum_timestamp=minimum_timestamp,
         insufficient_history_detail=insufficient_history_detail,
     )
     symbol_values = [
@@ -4868,6 +4898,7 @@ def _build_quant_report_returns_series(
         f"Insufficient persisted history for quant report period {period.value}."
     )
     required_points = _PERIOD_TO_REQUIRED_POINTS[period]
+    minimum_timestamp = _resolve_period_minimum_timestamp(period=period)
     candidate_price_series_by_symbol: dict[str, Mapping[datetime, Decimal]] = {
         **optional_price_series_by_symbol,
         **price_series_by_symbol,
@@ -4878,6 +4909,7 @@ def _build_quant_report_returns_series(
             price_series_by_symbol=price_series_by_symbol,
             required_points=required_points,
             minimum_points=2,
+            minimum_timestamp=minimum_timestamp,
             insufficient_history_detail=insufficient_history_detail,
         )
         returns_series = _build_portfolio_returns_series(
@@ -4903,6 +4935,7 @@ def _build_quant_report_returns_series(
             price_series_by_symbol={instrument_symbol: symbol_series},
             required_points=required_points,
             minimum_points=2,
+            minimum_timestamp=minimum_timestamp,
             insufficient_history_detail=insufficient_history_detail,
         )
         symbol_values: list[float] = [

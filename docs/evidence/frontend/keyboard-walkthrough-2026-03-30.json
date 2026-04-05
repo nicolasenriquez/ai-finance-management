@@ -1,0 +1,213 @@
+{
+  "measuredAt": "2026-03-30T22:59:33.146Z",
+  "baseUrl": "http://127.0.0.1:50428",
+  "keyboardReport": {
+    "summaryToRowTabSequence": [
+      {
+        "selector": "a.brand-mark",
+        "role": null,
+        "label": "Open portfolio summary",
+        "className": "brand-mark"
+      },
+      {
+        "selector": "button.theme-toggle",
+        "role": null,
+        "label": "Switch to dark theme",
+        "className": "theme-toggle"
+      },
+      {
+        "selector": "select.period-control__select",
+        "role": null,
+        "label": "Select analytics period",
+        "className": "period-control__select"
+      },
+      {
+        "selector": "a.button-secondary",
+        "role": null,
+        "label": "Open grouped summary",
+        "className": "button-secondary"
+      },
+      {
+        "selector": "a.workspace-nav__link.workspace-nav__link--active",
+        "role": null,
+        "label": "Home",
+        "className": "workspace-nav__link workspace-nav__link--active"
+      },
+      {
+        "selector": "a.workspace-nav__link",
+        "role": null,
+        "label": "Analytics (Preview)",
+        "className": "workspace-nav__link"
+      },
+      {
+        "selector": "a.workspace-nav__link",
+        "role": null,
+        "label": "Risk (Interpretation)",
+        "className": "workspace-nav__link"
+      },
+      {
+        "selector": "a.workspace-nav__link",
+        "role": null,
+        "label": "Quant/Reports",
+        "className": "workspace-nav__link"
+      },
+      {
+        "selector": "a.workspace-nav__link",
+        "role": null,
+        "label": "Transactions",
+        "className": "workspace-nav__link"
+      },
+      {
+        "selector": "select.transactions-filters__select",
+        "role": null,
+        "label": "Health profile posture",
+        "className": "transactions-filters__select"
+      },
+      {
+        "selector": "button.metric-explainability__trigger",
+        "role": null,
+        "label": "Explain Market value",
+        "className": "metric-explainability__trigger"
+      },
+      {
+        "selector": "button.metric-explainability__trigger",
+        "role": null,
+        "label": "Explain Unrealized gain",
+        "className": "metric-explainability__trigger"
+      },
+      {
+        "selector": "button.metric-explainability__trigger",
+        "role": null,
+        "label": "Explain Realized P&L",
+        "className": "metric-explainability__trigger"
+      },
+      {
+        "selector": "button.metric-explainability__trigger",
+        "role": null,
+        "label": "Explain Period change",
+        "className": "metric-explainability__trigger"
+      },
+      {
+        "selector": "summary",
+        "role": null,
+        "label": "Read chart interpretation details",
+        "className": ""
+      },
+      {
+        "selector": "summary",
+        "role": null,
+        "label": "Read chart interpretation details",
+        "className": ""
+      },
+      {
+        "selector": "button.chart-chip",
+        "role": null,
+        "label": "Portfolio",
+        "className": "chart-chip"
+      },
+      {
+        "selector": "button.chart-chip",
+        "role": null,
+        "label": "P&L",
+        "className": "chart-chip"
+      },
+      {
+        "selector": "button.chart-chip",
+        "role": null,
+        "label": "Trend estimate",
+        "className": "chart-chip"
+      },
+      {
+        "selector": "a.button-secondary.chart-action-link",
+        "role": null,
+        "label": "Analyze risk route",
+        "className": "button-secondary chart-action-link"
+      },
+      {
+        "selector": "(none)",
+        "role": null,
+        "label": null
+      },
+      {
+        "selector": "button.metric-explainability__trigger",
+        "role": null,
+        "label": "Explain Trend estimate",
+        "className": "metric-explainability__trigger"
+      },
+      {
+        "selector": "button.metric-explainability__trigger",
+        "role": null,
+        "label": "Explain Normalized benchmarks",
+        "className": "metric-explainability__trigger"
+      },
+      {
+        "selector": "button.metric-explainability__trigger",
+        "role": null,
+        "label": "Explain Unrealized P&L vs cost basis",
+        "className": "metric-explainability__trigger"
+      },
+      {
+        "selector": "button.hierarchy-toolbar__button",
+        "role": null,
+        "label": "Expand all sector groups",
+        "className": "hierarchy-toolbar__button"
+      },
+      {
+        "selector": "button.hierarchy-toolbar__button",
+        "role": null,
+        "label": "Collapse all sector groups",
+        "className": "hierarchy-toolbar__button"
+      },
+      {
+        "selector": "button.hierarchy-toolbar__button",
+        "role": null,
+        "label": "Expand all stock rows",
+        "className": "hierarchy-toolbar__button"
+      },
+      {
+        "selector": "button.hierarchy-toolbar__button",
+        "role": null,
+        "label": "Collapse all stock rows",
+        "className": "hierarchy-toolbar__button"
+      },
+      {
+        "selector": "button.button-secondary.hierarchy-pivot-toggle",
+        "role": null,
+        "label": "Switch to stock pivot view",
+        "className": "button-secondary hierarchy-pivot-toggle"
+      },
+      {
+        "selector": "button.hierarchy-toolbar__icon-button",
+        "role": null,
+        "label": "More hierarchy actions",
+        "className": "hierarchy-toolbar__icon-button"
+      },
+      {
+        "selector": "button.hierarchy-sort-button.hierarchy-sort-button--active",
+        "role": null,
+        "label": "Sort hierarchy by asset or group",
+        "className": "hierarchy-sort-button hierarchy-sort-button--active"
+      },
+      {
+        "selector": "button.hierarchy-sort-button.hierarchy-sort-button--numeric",
+        "role": null,
+        "label": "Sort hierarchy by current value",
+        "className": "hierarchy-sort-button hierarchy-sort-button--numeric "
+      }
+    ],
+    "firstInteractiveRowFound": false,
+    "enterOnRowNavigatesToLotDetail": false,
+    "lotDetailBackLinkFound": false,
+    "backLinkReturnsToSummary": false,
+    "notFoundRetryFound": true,
+    "notFoundBackLinkFound": true,
+    "serverErrorRetryFound": true,
+    "serverErrorBackLinkFound": true,
+    "workspaceAnalyticsTabFound": false,
+    "workspaceAnalyticsTabNavigates": false,
+    "workspaceRiskTabFound": false,
+    "workspaceRiskTabNavigates": false,
+    "workspaceTransactionsTabFound": true,
+    "workspaceTransactionsTabNavigates": true
+  }
+}

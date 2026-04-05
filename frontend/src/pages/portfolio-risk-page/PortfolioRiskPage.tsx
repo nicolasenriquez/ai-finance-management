@@ -15,6 +15,7 @@ import { LoadingTableSkeleton } from "../../components/skeletons/LoadingTableSke
 import { PortfolioWorkspaceLayout } from "../../components/workspace-layout/PortfolioWorkspaceLayout";
 import { AppApiError } from "../../core/api/errors";
 import type {
+  PortfolioChartPeriod,
   PortfolioRiskEstimatorMetric,
   PortfolioTimeSeriesScope,
 } from "../../core/api/schemas";
@@ -219,7 +220,7 @@ export function PortfolioRiskPage() {
   const isEmpty = isSuccess && riskQuery.data.metrics.length === 0;
   const errorCopy = resolveRiskErrorCopy(riskQuery.error);
 
-  function handlePeriodChange(nextPeriod: "30D" | "90D" | "252D" | "MAX"): void {
+  function handlePeriodChange(nextPeriod: PortfolioChartPeriod): void {
     setSearchParams((previous) => {
       const next = new URLSearchParams(previous);
       next.set("period", nextPeriod);

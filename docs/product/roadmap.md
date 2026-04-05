@@ -133,6 +133,8 @@ Explicit non-goals for this phase:
 
 ## Phase 10: AI Layering v1 - Read-Only Portfolio Copilot (Post-MVP Extension)
 
+Current status (`2026-04-04`): backend and frontend v1 slice delivered; docs/validation closeout tracked in Sprint 9 item 9.5.
+
 - Add a read-only portfolio copilot that answers questions over approved aggregated analytics context rather than direct database access.
 - Freeze an AI safety envelope for v1:
   - allowlisted read-only tools only

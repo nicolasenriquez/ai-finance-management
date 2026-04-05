@@ -1,5 +1,8 @@
-## ADDED Requirements
+# frontend-ai-copilot-workspace Specification
 
+## Purpose
+TBD - created by archiving change phase-h-ai-layering-read-only-portfolio-copilot. Update Purpose after archive.
+## Requirements
 ### Requirement: Frontend SHALL expose a dedicated portfolio copilot workspace surface
 The frontend SHALL provide a dedicated portfolio copilot surface within the portfolio workspace so AI-assisted analysis is discoverable without overloading existing summary, risk, or report screens.
 
@@ -20,6 +23,11 @@ The frontend SHALL render explicit `idle`, `loading`, `error`, `blocked`, and `r
 - **WHEN** the backend rejects a request or cannot answer safely
 - **THEN** the UI renders a factual blocked or error state with the returned reason
 - **THEN** the screen does not present placeholder analysis as if it were valid
+
+#### Scenario: Provider-origin failures map to stable UI reason semantics
+- **WHEN** the backend returns normalized reason codes (`rate_limited`, `provider_blocked_policy`, `provider_misconfigured`, `provider_unavailable`)
+- **THEN** the UI maps each code to one deterministic blocked/error presentation
+- **THEN** raw provider error strings are not required for user-facing state selection
 
 ### Requirement: Copilot inputs SHALL keep scope and expectations explicit
 The frontend SHALL make the approved v1 copilot boundary visible in the interaction flow, including read-only scope, privacy limitations, and non-advice posture.

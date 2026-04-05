@@ -11,6 +11,7 @@ import { LoadingTableSkeleton } from "../../components/skeletons/LoadingTableSke
 import { PortfolioWorkspaceLayout } from "../../components/workspace-layout/PortfolioWorkspaceLayout";
 import { PortfolioHierarchyTable } from "../../features/portfolio-hierarchy/PortfolioHierarchyTable";
 import type {
+  PortfolioChartPeriod,
   PortfolioHealthProfilePosture,
   PortfolioHierarchyGroupBy,
 } from "../../core/api/schemas";
@@ -82,7 +83,7 @@ export function PortfolioHomePage() {
     "Home analytics could not be loaded from persisted workspace data.",
   );
 
-  function handlePeriodChange(nextPeriod: "30D" | "90D" | "252D" | "MAX"): void {
+  function handlePeriodChange(nextPeriod: PortfolioChartPeriod): void {
     setSearchParams((previous) => {
       const next = new URLSearchParams(previous);
       next.set("period", nextPeriod);
@@ -264,26 +265,41 @@ export function PortfolioHomePage() {
                       </article>
                     </div>
 
-                    <div className="quant-lens-table" role="table" aria-label="Health pillar scores">
-                      <div className="quant-lens-table__header" role="row">
-                        <span role="columnheader">Pillar</span>
-                        <span role="columnheader">Score</span>
-                        <span role="columnheader">Status</span>
-                        <span role="columnheader">Top metric</span>
-                      </div>
-                      {healthQuery.data.pillars.map((pillar) => (
-                        <div className="quant-lens-table__row" key={pillar.pillar_id} role="row">
-                          <span role="cell">{pillar.label}</span>
-                          <span role="cell">{pillar.score}/100</span>
-                          <span role="cell">{pillar.status}</span>
-                          <span role="cell">
-                            {pillar.metrics[0]
-                              ? `${pillar.metrics[0].label} (${pillar.metrics[0].value_display})`
-                              : "—"}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
+                    <table
+                      className="quant-lens-table health-pillars-table"
+                      aria-label="Health pillar scores"
+                    >
+                      <thead>
+                        <tr className="quant-lens-table__header">
+                          <th scope="col">Pillar</th>
+                          <th className="quant-lens-table__value" scope="col">
+                            Score
+                          </th>
+                          <th className="quant-lens-table__value" scope="col">
+                            Status
+                          </th>
+                          <th className="quant-lens-table__value" scope="col">
+                            Top metric
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {healthQuery.data.pillars.map((pillar) => (
+                          <tr className="quant-lens-table__row" key={pillar.pillar_id}>
+                            <th className="quant-lens-table__metric" scope="row">
+                              {pillar.label}
+                            </th>
+                            <td className="quant-lens-table__value">{pillar.score}/100</td>
+                            <td className="quant-lens-table__value">{pillar.status}</td>
+                            <td className="quant-lens-table__value">
+                              {pillar.metrics[0]
+                                ? `${pillar.metrics[0].label} (${pillar.metrics[0].value_display})`
+                                : "—"}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
 
                     {healthQuery.data.key_drivers.length > 0 ? (
                       <section className="context-banner context-banner--info" aria-live="polite">

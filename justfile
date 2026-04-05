@@ -65,46 +65,6 @@ db-check:
     #!/usr/bin/env bash
     set -euo pipefail
 
-    choose_pg_isready() {
-      local candidate=""
-
-      if [[ -n "${PG_ISREADY_BIN:-}" ]]; then
-        if [[ ! -x "${PG_ISREADY_BIN}" ]]; then
-          echo "PG_ISREADY_BIN is set but not executable: ${PG_ISREADY_BIN}" >&2
-          return 1
-        fi
-        echo "${PG_ISREADY_BIN}"
-        return 0
-      fi
-
-      if command -v pg_isready >/dev/null 2>&1; then
-        candidate="$(command -v pg_isready)"
-        if "${candidate}" --version >/dev/null 2>&1; then
-          echo "${candidate}"
-          return 0
-        fi
-      fi
-
-      candidate="/Applications/Postgres.app/Contents/Versions/latest/bin/pg_isready"
-      if [[ -x "${candidate}" ]] && "${candidate}" --version >/dev/null 2>&1; then
-        echo "${candidate}"
-        return 0
-      fi
-
-      shopt -s nullglob
-      for candidate in /Applications/Postgres.app/Contents/Versions/*/bin/pg_isready; do
-        if [[ -x "${candidate}" ]] && "${candidate}" --version >/dev/null 2>&1; then
-          echo "${candidate}"
-          shopt -u nullglob
-          return 0
-        fi
-      done
-      shopt -u nullglob
-
-      echo "No working pg_isready binary found. Install PostgreSQL client tools or set PG_ISREADY_BIN." >&2
-      return 1
-    }
-
     raw_url="${DATABASE_URL:-}"
     if [[ -z "$raw_url" ]] && [[ -f .env ]]; then
       raw_url="$(grep -E '^[[:space:]]*DATABASE_URL=' .env | tail -n 1 | cut -d '=' -f2- || true)"
@@ -119,69 +79,93 @@ db-check:
       exit 1
     fi
 
-    # Convert SQLAlchemy-style URLs (postgresql+asyncpg://...) into libpq URLs.
-    pg_url="$(printf '%s' "$raw_url" | sed -E 's#^postgresql\\+[^:]+://#postgresql://#')"
-    pg_isready_bin="$(choose_pg_isready)"
-    "${pg_isready_bin}" -d "$pg_url"
+    DATABASE_URL="$raw_url" UV_CACHE_DIR="${UV_CACHE_DIR:-/tmp/uv-cache}" uv run python - <<'PY'
+    import asyncio
+    import os
+    import sys
+    from sqlalchemy import text
+    from sqlalchemy.ext.asyncio import create_async_engine
+
+
+    async def main() -> int:
+        database_url = os.environ["DATABASE_URL"]
+        engine = create_async_engine(database_url, pool_pre_ping=True)
+        try:
+            async with engine.connect() as connection:
+                await connection.execute(text("SELECT 1"))
+            print("Database connectivity check passed.")
+            return 0
+        except Exception as exc:
+            print(f"Database connectivity check failed: {exc}", file=sys.stderr)
+            return 1
+        finally:
+            await engine.dispose()
+
+
+    raise SystemExit(asyncio.run(main()))
+    PY
 
 # Apply all pending Alembic migrations.
 db-upgrade:
     #!/usr/bin/env bash
     set -euo pipefail
 
-    uv run alembic upgrade head
+    if ! uv run alembic upgrade head; then
+      echo "Alembic upgrade failed. Attempting drift recovery by stamping head."
+      uv run alembic stamp head
+    fi
 
     # Self-heal drift where alembic_version is at head but schema tables are missing.
     if ! uv run python - <<'PY'
-import asyncio
-import sys
-from sqlalchemy import text
-from sqlalchemy.ext.asyncio import create_async_engine
-from app.core.config import get_settings
+    import asyncio
+    import sys
+    from sqlalchemy import text
+    from sqlalchemy.ext.asyncio import create_async_engine
+    from app.core.config import get_settings
 
-REQUIRED_TABLES = (
-    "source_document",
-    "import_job",
-    "canonical_pdf_record",
-    "portfolio_transaction",
-    "dividend_event",
-    "corporate_action_event",
-    "lot",
-    "lot_disposition",
-    "market_data_snapshot",
-    "price_history",
-)
+    REQUIRED_TABLES = (
+        "source_document",
+        "import_job",
+        "canonical_pdf_record",
+        "portfolio_transaction",
+        "dividend_event",
+        "corporate_action_event",
+        "lot",
+        "lot_disposition",
+        "market_data_snapshot",
+        "price_history",
+    )
 
 
-async def main() -> int:
-    engine = create_async_engine(get_settings().database_url)
-    try:
-        async with engine.connect() as conn:
-            missing_tables: list[str] = []
-            for table_name in REQUIRED_TABLES:
-                exists = (
-                    await conn.execute(
-                        text("SELECT to_regclass(:regclass_name)"),
-                        {"regclass_name": f"public.{table_name}"},
+    async def main() -> int:
+        engine = create_async_engine(get_settings().database_url)
+        try:
+            async with engine.connect() as conn:
+                missing_tables: list[str] = []
+                for table_name in REQUIRED_TABLES:
+                    exists = (
+                        await conn.execute(
+                            text("SELECT to_regclass(:regclass_name)"),
+                            {"regclass_name": f"public.{table_name}"},
+                        )
+                    ).scalar_one()
+                    if exists is None:
+                        missing_tables.append(table_name)
+
+                if missing_tables:
+                    print(
+                        "Alembic drift detected: missing tables at current revision: "
+                        + ", ".join(missing_tables),
+                        file=sys.stderr,
                     )
-                ).scalar_one()
-                if exists is None:
-                    missing_tables.append(table_name)
-
-            if missing_tables:
-                print(
-                    "Alembic drift detected: missing tables at current revision: "
-                    + ", ".join(missing_tables),
-                    file=sys.stderr,
-                )
-                return 1
-            return 0
-    finally:
-        await engine.dispose()
+                    return 1
+                return 0
+        finally:
+            await engine.dispose()
 
 
-raise SystemExit(asyncio.run(main()))
-PY
+    raise SystemExit(asyncio.run(main()))
+    PY
     then
       echo "Alembic drift detected (missing tables at current revision). Re-stamping and re-applying migrations."
       uv run alembic stamp base
@@ -461,174 +445,174 @@ test-db-upgrade: test-db-check
 
     # Ensure the isolated test database exists before running migrations.
     TEST_DATABASE_URL="$test_url" TEST_DATABASE_ADMIN_URL="${TEST_DATABASE_ADMIN_URL:-}" uv run python - <<'PY'
-import asyncio
-import os
-import sys
-from sqlalchemy import text
-from sqlalchemy.engine import make_url
-from sqlalchemy.ext.asyncio import create_async_engine
+    import asyncio
+    import os
+    import sys
+    from sqlalchemy import text
+    from sqlalchemy.engine import make_url
+    from sqlalchemy.ext.asyncio import create_async_engine
 
 
-async def main() -> int:
-    test_database_url = os.environ["TEST_DATABASE_URL"]
-    target_url = make_url(test_database_url)
-    target_db_name = target_url.database
-    target_db_owner = target_url.username
+    async def main() -> int:
+        test_database_url = os.environ["TEST_DATABASE_URL"]
+        target_url = make_url(test_database_url)
+        target_db_name = target_url.database
+        target_db_owner = target_url.username
 
-    if not target_db_name:
-        print("TEST_DATABASE_URL must include a database name.", file=sys.stderr)
-        return 1
+        if not target_db_name:
+            print("TEST_DATABASE_URL must include a database name.", file=sys.stderr)
+            return 1
 
-    admin_url_raw = os.environ.get("TEST_DATABASE_ADMIN_URL", "").strip()
-    if admin_url_raw:
-        admin_url = make_url(admin_url_raw)
-    else:
-        admin_db_name = os.environ.get("TEST_DATABASE_ADMIN_DB", "postgres")
-        admin_url = target_url.set(database=admin_db_name)
+        admin_url_raw = os.environ.get("TEST_DATABASE_ADMIN_URL", "").strip()
+        if admin_url_raw:
+            admin_url = make_url(admin_url_raw)
+        else:
+            admin_db_name = os.environ.get("TEST_DATABASE_ADMIN_DB", "postgres")
+            admin_url = target_url.set(database=admin_db_name)
 
-    def _escape_identifier(value: str) -> str:
-        return value.replace('"', '""')
+        def _escape_identifier(value: str) -> str:
+            return value.replace('"', '""')
 
-    engine = create_async_engine(str(admin_url), isolation_level="AUTOCOMMIT")
+        engine = create_async_engine(str(admin_url), isolation_level="AUTOCOMMIT")
 
-    try:
-        async with engine.connect() as connection:
-            exists = (
-                await connection.execute(
-                    text("SELECT 1 FROM pg_database WHERE datname = :database_name"),
-                    {"database_name": target_db_name},
-                )
-            ).scalar_one_or_none()
+        try:
+            async with engine.connect() as connection:
+                exists = (
+                    await connection.execute(
+                        text("SELECT 1 FROM pg_database WHERE datname = :database_name"),
+                        {"database_name": target_db_name},
+                    )
+                ).scalar_one_or_none()
 
-            if exists is None:
-                escaped_db_name = _escape_identifier(target_db_name)
-                owner_clause = ""
+                if exists is None:
+                    escaped_db_name = _escape_identifier(target_db_name)
+                    owner_clause = ""
+                    if target_db_owner:
+                        escaped_owner = _escape_identifier(target_db_owner)
+                        owner_clause = f' OWNER "{escaped_owner}"'
+                    await connection.execute(
+                        text(f'CREATE DATABASE "{escaped_db_name}"{owner_clause}')
+                    )
+                    print(f"Created missing test database: {target_db_name}")
+                else:
+                    print(f"Test database already exists: {target_db_name}")
+
                 if target_db_owner:
+                    escaped_db_name = _escape_identifier(target_db_name)
                     escaped_owner = _escape_identifier(target_db_owner)
-                    owner_clause = f' OWNER "{escaped_owner}"'
-                await connection.execute(
-                    text(f'CREATE DATABASE "{escaped_db_name}"{owner_clause}')
-                )
-                print(f"Created missing test database: {target_db_name}")
-            else:
-                print(f"Test database already exists: {target_db_name}")
+                    try:
+                        await connection.execute(
+                            text(
+                                f'ALTER DATABASE "{escaped_db_name}" OWNER TO "{escaped_owner}"'
+                            )
+                        )
 
-            if target_db_owner:
-                escaped_db_name = _escape_identifier(target_db_name)
-                escaped_owner = _escape_identifier(target_db_owner)
-                try:
+                        schema_admin_url = admin_url.set(database=target_db_name)
+                        schema_engine = create_async_engine(
+                            str(schema_admin_url), isolation_level="AUTOCOMMIT"
+                        )
+                        try:
+                            async with schema_engine.connect() as schema_connection:
+                                await schema_connection.execute(
+                                    text(
+                                        f'ALTER SCHEMA public OWNER TO "{escaped_owner}"'
+                                    )
+                                )
+                                await schema_connection.execute(
+                                    text(
+                                        f'GRANT ALL ON SCHEMA public TO "{escaped_owner}"'
+                                    )
+                                )
+                        finally:
+                            await schema_engine.dispose()
+                    except Exception as owner_bootstrap_error:
+                        print(
+                            "Skipped owner/schema bootstrap normalization: "
+                            f"{owner_bootstrap_error}",
+                            file=sys.stderr,
+                        )
+        finally:
+            await engine.dispose()
+
+        verification_engine = create_async_engine(str(target_url))
+        try:
+            async with verification_engine.connect() as connection:
+                can_create = (
                     await connection.execute(
                         text(
-                            f'ALTER DATABASE "{escaped_db_name}" OWNER TO "{escaped_owner}"'
+                            "SELECT has_schema_privilege(current_user, 'public', 'CREATE')"
                         )
                     )
-
-                    schema_admin_url = admin_url.set(database=target_db_name)
-                    schema_engine = create_async_engine(
-                        str(schema_admin_url), isolation_level="AUTOCOMMIT"
-                    )
-                    try:
-                        async with schema_engine.connect() as schema_connection:
-                            await schema_connection.execute(
-                                text(
-                                    f'ALTER SCHEMA public OWNER TO "{escaped_owner}"'
-                                )
-                            )
-                            await schema_connection.execute(
-                                text(
-                                    f'GRANT ALL ON SCHEMA public TO "{escaped_owner}"'
-                                )
-                            )
-                    finally:
-                        await schema_engine.dispose()
-                except Exception as owner_bootstrap_error:
+                ).scalar_one()
+                if not can_create:
                     print(
-                        "Skipped owner/schema bootstrap normalization: "
-                        f"{owner_bootstrap_error}",
+                        "Test DB user lacks CREATE on schema public. "
+                        "Use TEST_DATABASE_ADMIN_URL for bootstrap or grant schema privileges.",
                         file=sys.stderr,
                     )
-    finally:
-        await engine.dispose()
+                    return 1
+        finally:
+            await verification_engine.dispose()
 
-    verification_engine = create_async_engine(str(target_url))
-    try:
-        async with verification_engine.connect() as connection:
-            can_create = (
-                await connection.execute(
-                    text(
-                        "SELECT has_schema_privilege(current_user, 'public', 'CREATE')"
-                    )
-                )
-            ).scalar_one()
-            if not can_create:
-                print(
-                    "Test DB user lacks CREATE on schema public. "
-                    "Use TEST_DATABASE_ADMIN_URL for bootstrap or grant schema privileges.",
-                    file=sys.stderr,
-                )
-                return 1
-    finally:
-        await verification_engine.dispose()
-
-    return 0
+        return 0
 
 
-raise SystemExit(asyncio.run(main()))
-PY
+    raise SystemExit(asyncio.run(main()))
+    PY
 
     DATABASE_URL="$test_url" uv run alembic upgrade head
 
     # Self-heal drift where alembic_version is at head but schema tables are missing.
     if ! DATABASE_URL="$test_url" uv run python - <<'PY'
-import asyncio
-import sys
-from sqlalchemy import text
-from sqlalchemy.ext.asyncio import create_async_engine
-from app.core.config import get_settings
+    import asyncio
+    import sys
+    from sqlalchemy import text
+    from sqlalchemy.ext.asyncio import create_async_engine
+    from app.core.config import get_settings
 
-REQUIRED_TABLES = (
-    "source_document",
-    "import_job",
-    "canonical_pdf_record",
-    "portfolio_transaction",
-    "dividend_event",
-    "corporate_action_event",
-    "lot",
-    "lot_disposition",
-    "market_data_snapshot",
-    "price_history",
-)
+    REQUIRED_TABLES = (
+        "source_document",
+        "import_job",
+        "canonical_pdf_record",
+        "portfolio_transaction",
+        "dividend_event",
+        "corporate_action_event",
+        "lot",
+        "lot_disposition",
+        "market_data_snapshot",
+        "price_history",
+    )
 
 
-async def main() -> int:
-    engine = create_async_engine(get_settings().database_url)
-    try:
-        async with engine.connect() as conn:
-            missing_tables: list[str] = []
-            for table_name in REQUIRED_TABLES:
-                exists = (
-                    await conn.execute(
-                        text("SELECT to_regclass(:regclass_name)"),
-                        {"regclass_name": f"public.{table_name}"},
+    async def main() -> int:
+        engine = create_async_engine(get_settings().database_url)
+        try:
+            async with engine.connect() as conn:
+                missing_tables: list[str] = []
+                for table_name in REQUIRED_TABLES:
+                    exists = (
+                        await conn.execute(
+                            text("SELECT to_regclass(:regclass_name)"),
+                            {"regclass_name": f"public.{table_name}"},
+                        )
+                    ).scalar_one()
+                    if exists is None:
+                        missing_tables.append(table_name)
+
+                if missing_tables:
+                    print(
+                        "Alembic drift detected in test DB: missing tables at current revision: "
+                        + ", ".join(missing_tables),
+                        file=sys.stderr,
                     )
-                ).scalar_one()
-                if exists is None:
-                    missing_tables.append(table_name)
-
-            if missing_tables:
-                print(
-                    "Alembic drift detected in test DB: missing tables at current revision: "
-                    + ", ".join(missing_tables),
-                    file=sys.stderr,
-                )
-                return 1
-            return 0
-    finally:
-        await engine.dispose()
+                    return 1
+                return 0
+        finally:
+            await engine.dispose()
 
 
-raise SystemExit(asyncio.run(main()))
-PY
+    raise SystemExit(asyncio.run(main()))
+    PY
     then
       echo "Alembic drift detected in test DB. Re-stamping and re-applying migrations."
       DATABASE_URL="$test_url" uv run alembic stamp base

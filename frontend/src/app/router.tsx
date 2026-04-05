@@ -4,6 +4,7 @@ import {
 } from "react-router-dom";
 
 import { PortfolioAnalyticsPage } from "../pages/portfolio-analytics-page/PortfolioAnalyticsPage";
+import { PortfolioCopilotPage } from "../pages/portfolio-copilot-page/PortfolioCopilotPage";
 import { PortfolioHomePage } from "../pages/portfolio-home-page/PortfolioHomePage";
 import { PortfolioLotDetailPage } from "../pages/portfolio-lot-detail-page/PortfolioLotDetailPage";
 import { PortfolioReportsPage } from "../pages/portfolio-reports-page/PortfolioReportsPage";
@@ -34,6 +35,10 @@ export const appRouter = createBrowserRouter([
   {
     path: "/portfolio/reports",
     element: <PortfolioReportsPage />,
+  },
+  {
+    path: "/portfolio/copilot",
+    element: <PortfolioCopilotPage />,
   },
   {
     path: "/portfolio/transactions",
