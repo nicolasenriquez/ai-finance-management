@@ -377,7 +377,9 @@ describe("PortfolioHomePage", () => {
     expect(
       screen.getByRole("heading", { name: "Home analytics unavailable not found" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("Home analytics endpoint was not found.")).toBeInTheDocument();
+    expect(
+      screen.getAllByText("Home analytics endpoint was not found.").length,
+    ).toBeGreaterThan(0);
   });
 
   it("renders success state with KPI cards, trend preview, and deterministic drill-down routes", () => {

@@ -8,6 +8,8 @@ import { EmptyState } from "../../components/empty-state/EmptyState";
 import { ErrorBanner } from "../../components/error-banner/ErrorBanner";
 import { LoadingTableSkeleton } from "../../components/skeletons/LoadingTableSkeleton";
 import { PortfolioWorkspaceLayout } from "../../components/workspace-layout/PortfolioWorkspaceLayout";
+import { WorkspacePrimaryJobPanel } from "../../components/workspace-layout/WorkspacePrimaryJobPanel";
+import { WorkspaceStateBanner } from "../../components/workspace-layout/WorkspaceStateBanner";
 import type {
   PortfolioChartPeriod,
   PortfolioContributionRow,
@@ -20,6 +22,7 @@ import {
   usePortfolioTimeSeriesQuery,
 } from "../../features/portfolio-workspace/hooks";
 import { topContributionRows } from "../../features/portfolio-workspace/overview";
+import { getCoreTenEntriesForRoute } from "../../features/portfolio-workspace/core-ten-catalog";
 import { resolvePortfolioChartPeriod } from "../../features/portfolio-workspace/period";
 
 function resolvePeriodFromSearchParams(searchParams: URLSearchParams) {
@@ -137,6 +140,7 @@ export function PortfolioAnalyticsPage() {
   const contributionInsight = isSuccess
     ? buildContributionInsight(contributionQuery.data.rows)
     : null;
+  const analyticsCoreTenMetrics = getCoreTenEntriesForRoute("analytics");
 
   return (
     <PortfolioWorkspaceLayout
@@ -161,6 +165,37 @@ export function PortfolioAnalyticsPage() {
       frequencyLabel={timeSeriesQuery.data?.frequency}
       timezoneLabel={timeSeriesQuery.data?.timezone}
     >
+      <WorkspacePrimaryJobPanel
+        routeLabel="Analytics"
+        jobTitle="Attribution concentration interpretation"
+        jobDescription="Use one attribution-first viewport to identify concentration drivers before navigating to risk or reporting diagnostics."
+        decisionTags={["allocation_review", "risk_posture"]}
+        coreTenMetrics={analyticsCoreTenMetrics}
+        supplementary={
+          <div className="chart-summary-grid">
+            <article className="chart-summary-card">
+              <span className="chart-summary-card__label">Allocation drift watch</span>
+              <strong className="chart-summary-card__headline">
+                {contributionInsight ? `${contributionInsight.concentrationPct}%` : "—"}
+              </strong>
+              <p className="chart-summary-card__copy">
+                Top-symbol absolute contribution share for selected period.
+              </p>
+            </article>
+          </div>
+        }
+      />
+
+      {isLoading ? (
+        <WorkspaceStateBanner state="loading" />
+      ) : isError ? (
+        <WorkspaceStateBanner state="error" message={errorCopy.message} />
+      ) : isSuccess && isEmpty ? (
+        <WorkspaceStateBanner state="unavailable" />
+      ) : isSuccess ? (
+        <WorkspaceStateBanner state="ready" />
+      ) : null}
+
       {isLoading ? <LoadingTableSkeleton rows={6} /> : null}
 
       {isError ? (

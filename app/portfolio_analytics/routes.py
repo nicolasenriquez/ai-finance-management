@@ -15,6 +15,7 @@ from app.core.logging import get_logger
 from app.portfolio_analytics.schemas import (
     PortfolioChartPeriod,
     PortfolioContributionResponse,
+    PortfolioEfficientFrontierResponse,
     PortfolioHealthProfilePosture,
     PortfolioHealthSynthesisResponse,
     PortfolioHierarchyGroupBy,
@@ -38,6 +39,7 @@ from app.portfolio_analytics.service import (
     generate_portfolio_monte_carlo_response,
     generate_portfolio_quant_report_response,
     get_portfolio_contribution_response,
+    get_portfolio_efficient_frontier_response,
     get_portfolio_health_synthesis_response,
     get_portfolio_hierarchy_response,
     get_portfolio_lot_detail_response,
@@ -492,6 +494,78 @@ async def get_portfolio_return_distribution(
         scope=normalized_scope.value,
         instrument_symbol=normalized_instrument_symbol,
         bucket_count=_response_list_len(response, "buckets"),
+        as_of_ledger_at=_response_isoformat(response, "as_of_ledger_at"),
+    )
+    return response
+
+
+@router.get(
+    "/efficient-frontier",
+    response_model=PortfolioEfficientFrontierResponse,
+)
+async def get_portfolio_efficient_frontier(
+    db: DbSession,
+    period: Annotated[
+        str,
+        Query(description="Supported chart period enum: 30D, 90D, 6M, 252D, YTD, MAX."),
+    ] = PortfolioChartPeriod.D90.value,
+    scope: Annotated[
+        str,
+        Query(description=("Supported chart scope enum: portfolio, instrument_symbol.")),
+    ] = PortfolioQuantReportScope.PORTFOLIO.value,
+    instrument_symbol: Annotated[
+        str | None,
+        Query(description="Instrument symbol required when scope=instrument_symbol."),
+    ] = None,
+    frontier_points: Annotated[
+        int,
+        Query(description="Frontier point density for visualization.", ge=8, le=60),
+    ] = 24,
+) -> PortfolioEfficientFrontierResponse:
+    """Return Markowitz efficient-frontier diagnostics for selected scope and period."""
+
+    try:
+        normalized_period = normalize_chart_period(period_value=period)
+        normalized_scope, normalized_instrument_symbol = normalize_chart_scope(
+            scope_value=scope,
+            instrument_symbol_value=instrument_symbol,
+        )
+        logger.info(
+            "portfolio_analytics.efficient_frontier_request_started",
+            period=normalized_period.value,
+            scope=normalized_scope.value,
+            instrument_symbol=normalized_instrument_symbol,
+            frontier_points=frontier_points,
+        )
+        response = await get_portfolio_efficient_frontier_response(
+            db=db,
+            period=normalized_period,
+            scope=normalized_scope,
+            instrument_symbol=normalized_instrument_symbol,
+            frontier_points=frontier_points,
+        )
+    except PortfolioAnalyticsClientError as exc:
+        logger.info(
+            "portfolio_analytics.efficient_frontier_request_rejected",
+            period=period,
+            scope=scope,
+            instrument_symbol=instrument_symbol,
+            frontier_points=frontier_points,
+            status_code=exc.status_code,
+            error=str(exc),
+        )
+        raise HTTPException(
+            status_code=exc.status_code,
+            detail=str(exc),
+        ) from exc
+
+    logger.info(
+        "portfolio_analytics.efficient_frontier_request_completed",
+        period=_response_field(response, "period"),
+        scope=_response_field(response, "scope"),
+        instrument_symbol=_response_field(response, "instrument_symbol"),
+        frontier_points=_response_list_len(response, "frontier_points"),
+        asset_points=_response_list_len(response, "asset_points"),
         as_of_ledger_at=_response_isoformat(response, "as_of_ledger_at"),
     )
     return response

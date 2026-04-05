@@ -1,7 +1,13 @@
 /* @vitest-environment jsdom */
 
 import "@testing-library/jest-dom/vitest";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -13,6 +19,7 @@ import type {
   PortfolioCopilotChatResponse,
 } from "../../core/api/schemas";
 import { usePortfolioCopilotChatMutation } from "../../features/portfolio-copilot/hooks";
+import { PortfolioCopilotWorkspaceProvider } from "../../features/portfolio-copilot/workspace-session";
 import { PortfolioCopilotPage } from "./PortfolioCopilotPage";
 
 vi.mock("../../features/portfolio-copilot/hooks", () => ({
@@ -60,9 +67,11 @@ function setMutationState(state: CopilotMutationState): void {
 function renderCopilotPage(path = "/portfolio/copilot") {
   return render(
     <ThemeProvider>
-      <MemoryRouter initialEntries={[path]}>
-        <PortfolioCopilotPage />
-      </MemoryRouter>
+      <PortfolioCopilotWorkspaceProvider>
+        <MemoryRouter initialEntries={[path]}>
+          <PortfolioCopilotPage />
+        </MemoryRouter>
+      </PortfolioCopilotWorkspaceProvider>
     </ThemeProvider>,
   );
 }
@@ -112,6 +121,7 @@ describe("PortfolioCopilotPage", () => {
         reason_code: null,
         opportunity_candidates: [],
         opportunity_narration: null,
+        prompt_suggestions: [],
       }));
     setMutationState({
       isPending: false,
@@ -134,6 +144,45 @@ describe("PortfolioCopilotPage", () => {
     expect(screen.getByText("Not financial advice.")).toBeInTheDocument();
   });
 
+  it("renders markdown table structure in ready response text", async () => {
+    const user = userEvent.setup();
+    const mutateAsync: CopilotMutationState["mutateAsync"] = vi
+      .fn()
+      .mockImplementation(async (_request: PortfolioCopilotChatRequest) => ({
+        state: "ready",
+        answer_text: [
+          "### Snapshot",
+          "",
+          "| Metric | Value |",
+          "|--------|-------|",
+          "| Sharpe ratio | -0.44 |",
+        ].join("\n"),
+        evidence: [],
+        limitations: ["Read-only analytical copilot; no trade execution."],
+        reason_code: null,
+        opportunity_candidates: [],
+        opportunity_narration: null,
+        prompt_suggestions: [],
+      }));
+    setMutationState({
+      isPending: false,
+      mutateAsync,
+    });
+
+    renderCopilotPage();
+
+    await user.type(
+      screen.getByRole("textbox", { name: "Copilot user message" }),
+      "Render markdown table please.",
+    );
+    await user.click(screen.getByRole("button", { name: "Submit request" }));
+
+    await waitFor(() => expect(mutateAsync).toHaveBeenCalledTimes(1));
+    expect(screen.getAllByRole("columnheader", { name: "Metric" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("columnheader", { name: "Value" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("cell", { name: "Sharpe ratio" }).length).toBeGreaterThan(0);
+  });
+
   it("renders blocked state with stable reason messaging", async () => {
     const user = userEvent.setup();
     const mutateAsync: CopilotMutationState["mutateAsync"] = vi
@@ -146,6 +195,7 @@ describe("PortfolioCopilotPage", () => {
         reason_code: "provider_blocked_policy",
         opportunity_candidates: [],
         opportunity_narration: null,
+        prompt_suggestions: [],
       }));
     setMutationState({
       isPending: false,
@@ -190,7 +240,12 @@ describe("PortfolioCopilotPage", () => {
             volatility_30d: "0.180000",
           },
         ],
-        opportunity_narration: "AAA leads due to larger discount and positive momentum.",
+        opportunity_narration: [
+          "### Drivers",
+          "",
+          "- AAA leads due to larger discount and positive momentum.",
+        ].join("\n"),
+        prompt_suggestions: [],
       }));
     setMutationState({
       isPending: false,
@@ -200,7 +255,7 @@ describe("PortfolioCopilotPage", () => {
     renderCopilotPage();
 
     await user.selectOptions(
-      screen.getByRole("combobox", { name: "Copilot operation" }),
+      screen.getAllByRole("combobox", { name: "Copilot operation" })[0],
       "opportunity_scan",
     );
     await user.type(
@@ -211,9 +266,124 @@ describe("PortfolioCopilotPage", () => {
 
     await waitFor(() => expect(screen.getByText("AAA")).toBeInTheDocument());
     expect(screen.getByText("AI narration")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Drivers" })).toBeInTheDocument();
     expect(
       screen.getByText("AAA leads due to larger discount and positive momentum."),
     ).toBeInTheDocument();
+  });
+
+  it("4.5 renders bounded suggestion chips and applies deterministic composer prefill", async () => {
+    const user = userEvent.setup();
+    const mutateAsync: CopilotMutationState["mutateAsync"] = vi
+      .fn()
+      .mockImplementation(async (_request: PortfolioCopilotChatRequest) => ({
+        state: "ready",
+        answer_text: "Suggestion metadata loaded.",
+        evidence: [],
+        limitations: ["Read-only analytical copilot."],
+        reason_code: null,
+        opportunity_candidates: [],
+        opportunity_narration: null,
+        prompt_suggestions: [
+          "Compare risk posture versus last month.",
+          "Summarize concentration changes by symbol.",
+          "What evidence supports this conclusion?",
+          "List limitations for this answer.",
+        ],
+      }));
+    setMutationState({
+      isPending: false,
+      mutateAsync,
+    });
+
+    renderCopilotPage();
+
+    await user.type(
+      screen.getByRole("textbox", { name: "Copilot user message" }),
+      "Show me something",
+    );
+    await user.click(screen.getByRole("button", { name: "Submit request" }));
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", {
+          name: "Compare risk posture versus last month.",
+        }),
+      ).toBeInTheDocument(),
+    );
+
+    await user.type(
+      screen.getByRole("textbox", { name: "Copilot user message" }),
+      "draft to replace",
+    );
+    await user.click(
+      screen.getByRole("button", {
+        name: "Compare risk posture versus last month.",
+      }),
+    );
+    expect(
+      screen.getByRole("textbox", { name: "Copilot user message" }),
+    ).toHaveValue("Compare risk posture versus last month.");
+
+    fireEvent.keyDown(
+      screen.getByRole("button", {
+        name: "Summarize concentration changes by symbol.",
+      }),
+      { key: "Enter" },
+    );
+    expect(
+      screen.getByRole("textbox", { name: "Copilot user message" }),
+    ).toHaveValue("Summarize concentration changes by symbol.");
+  });
+
+  it("4.6 adds/removes document_id references and submits bounded attachment IDs", async () => {
+    const user = userEvent.setup();
+    const mutateAsync: CopilotMutationState["mutateAsync"] = vi
+      .fn()
+      .mockImplementation(async (_request: PortfolioCopilotChatRequest) => ({
+        state: "ready",
+        answer_text: "Attached references accepted.",
+        evidence: [],
+        limitations: ["Read-only analytical copilot."],
+        reason_code: null,
+        opportunity_candidates: [],
+        opportunity_narration: null,
+        prompt_suggestions: [],
+      }));
+    setMutationState({
+      isPending: false,
+      mutateAsync,
+    });
+
+    renderCopilotPage();
+
+    await user.type(
+      screen.getByRole("textbox", { name: "Document ID reference" }),
+      "42",
+    );
+    await user.click(screen.getByRole("button", { name: "Add document reference" }));
+    expect(screen.getByRole("button", { name: "Remove document 42" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Remove document 42" }));
+    expect(screen.queryByRole("button", { name: "Remove document 42" })).not.toBeInTheDocument();
+
+    await user.type(
+      screen.getByRole("textbox", { name: "Document ID reference" }),
+      "42",
+    );
+    await user.click(screen.getByRole("button", { name: "Add document reference" }));
+    await user.type(
+      screen.getByRole("textbox", { name: "Copilot user message" }),
+      "Use attached report context.",
+    );
+    await user.click(screen.getByRole("button", { name: "Submit request" }));
+
+    await waitFor(() => expect(mutateAsync).toHaveBeenCalledTimes(1));
+    expect(mutateAsync).toHaveBeenCalledWith(
+      expect.objectContaining({
+        document_ids: [42],
+      }),
+    );
   });
 
   it("renders error banner when request throws one API error", async () => {

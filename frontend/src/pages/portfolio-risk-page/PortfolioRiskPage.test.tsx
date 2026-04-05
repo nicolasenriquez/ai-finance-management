@@ -381,7 +381,9 @@ describe("PortfolioRiskPage", () => {
     expect(
       screen.getByRole("heading", { name: "Risk workspace unavailable not found" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("Risk estimator endpoint not found.")).toBeInTheDocument();
+    expect(
+      screen.getAllByText("Risk estimator endpoint not found.").length,
+    ).toBeGreaterThan(0);
   });
 
   it("renders explicit unsupported-scope messaging when backend rejects window", () => {
@@ -398,7 +400,9 @@ describe("PortfolioRiskPage", () => {
     expect(
       screen.getByRole("heading", { name: "Risk scope unsupported" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("Unsupported risk estimator window.")).toBeInTheDocument();
+    expect(
+      screen.getAllByText("Unsupported risk estimator window.").length,
+    ).toBeGreaterThan(0);
   });
 
   it("renders success state with estimator cards and methodology metadata", () => {

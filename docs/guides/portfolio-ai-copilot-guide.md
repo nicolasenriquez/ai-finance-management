@@ -29,6 +29,20 @@ expectations.
   - `provider_misconfigured`
   - `provider_unavailable`
 
+## Phase-I Extensions (Time-Series and Forecast Governance)
+
+- Added `portfolio_ml` allowlisted evidence tools:
+  - `portfolio_ml_signals`
+  - `portfolio_ml_capm`
+  - `portfolio_ml_forecasts`
+  - `portfolio_ml_registry`
+- Added governed SQL template tool path:
+  - `portfolio_sql_template` (template-id allowlist only; no free-form SQL)
+- Added bounded attachment-by-reference request field:
+  - `document_ids` (validated against persisted ingestion records)
+- Added optional response metadata:
+  - `prompt_suggestions` (bounded follow-up prompts)
+
 ## Explicit Non-Goals
 
 - no trade execution, order placement, or automatic rebalancing
@@ -37,6 +51,7 @@ expectations.
 - no raw canonical/source payload exposure to model context
 - no vector store, RAG ingestion, or persistent chat memory in v1
 - no fallback provider chain (Groq adapter only)
+- no free-form SQL execution
 
 ## Provider Configuration (Groq)
 
@@ -76,6 +91,18 @@ Fail-fast policy:
   - `canonical_payload`
   - `transaction_events`
 - Unsafe requests are explicitly blocked with `boundary_restricted`.
+- Document references are validated by `document_id`; unresolved references are rejected
+  before provider invocation.
+
+## Governed SQL Policy
+
+- SQL execution is template-based and allowlisted.
+- Free-form SQL text is explicitly rejected (`governed_sql_policy` semantics).
+- One bounded template is available in this slice:
+  - `portfolio_ml_latest_forecast_states`
+- Parameter validation and row bounds are enforced before execution.
+- Response metadata includes template ID, bounded row count, timeout bound, and
+  audit identifier.
 
 ## Validation Expectations
 
@@ -83,6 +110,13 @@ Backend contract/safety/provider/opportunity tests:
 
 ```bash
 uv run pytest -v app/portfolio_ai_copilot/tests
+```
+
+Focused phase-i copilot extensions:
+
+```bash
+uv run pytest -v app/portfolio_ai_copilot/tests/test_ml_contract_extensions_fail_first.py
+uv run pytest -v app/portfolio_ai_copilot/tests/test_governed_sql_template_policy_fail_first.py
 ```
 
 Frontend copilot route/workspace tests:

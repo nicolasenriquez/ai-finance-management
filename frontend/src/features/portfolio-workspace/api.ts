@@ -4,8 +4,12 @@ import {
 } from "../../core/api/client";
 import {
   portfolioContributionResponseSchema,
+  portfolioEfficientFrontierResponseSchema,
   portfolioHealthSynthesisResponseSchema,
   portfolioHierarchyResponseSchema,
+  portfolioMLForecastResponseSchema,
+  portfolioMLRegistryResponseSchema,
+  portfolioMLSignalResponseSchema,
   portfolioMonteCarloResponseSchema,
   portfolioQuantMetricsResponseSchema,
   portfolioQuantReportGenerateResponseSchema,
@@ -16,10 +20,16 @@ import {
   portfolioTransactionsResponseSchema,
   type PortfolioChartPeriod,
   type PortfolioContributionResponse,
+  type PortfolioEfficientFrontierResponse,
   type PortfolioHealthProfilePosture,
   type PortfolioHealthSynthesisResponse,
   type PortfolioHierarchyGroupBy,
   type PortfolioHierarchyResponse,
+  type PortfolioMLForecastResponse,
+  type PortfolioMLRegistryResponse,
+  type PortfolioMLScope,
+  type PortfolioMLSignalResponse,
+  type PortfolioMLState,
   type PortfolioMonteCarloRequest,
   type PortfolioMonteCarloResponse,
   type PortfolioQuantMetricsResponse,
@@ -177,6 +187,93 @@ export function fetchPortfolioQuantMetrics(
   return fetchJson({
     path: `/portfolio/quant-metrics?${query.toString()}`,
     schema: portfolioQuantMetricsResponseSchema,
+  });
+}
+
+export function fetchPortfolioEfficientFrontier(
+  period: PortfolioChartPeriod,
+  options?: {
+    scope?: PortfolioTimeSeriesScope;
+    instrumentSymbol?: string | null;
+    frontierPoints?: number;
+  },
+): Promise<PortfolioEfficientFrontierResponse> {
+  const scope = options?.scope ?? "portfolio";
+  const normalizedInstrumentSymbol =
+    options?.instrumentSymbol?.trim().toUpperCase() || null;
+  const query = new URLSearchParams({
+    period,
+    scope,
+    frontier_points: String(options?.frontierPoints ?? 24),
+  });
+  if (scope === "instrument_symbol" && normalizedInstrumentSymbol) {
+    query.set("instrument_symbol", normalizedInstrumentSymbol);
+  }
+  return fetchJson({
+    path: `/portfolio/efficient-frontier?${query.toString()}`,
+    schema: portfolioEfficientFrontierResponseSchema,
+  });
+}
+
+export function fetchPortfolioMLSignals(options?: {
+  scope?: PortfolioMLScope;
+  instrumentSymbol?: string | null;
+}): Promise<PortfolioMLSignalResponse> {
+  const scope = options?.scope ?? "portfolio";
+  const normalizedInstrumentSymbol =
+    options?.instrumentSymbol?.trim().toUpperCase() || null;
+  const query = new URLSearchParams({
+    scope,
+  });
+  if (scope === "instrument_symbol" && normalizedInstrumentSymbol) {
+    query.set("instrument_symbol", normalizedInstrumentSymbol);
+  }
+  return fetchJson({
+    path: `/portfolio/ml/signals?${query.toString()}`,
+    schema: portfolioMLSignalResponseSchema,
+  });
+}
+
+export function fetchPortfolioMLForecasts(options?: {
+  scope?: PortfolioMLScope;
+  instrumentSymbol?: string | null;
+}): Promise<PortfolioMLForecastResponse> {
+  const scope = options?.scope ?? "portfolio";
+  const normalizedInstrumentSymbol =
+    options?.instrumentSymbol?.trim().toUpperCase() || null;
+  const query = new URLSearchParams({
+    scope,
+  });
+  if (scope === "instrument_symbol" && normalizedInstrumentSymbol) {
+    query.set("instrument_symbol", normalizedInstrumentSymbol);
+  }
+  return fetchJson({
+    path: `/portfolio/ml/forecasts?${query.toString()}`,
+    schema: portfolioMLForecastResponseSchema,
+  });
+}
+
+export function fetchPortfolioMLRegistry(options?: {
+  scope?: PortfolioMLScope | null;
+  modelFamily?: string | null;
+  lifecycleState?: PortfolioMLState | null;
+}): Promise<PortfolioMLRegistryResponse> {
+  const query = new URLSearchParams();
+  if (options?.scope) {
+    query.set("scope", options.scope);
+  }
+  if (options?.modelFamily && options.modelFamily.trim() !== "") {
+    query.set("model_family", options.modelFamily.trim());
+  }
+  if (options?.lifecycleState) {
+    query.set("lifecycle_state", options.lifecycleState);
+  }
+  return fetchJson({
+    path:
+      query.toString().length > 0
+        ? `/portfolio/ml/registry?${query.toString()}`
+        : "/portfolio/ml/registry",
+    schema: portfolioMLRegistryResponseSchema,
   });
 }
 

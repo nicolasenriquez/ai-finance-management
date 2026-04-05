@@ -29,6 +29,11 @@ The system SHALL provide read-only registry retrieval for model snapshots and pr
 - **THEN** response includes snapshot lineage, promotion outcomes, policy thresholds, and as-of timestamps
 - **THEN** response supports filtering by scope, model family, and lifecycle state
 
+#### Scenario: Registry contract uses shared lifecycle envelope
+- **WHEN** `GET /api/portfolio/ml/registry` is requested
+- **THEN** response includes `state` in `ready|unavailable|stale|error`
+- **THEN** response includes `state_reason_code`, `state_reason_detail`, and evaluation/as-of timestamps aligned to signals/forecast contracts
+
 ### Requirement: Governance SHALL enforce v1 allowed-model policy
 The system SHALL reject unsupported model families in v1 by explicit policy, including deep-learning and Prophet-class requests.
 

@@ -110,6 +110,10 @@ class PortfolioCopilotChatRequest(BaseModel):
     scope: PortfolioQuantReportScope = PortfolioQuantReportScope.PORTFOLIO
     instrument_symbol: str | None = None
     max_tool_calls: int = Field(default=6, ge=1, le=6)
+    document_ids: list[int] = Field(default_factory=list[int], max_length=8)
+    sql_template_id: str | None = Field(default=None, min_length=1, max_length=128)
+    sql_template_params: dict[str, object] = Field(default_factory=dict[str, object])
+    raw_sql: str | None = Field(default=None, min_length=1, max_length=4000)
 
     @model_validator(mode="after")
     def validate_scope_constraints(self) -> Self:
@@ -122,13 +126,34 @@ class PortfolioCopilotChatRequest(BaseModel):
                     "instrument_symbol must be omitted when chart scope is 'portfolio'."
                 )
             self.instrument_symbol = None
-            return self
+        else:
+            if not normalized_symbol:
+                raise ValueError(
+                    "instrument_symbol is required when chart scope is 'instrument_symbol'."
+                )
+            self.instrument_symbol = normalized_symbol.upper()
 
-        if not normalized_symbol:
-            raise ValueError(
-                "instrument_symbol is required when chart scope is 'instrument_symbol'."
-            )
-        self.instrument_symbol = normalized_symbol.upper()
+        normalized_document_ids: list[int] = []
+        for document_id in self.document_ids:
+            if document_id <= 0:
+                raise ValueError("document_ids values must be positive integers.")
+            if document_id not in normalized_document_ids:
+                normalized_document_ids.append(document_id)
+        self.document_ids = normalized_document_ids
+
+        if self.sql_template_id is None:
+            if len(self.sql_template_params) > 0:
+                raise ValueError(
+                    "sql_template_params requires one sql_template_id value.",
+                )
+        else:
+            self.sql_template_id = self.sql_template_id.strip()
+            if self.sql_template_id == "":
+                raise ValueError("sql_template_id must be non-empty when provided.")
+
+        if self.raw_sql is not None:
+            trimmed_raw_sql = self.raw_sql.strip()
+            self.raw_sql = trimmed_raw_sql if trimmed_raw_sql else None
         return self
 
 
@@ -146,10 +171,18 @@ class PortfolioCopilotChatResponse(BaseModel):
         default_factory=list[CopilotOpportunityCandidate]
     )
     opportunity_narration: str | None = None
+    prompt_suggestions: list[str] = Field(default_factory=list[str], max_length=4)
 
     @model_validator(mode="after")
     def validate_state_reason_consistency(self) -> Self:
         """Require stable reason semantics for blocked/error response states."""
+
+        normalized_suggestions: list[str] = []
+        for suggestion in self.prompt_suggestions:
+            trimmed_suggestion = suggestion.strip()
+            if trimmed_suggestion:
+                normalized_suggestions.append(trimmed_suggestion)
+        self.prompt_suggestions = normalized_suggestions[:4]
 
         normalized_answer = self.answer_text.strip()
         if self.state == CopilotResponseState.READY:

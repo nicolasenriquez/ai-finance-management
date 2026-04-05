@@ -9,6 +9,8 @@ import { ErrorBanner } from "../../components/error-banner/ErrorBanner";
 import { MetricExplainabilityPopover } from "../../components/metric-explainability/MetricExplainabilityPopover";
 import { LoadingTableSkeleton } from "../../components/skeletons/LoadingTableSkeleton";
 import { PortfolioWorkspaceLayout } from "../../components/workspace-layout/PortfolioWorkspaceLayout";
+import { WorkspacePrimaryJobPanel } from "../../components/workspace-layout/WorkspacePrimaryJobPanel";
+import { WorkspaceStateBanner } from "../../components/workspace-layout/WorkspaceStateBanner";
 import { PortfolioHierarchyTable } from "../../features/portfolio-hierarchy/PortfolioHierarchyTable";
 import type {
   PortfolioChartPeriod,
@@ -17,6 +19,7 @@ import type {
 } from "../../core/api/schemas";
 import { formatPricingSnapshotProvenanceLabel } from "../../core/lib/provenance";
 import { buildHomeMetricCards } from "../../features/portfolio-workspace/overview";
+import { getCoreTenEntriesForRoute } from "../../features/portfolio-workspace/core-ten-catalog";
 import { PortfolioChartPeriodControl } from "../../features/portfolio-workspace/PortfolioChartPeriodControl";
 import { resolvePortfolioChartPeriod } from "../../features/portfolio-workspace/period";
 import { resolveWorkspaceError } from "../../features/portfolio-workspace/errors";
@@ -102,6 +105,12 @@ export function PortfolioHomePage() {
   const metricCards = isCoreSuccess
     ? buildHomeMetricCards(summaryQuery.data.rows, timeSeriesQuery.data.points)
     : [];
+  const homeCoreTenMetrics = getCoreTenEntriesForRoute("home");
+  const dividendNetUsd = isCoreSuccess
+    ? summaryQuery.data.rows.reduce((accumulator, row) => {
+        return accumulator + Number(row.dividend_net_usd);
+      }, 0)
+    : 0;
   const drilldownCards: DrilldownRouteCard[] = [
     {
       label: "Analytics route",
@@ -161,6 +170,49 @@ export function PortfolioHomePage() {
       frequencyLabel={timeSeriesQuery.data?.frequency}
       timezoneLabel={timeSeriesQuery.data?.timezone}
     >
+      <WorkspacePrimaryJobPanel
+        routeLabel="Home"
+        jobTitle="Portfolio operating posture"
+        jobDescription="Prioritize a concise operating snapshot before deeper diagnostics: valuation posture, realized outcomes, and income contribution."
+        decisionTags={["allocation_review", "income_monitoring", "goal_progress"]}
+        coreTenMetrics={homeCoreTenMetrics}
+        supplementary={
+          <div className="chart-summary-grid">
+            <article className="chart-summary-card">
+              <span className="chart-summary-card__label">Dividend income context</span>
+              <strong className="chart-summary-card__headline">
+                ${dividendNetUsd.toFixed(2)}
+              </strong>
+              <p className="chart-summary-card__copy">
+                Net dividend income in current persisted summary scope.
+              </p>
+            </article>
+            <article className="chart-summary-card chart-summary-card--signal">
+              <span className="chart-summary-card__label">Goal progress signal</span>
+              <strong className="chart-summary-card__headline">
+                {metricCards.length > 0 ? "Interpretable" : "Unavailable"}
+              </strong>
+              <p className="chart-summary-card__copy">
+                Core 10 layer is required before advanced diagnostics are consumed.
+              </p>
+            </article>
+          </div>
+        }
+      />
+
+      {isCoreLoading ? (
+        <WorkspaceStateBanner state="loading" />
+      ) : isCoreError ? (
+        <WorkspaceStateBanner
+          state="error"
+          message={coreErrorCopy.message}
+        />
+      ) : isCoreSuccess && isCoreEmpty ? (
+        <WorkspaceStateBanner state="unavailable" />
+      ) : isCoreSuccess ? (
+        <WorkspaceStateBanner state="ready" />
+      ) : null}
+
       {isCoreLoading ? <LoadingTableSkeleton rows={5} /> : null}
 
       {isCoreError ? (

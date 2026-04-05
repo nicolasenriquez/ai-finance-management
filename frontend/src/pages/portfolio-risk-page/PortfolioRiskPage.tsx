@@ -1,4 +1,8 @@
-import { useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { Link, useSearchParams } from "react-router-dom";
 
 import { PortfolioRiskChart } from "../../components/charts/PortfolioRiskChart";
@@ -13,14 +17,19 @@ import { ErrorBanner } from "../../components/error-banner/ErrorBanner";
 import { MetricExplainabilityPopover } from "../../components/metric-explainability/MetricExplainabilityPopover";
 import { LoadingTableSkeleton } from "../../components/skeletons/LoadingTableSkeleton";
 import { PortfolioWorkspaceLayout } from "../../components/workspace-layout/PortfolioWorkspaceLayout";
+import { WorkspacePrimaryJobPanel } from "../../components/workspace-layout/WorkspacePrimaryJobPanel";
+import { WorkspaceStateBanner } from "../../components/workspace-layout/WorkspaceStateBanner";
 import { AppApiError } from "../../core/api/errors";
 import type {
   PortfolioChartPeriod,
   PortfolioRiskEstimatorMetric,
+  PortfolioTimeSeriesPoint,
   PortfolioTimeSeriesScope,
 } from "../../core/api/schemas";
 import { formatDateTimeLabel } from "../../core/lib/dates";
 import { PortfolioChartPeriodControl } from "../../features/portfolio-workspace/PortfolioChartPeriodControl";
+import { fetchPortfolioTimeSeries } from "../../features/portfolio-workspace/api";
+import { fetchPortfolioSummary } from "../../features/portfolio-summary/api";
 import { resolveWorkspaceError } from "../../features/portfolio-workspace/errors";
 import {
   mapChartPeriodToRiskWindow,
@@ -31,6 +40,7 @@ import {
 } from "../../features/portfolio-workspace/hooks";
 import { sortRiskMetrics } from "../../features/portfolio-workspace/overview";
 import { resolvePortfolioChartPeriod } from "../../features/portfolio-workspace/period";
+import { getCoreTenEntriesForRoute } from "../../features/portfolio-workspace/core-ten-catalog";
 
 function resolvePeriodFromSearchParams(searchParams: URLSearchParams) {
   return resolvePortfolioChartPeriod(searchParams.get("period"), "252D");
@@ -179,6 +189,162 @@ function groupRiskMetricsByUnit(
   return orderedGroups.filter((group) => group.metrics.length > 0);
 }
 
+type CorrelationMatrixCell = {
+  rowSymbol: string;
+  colSymbol: string;
+  value: number | null;
+};
+
+type CorrelationEdge = {
+  leftSymbol: string;
+  rightSymbol: string;
+  value: number;
+};
+
+type TailRiskSnapshot = {
+  leftTailMassRatio: number | null;
+  rightTailMassRatio: number | null;
+  tailBalanceRatio: number | null;
+  downsideBucketLabel: string;
+  downsideBucketFrequencyRatio: number | null;
+  valueAtRiskRatio: number | null;
+  expectedShortfallRatio: number | null;
+  tailGapRatio: number | null;
+};
+
+function buildReturnSeries(points: PortfolioTimeSeriesPoint[]): Map<string, number> {
+  const orderedPoints = [...points].sort((left, right) =>
+    left.captured_at.localeCompare(right.captured_at),
+  );
+  const returnsByTimestamp = new Map<string, number>();
+  for (let index = 1; index < orderedPoints.length; index += 1) {
+    const previousValue = Number(orderedPoints[index - 1].portfolio_value_usd);
+    const currentValue = Number(orderedPoints[index].portfolio_value_usd);
+    if (!Number.isFinite(previousValue) || !Number.isFinite(currentValue) || previousValue <= 0) {
+      continue;
+    }
+    returnsByTimestamp.set(
+      orderedPoints[index].captured_at,
+      (currentValue - previousValue) / previousValue,
+    );
+  }
+  return returnsByTimestamp;
+}
+
+function computePearsonCorrelation(left: number[], right: number[]): number | null {
+  if (left.length < 6 || right.length < 6 || left.length !== right.length) {
+    return null;
+  }
+  const sampleCount = left.length;
+  const leftMean = left.reduce((accumulator, value) => accumulator + value, 0) / sampleCount;
+  const rightMean = right.reduce((accumulator, value) => accumulator + value, 0) / sampleCount;
+
+  let covarianceAccumulator = 0;
+  let leftVarianceAccumulator = 0;
+  let rightVarianceAccumulator = 0;
+  for (let index = 0; index < sampleCount; index += 1) {
+    const leftCentered = left[index] - leftMean;
+    const rightCentered = right[index] - rightMean;
+    covarianceAccumulator += leftCentered * rightCentered;
+    leftVarianceAccumulator += leftCentered * leftCentered;
+    rightVarianceAccumulator += rightCentered * rightCentered;
+  }
+  if (leftVarianceAccumulator <= 0 || rightVarianceAccumulator <= 0) {
+    return null;
+  }
+  return covarianceAccumulator / Math.sqrt(leftVarianceAccumulator * rightVarianceAccumulator);
+}
+
+function computeCorrelationBetweenSeries(
+  leftSeries: Map<string, number>,
+  rightSeries: Map<string, number>,
+): number | null {
+  const leftValues: number[] = [];
+  const rightValues: number[] = [];
+  for (const [timestamp, leftReturn] of leftSeries.entries()) {
+    const rightReturn = rightSeries.get(timestamp);
+    if (rightReturn === undefined) {
+      continue;
+    }
+    leftValues.push(leftReturn);
+    rightValues.push(rightReturn);
+  }
+  return computePearsonCorrelation(leftValues, rightValues);
+}
+
+function resolveCorrelationTone(value: number | null): "positive" | "negative" | "neutral" {
+  if (value === null) {
+    return "neutral";
+  }
+  if (value >= 0.65) {
+    return "positive";
+  }
+  if (value <= -0.45) {
+    return "negative";
+  }
+  return "neutral";
+}
+
+function formatCorrelation(value: number | null): string {
+  if (value === null) {
+    return "n/a";
+  }
+  return value.toFixed(2);
+}
+
+function resolveTailRiskSnapshot(
+  metrics: PortfolioRiskEstimatorMetric[],
+  bucketData: Array<{ lower_bound: string; upper_bound: string; frequency: string; count: number }>,
+): TailRiskSnapshot {
+  const orderedBuckets = [...bucketData].sort(
+    (left, right) => Number(left.lower_bound) - Number(right.lower_bound),
+  );
+  const tailBucketCount = Math.max(1, Math.ceil(orderedBuckets.length * 0.2));
+  const leftTailBuckets = orderedBuckets.slice(0, tailBucketCount);
+  const rightTailBuckets = orderedBuckets.slice(-tailBucketCount);
+  const leftTailMassRatio = leftTailBuckets.reduce((accumulator, bucket) => {
+    return accumulator + Number(bucket.frequency);
+  }, 0);
+  const rightTailMassRatio = rightTailBuckets.reduce((accumulator, bucket) => {
+    return accumulator + Number(bucket.frequency);
+  }, 0);
+  const tailBalanceRatio = rightTailMassRatio - leftTailMassRatio;
+  const downsideBucket = orderedBuckets[0];
+  const valueAtRiskMetric = metrics.find((metric) => metric.estimator_id === "value_at_risk_95");
+  const expectedShortfallMetric = metrics.find(
+    (metric) => metric.estimator_id === "expected_shortfall_95",
+  );
+  const valueAtRiskRatio = valueAtRiskMetric ? Number(valueAtRiskMetric.value) : null;
+  const expectedShortfallRatio = expectedShortfallMetric
+    ? Number(expectedShortfallMetric.value)
+    : null;
+  const tailGapRatio =
+    valueAtRiskRatio !== null && expectedShortfallRatio !== null
+      ? Math.abs(expectedShortfallRatio) - Math.abs(valueAtRiskRatio)
+      : null;
+
+  return {
+    leftTailMassRatio: Number.isFinite(leftTailMassRatio) ? leftTailMassRatio : null,
+    rightTailMassRatio: Number.isFinite(rightTailMassRatio) ? rightTailMassRatio : null,
+    tailBalanceRatio: Number.isFinite(tailBalanceRatio) ? tailBalanceRatio : null,
+    downsideBucketLabel: downsideBucket
+      ? `${(Number(downsideBucket.lower_bound) * 100).toFixed(2)}% to ${(Number(
+          downsideBucket.upper_bound,
+        ) * 100).toFixed(2)}%`
+      : "n/a",
+    downsideBucketFrequencyRatio: downsideBucket ? Number(downsideBucket.frequency) : null,
+    valueAtRiskRatio:
+      valueAtRiskRatio !== null && Number.isFinite(valueAtRiskRatio)
+        ? valueAtRiskRatio
+        : null,
+    expectedShortfallRatio:
+      expectedShortfallRatio !== null && Number.isFinite(expectedShortfallRatio)
+        ? expectedShortfallRatio
+        : null,
+    tailGapRatio: tailGapRatio !== null && Number.isFinite(tailGapRatio) ? tailGapRatio : null,
+  };
+}
+
 export function PortfolioRiskPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const selectedPeriod = resolvePeriodFromSearchParams(searchParams);
@@ -210,6 +376,14 @@ export function PortfolioRiskPage() {
     profilePosture: "balanced",
     enabled: isScopeReady,
   });
+  const [correlationSymbols, setCorrelationSymbols] = useState<string[]>([]);
+  const [correlationSeriesEntries, setCorrelationSeriesEntries] = useState<
+    Array<{ symbol: string; points: PortfolioTimeSeriesPoint[] }>
+  >([]);
+  const [correlationSeriesState, setCorrelationSeriesState] = useState<
+    "idle" | "loading" | "ready" | "error"
+  >("idle");
+  const [correlationReloadToken, setCorrelationReloadToken] = useState(0);
   const [showDrawdownSeries, setShowDrawdownSeries] = useState(true);
   const [showRollingVolatilitySeries, setShowRollingVolatilitySeries] = useState(true);
   const [showRollingBetaSeries, setShowRollingBetaSeries] = useState(true);
@@ -219,6 +393,96 @@ export function PortfolioRiskPage() {
   const isSuccess = riskQuery.isSuccess;
   const isEmpty = isSuccess && riskQuery.data.metrics.length === 0;
   const errorCopy = resolveRiskErrorCopy(riskQuery.error);
+
+  useEffect(() => {
+    if (selectedScope !== "portfolio") {
+      setCorrelationSymbols([]);
+      setCorrelationSeriesEntries([]);
+      setCorrelationSeriesState("idle");
+      return;
+    }
+    let isActive = true;
+    async function hydrateCorrelationSymbols(): Promise<void> {
+      try {
+        const summaryResponse = await fetchPortfolioSummary();
+        if (!isActive) {
+          return;
+        }
+        const symbols = [...summaryResponse.rows]
+          .sort((left, right) => {
+            const leftMarketValue = Number(left.market_value_usd ?? "0");
+            const rightMarketValue = Number(right.market_value_usd ?? "0");
+            return rightMarketValue - leftMarketValue;
+          })
+          .map((row) => row.instrument_symbol.trim().toUpperCase())
+          .filter((symbol, index, list) => {
+            return symbol.length > 0 && list.indexOf(symbol) === index;
+          })
+          .slice(0, 6);
+        setCorrelationSymbols(symbols);
+      } catch {
+        if (!isActive) {
+          return;
+        }
+        setCorrelationSymbols([]);
+      }
+    }
+    void hydrateCorrelationSymbols();
+    return () => {
+      isActive = false;
+    };
+  }, [correlationReloadToken, selectedScope]);
+
+  useEffect(() => {
+    if (
+      selectedScope !== "portfolio" ||
+      !isScopeReady ||
+      correlationSymbols.length < 2
+    ) {
+      setCorrelationSeriesEntries([]);
+      setCorrelationSeriesState("idle");
+      return;
+    }
+    let isActive = true;
+    setCorrelationSeriesState("loading");
+    async function hydrateCorrelationSeries(): Promise<void> {
+      try {
+        const entries = await Promise.all(
+          correlationSymbols.map(async (symbol) => {
+            const response = await fetchPortfolioTimeSeries(selectedPeriod, {
+              scope: "instrument_symbol",
+              instrumentSymbol: symbol,
+            });
+            return {
+              symbol,
+              points: response.points,
+            };
+          }),
+        );
+        if (!isActive) {
+          return;
+        }
+        setCorrelationSeriesEntries(entries);
+        setCorrelationSeriesState("ready");
+      } catch {
+        if (!isActive) {
+          return;
+        }
+        setCorrelationSeriesEntries([]);
+        setCorrelationSeriesState("error");
+      }
+    }
+    void hydrateCorrelationSeries();
+    return () => {
+      isActive = false;
+    };
+  }, [
+    correlationReloadToken,
+    correlationSymbols,
+    isScopeReady,
+    selectedPeriod,
+    selectedScope,
+  ]);
 
   function handlePeriodChange(nextPeriod: PortfolioChartPeriod): void {
     setSearchParams((previous) => {
@@ -253,9 +517,71 @@ export function PortfolioRiskPage() {
   }
 
   const orderedMetrics = isSuccess ? sortRiskMetrics(riskQuery.data.metrics) : [];
+  const riskCoreTenMetrics = getCoreTenEntriesForRoute("risk");
   const unitSet = new Set(orderedMetrics.map((metric) => resolveRiskMetricUnit(metric.estimator_id)));
   const hasMixedRiskUnits = unitSet.size > 1;
   const metricGroups = groupRiskMetricsByUnit(orderedMetrics);
+  const correlationMatrixData = useMemo(() => {
+    if (correlationSeriesState !== "ready") {
+      return {
+        symbols: [] as string[],
+        matrix: [] as CorrelationMatrixCell[],
+        edges: [] as CorrelationEdge[],
+      };
+    }
+    const returnsBySymbol = new Map<string, Map<string, number>>();
+    for (const entry of correlationSeriesEntries) {
+      returnsBySymbol.set(entry.symbol, buildReturnSeries(entry.points));
+    }
+    const symbols = Array.from(returnsBySymbol.keys());
+    const matrix: CorrelationMatrixCell[] = [];
+    const edges: CorrelationEdge[] = [];
+
+    for (const rowSymbol of symbols) {
+      const rowSeries = returnsBySymbol.get(rowSymbol);
+      if (!rowSeries) {
+        continue;
+      }
+      for (const colSymbol of symbols) {
+        const colSeries = returnsBySymbol.get(colSymbol);
+        if (!colSeries) {
+          continue;
+        }
+        const value =
+          rowSymbol === colSymbol
+            ? 1
+            : computeCorrelationBetweenSeries(rowSeries, colSeries);
+        matrix.push({
+          rowSymbol,
+          colSymbol,
+          value,
+        });
+        if (
+          rowSymbol < colSymbol &&
+          value !== null &&
+          Math.abs(value) >= 0.65
+        ) {
+          edges.push({
+            leftSymbol: rowSymbol,
+            rightSymbol: colSymbol,
+            value,
+          });
+        }
+      }
+    }
+
+    return {
+      symbols,
+      matrix,
+      edges: edges.sort((left, right) => Math.abs(right.value) - Math.abs(left.value)),
+    };
+  }, [correlationSeriesEntries, correlationSeriesState]);
+  const tailRiskSnapshot = useMemo(() => {
+    if (!returnDistributionQuery.isSuccess || orderedMetrics.length === 0) {
+      return null;
+    }
+    return resolveTailRiskSnapshot(orderedMetrics, returnDistributionQuery.data.buckets);
+  }, [orderedMetrics, returnDistributionQuery.data, returnDistributionQuery.isSuccess]);
 
   return (
     <PortfolioWorkspaceLayout
@@ -302,6 +628,29 @@ export function PortfolioRiskPage() {
       provenanceLabel="Risk endpoint methodology metadata"
       periodLabel={selectedPeriod}
     >
+      <WorkspacePrimaryJobPanel
+        routeLabel="Risk"
+        jobTitle="Risk posture interpretation"
+        jobDescription="Use one bounded risk interpretation layer before deep chart drill-down so unit semantics remain explicit."
+        decisionTags={["risk_posture"]}
+        coreTenMetrics={riskCoreTenMetrics}
+      />
+
+      {!isScopeReady ? (
+        <WorkspaceStateBanner
+          state="blocked"
+          message="Instrument scope requires one symbol before risk requests can be submitted."
+        />
+      ) : isLoading ? (
+        <WorkspaceStateBanner state="loading" />
+      ) : isError ? (
+        <WorkspaceStateBanner state="error" message={errorCopy.message} />
+      ) : isSuccess && isEmpty ? (
+        <WorkspaceStateBanner state="unavailable" />
+      ) : isSuccess ? (
+        <WorkspaceStateBanner state="ready" />
+      ) : null}
+
       {isLoading ? <LoadingTableSkeleton rows={4} /> : null}
 
       {!isScopeReady ? (
@@ -582,6 +931,107 @@ export function PortfolioRiskPage() {
 
       {isScopeReady ? (
         <WorkspaceChartPanel
+          title="Correlation cluster network"
+          subtitle="Cross-symbol co-movement map for the largest tracked holdings."
+          shortDescription="Pairwise correlation matrix plus high-link clusters to spot concentration-through-correlation."
+          longDescription="Correlations are computed from aligned daily return series on the selected period. Use this map to find hidden concentration where symbols move together even if position weights differ."
+        >
+          {selectedScope !== "portfolio" ? (
+            <ErrorBanner
+              title="Correlation map available on portfolio scope"
+              message="Switch scope to portfolio to evaluate cross-symbol co-movement network."
+              variant="warning"
+            />
+          ) : null}
+          {selectedScope === "portfolio" && correlationSeriesState === "loading" ? (
+            <LoadingTableSkeleton rows={2} />
+          ) : null}
+          {selectedScope === "portfolio" && correlationSeriesState === "error" ? (
+            <ErrorBanner
+              title="Correlation network unavailable"
+              message="Instrument time-series pull failed while building the cluster network."
+              variant="warning"
+              actions={
+                <button
+                  className="button-primary"
+                  onClick={() =>
+                    setCorrelationReloadToken((previousToken) => previousToken + 1)
+                  }
+                  type="button"
+                >
+                  Retry correlation map
+                </button>
+              }
+            />
+          ) : null}
+          {selectedScope === "portfolio" &&
+          correlationSeriesState === "ready" &&
+          correlationMatrixData.symbols.length >= 2 ? (
+            <>
+              <div
+                className="correlation-matrix"
+                role="table"
+                aria-label="Symbol correlation matrix"
+              >
+                <div className="correlation-matrix__row correlation-matrix__row--header" role="row">
+                  <span role="columnheader">Symbol</span>
+                  {correlationMatrixData.symbols.map((symbol) => (
+                    <span key={symbol} role="columnheader">
+                      {symbol}
+                    </span>
+                  ))}
+                </div>
+                {correlationMatrixData.symbols.map((rowSymbol) => (
+                  <div className="correlation-matrix__row" key={rowSymbol} role="row">
+                    <span className="correlation-matrix__symbol" role="rowheader">
+                      {rowSymbol}
+                    </span>
+                    {correlationMatrixData.symbols.map((colSymbol) => {
+                      const cell = correlationMatrixData.matrix.find(
+                        (candidate) =>
+                          candidate.rowSymbol === rowSymbol &&
+                          candidate.colSymbol === colSymbol,
+                      );
+                      const tone = resolveCorrelationTone(cell?.value ?? null);
+                      return (
+                        <span
+                          className={`correlation-matrix__cell correlation-matrix__cell--${tone}`}
+                          key={`${rowSymbol}-${colSymbol}`}
+                          role="cell"
+                        >
+                          {formatCorrelation(cell?.value ?? null)}
+                        </span>
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
+              <section className="correlation-network">
+                <h3>Cluster links (|corr| ≥ 0.65)</h3>
+                {correlationMatrixData.edges.length > 0 ? (
+                  <ul className="correlation-network__list">
+                    {correlationMatrixData.edges.map((edge) => (
+                      <li key={`${edge.leftSymbol}-${edge.rightSymbol}`}>
+                        <strong>
+                          {edge.leftSymbol} ↔ {edge.rightSymbol}
+                        </strong>
+                        <span>{edge.value > 0 ? "positive" : "inverse"} {edge.value.toFixed(2)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p>
+                    No high-correlation clusters above 0.65 in the selected period.
+                  </p>
+                )}
+              </section>
+            </>
+          ) : null}
+        </WorkspaceChartPanel>
+      ) : null}
+
+      {isScopeReady ? (
+        <WorkspaceChartPanel
           title="Return distribution"
           subtitle="Deterministic equal-width buckets over aligned return history."
           shortDescription="Distribution shape complements drawdown and rolling metrics for risk storytelling."
@@ -614,6 +1064,93 @@ export function PortfolioRiskPage() {
               </p>
             </>
           ) : null}
+        </WorkspaceChartPanel>
+      ) : null}
+
+      {isScopeReady ? (
+        <WorkspaceChartPanel
+          title="Tail risk diagnostics"
+          subtitle="Left-tail concentration, stress-gap, and downside bucket severity."
+          shortDescription="Diagnoses asymmetry between downside and upside tails using return-distribution and VaR/ES estimators."
+          longDescription="Tail diagnostics should be interpreted with drawdown and rolling modules. A larger ES-vs-VaR gap and heavier left-tail bucket mass imply more severe downside paths when losses occur."
+        >
+          {!tailRiskSnapshot ? (
+            <EmptyState
+              title="Tail diagnostics pending"
+              message="Tail risk module requires both estimator and distribution responses."
+            />
+          ) : (
+            <>
+              <div className="chart-summary-grid tail-risk-grid">
+                <article className="chart-summary-card chart-summary-card--signal">
+                  <span className="chart-summary-card__label">Left-tail mass</span>
+                  <strong className="chart-summary-card__headline">
+                    {((tailRiskSnapshot.leftTailMassRatio ?? 0) * 100).toFixed(2)}%
+                  </strong>
+                  <p className="chart-summary-card__copy">
+                    Lowest 20% bucket mass of return distribution.
+                  </p>
+                </article>
+                <article className="chart-summary-card chart-summary-card--accent">
+                  <span className="chart-summary-card__label">Tail balance</span>
+                  <strong className="chart-summary-card__headline">
+                    {tailRiskSnapshot.tailBalanceRatio === null
+                      ? "—"
+                      : `${tailRiskSnapshot.tailBalanceRatio > 0 ? "+" : ""}${(tailRiskSnapshot.tailBalanceRatio * 100).toFixed(2)}%`}
+                  </strong>
+                  <p className="chart-summary-card__copy">
+                    Right tail minus left tail mass.
+                  </p>
+                </article>
+                <article className="chart-summary-card">
+                  <span className="chart-summary-card__label">Stress gap (ES - VaR)</span>
+                  <strong className="chart-summary-card__headline">
+                    {tailRiskSnapshot.tailGapRatio === null
+                      ? "—"
+                      : `${(tailRiskSnapshot.tailGapRatio * 100).toFixed(2)}%`}
+                  </strong>
+                  <p className="chart-summary-card__copy">
+                    Gap between expected shortfall and VaR (95%).
+                  </p>
+                </article>
+              </div>
+
+              <div className="tail-risk-ledger" role="table" aria-label="Tail risk ledger">
+                <div className="tail-risk-ledger__row tail-risk-ledger__row--header" role="row">
+                  <span role="columnheader">Metric</span>
+                  <span role="columnheader">Value</span>
+                  <span role="columnheader">Interpretation</span>
+                </div>
+                <div className="tail-risk-ledger__row" role="row">
+                  <span role="cell">Worst distribution bucket</span>
+                  <strong role="cell">
+                    {tailRiskSnapshot.downsideBucketLabel} (
+                    {tailRiskSnapshot.downsideBucketFrequencyRatio === null
+                      ? "—"
+                      : `${(tailRiskSnapshot.downsideBucketFrequencyRatio * 100).toFixed(2)}%`}
+                    )
+                  </strong>
+                  <span role="cell">
+                    Frequency concentration in the most negative return band.
+                  </span>
+                </div>
+                <div className="tail-risk-ledger__row" role="row">
+                  <span role="cell">VaR (95%) vs ES (95%)</span>
+                  <strong role="cell">
+                    {tailRiskSnapshot.valueAtRiskRatio === null
+                      ? "—"
+                      : `${(tailRiskSnapshot.valueAtRiskRatio * 100).toFixed(2)}%`} /{" "}
+                    {tailRiskSnapshot.expectedShortfallRatio === null
+                      ? "—"
+                      : `${(tailRiskSnapshot.expectedShortfallRatio * 100).toFixed(2)}%`}
+                  </strong>
+                  <span role="cell">
+                    Wider separation suggests deeper losses inside tail scenarios.
+                  </span>
+                </div>
+              </div>
+            </>
+          )}
         </WorkspaceChartPanel>
       ) : null}
     </PortfolioWorkspaceLayout>

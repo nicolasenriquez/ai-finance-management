@@ -135,6 +135,21 @@ Explicit non-goals for this phase:
 
 Current status (`2026-04-04`): backend and frontend v1 slice delivered; docs/validation closeout tracked in Sprint 9 item 9.5.
 
+Phase-i ML extension snapshot (`2026-04-05`):
+
+- Included methods:
+  - deterministic signal extraction (`trend`, `momentum`, `volatility_regime`, `drawdown_state`)
+  - CAPM metrics (`beta`, `alpha`, `expected_return`, `market_premium`)
+  - baseline forecast family (`naive`, `seasonal_naive`, `ewma_holt`, `arima_baseline`, `ridge_lag_regression`)
+- Deferred methods:
+  - LSTM/generic RNN
+  - Prophet
+  - customer segmentation
+  - execution/rebalancing automation
+- Non-advice posture:
+  - signal/forecast/registry APIs and copilot outputs remain read-only informational artifacts
+  - no trade execution instructions or guaranteed-return claims are in scope
+
 - Add a read-only portfolio copilot that answers questions over approved aggregated analytics context rather than direct database access.
 - Freeze an AI safety envelope for v1:
   - allowlisted read-only tools only

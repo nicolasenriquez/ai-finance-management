@@ -9,14 +9,51 @@ import { appRouter } from "./router";
 
 const COPILOT_ROUTE_PATH = "/portfolio/copilot";
 const COPILOT_PAGE_FILE = "src/pages/portfolio-copilot-page/PortfolioCopilotPage.tsx";
+const COPILOT_COMPOSER_FILE =
+  "src/components/workspace-layout/WorkspaceCopilotLauncher.tsx";
+const COPILOT_PRESENTATION_FILE =
+  "src/features/portfolio-copilot/presentation.ts";
 const COPILOT_PAGE_TEST_FILE = "src/pages/portfolio-copilot-page/PortfolioCopilotPage.test.tsx";
 
+type RouterLikeRoute = {
+  path?: string;
+  children?: RouterLikeRoute[];
+  index?: boolean;
+};
+
+function collectRouterPaths(
+  routes: RouterLikeRoute[],
+  basePath = "",
+): Set<string> {
+  const paths = new Set<string>();
+
+  for (const route of routes) {
+    const routePath = route.path;
+    const normalizedRoutePath =
+      typeof routePath === "string" ? routePath.trim() : "";
+    const nextBasePath = normalizedRoutePath.startsWith("/")
+      ? normalizedRoutePath
+      : normalizedRoutePath.length > 0
+        ? `${basePath.replace(/\/$/, "")}/${normalizedRoutePath}`
+        : basePath;
+
+    if (normalizedRoutePath.length > 0) {
+      paths.add(nextBasePath);
+    }
+
+    if (Array.isArray(route.children) && route.children.length > 0) {
+      const childPaths = collectRouterPaths(route.children, nextBasePath);
+      for (const childPath of childPaths) {
+        paths.add(childPath);
+      }
+    }
+  }
+
+  return paths;
+}
+
 function getRegisteredRouterPaths(): Set<string> {
-  return new Set(
-    appRouter.routes
-      .map((route) => route.path)
-      .filter((pathValue): pathValue is string => typeof pathValue === "string"),
-  );
+  return collectRouterPaths(appRouter.routes as RouterLikeRoute[]);
 }
 
 describe("portfolio copilot workspace fail-first contract", () => {
@@ -44,38 +81,45 @@ describe("portfolio copilot workspace fail-first contract", () => {
 
   it("renders explicit idle/loading/error/blocked/ready states and evidence panels", () => {
     const absolutePagePath = resolve(process.cwd(), COPILOT_PAGE_FILE);
+    const absoluteComposerPath = resolve(process.cwd(), COPILOT_COMPOSER_FILE);
     expect(
       existsSync(absolutePagePath),
       `Fail-first baseline: missing Copilot page module at ${COPILOT_PAGE_FILE}.`,
     ).toBe(true);
+    expect(
+      existsSync(absoluteComposerPath),
+      `Fail-first baseline: missing Copilot composer module at ${COPILOT_COMPOSER_FILE}.`,
+    ).toBe(true);
 
     const pageSource = readFileSync(absolutePagePath, "utf8");
+    const composerSource = readFileSync(absoluteComposerPath, "utf8");
+    const combinedSource = `${pageSource}\n${composerSource}`;
     expect(
-      pageSource.includes("idle"),
+      combinedSource.includes("idle"),
       "Fail-first baseline: Copilot page must render explicit idle state.",
     ).toBe(true);
     expect(
-      pageSource.includes("loading"),
+      combinedSource.includes("loading"),
       "Fail-first baseline: Copilot page must render explicit loading state.",
     ).toBe(true);
     expect(
-      pageSource.includes("blocked"),
+      combinedSource.includes("blocked"),
       "Fail-first baseline: Copilot page must render explicit blocked state.",
     ).toBe(true);
     expect(
-      pageSource.includes("error"),
+      combinedSource.includes("error"),
       "Fail-first baseline: Copilot page must render explicit error state.",
     ).toBe(true);
     expect(
-      pageSource.includes("ready"),
+      combinedSource.includes("ready"),
       "Fail-first baseline: Copilot page must render explicit ready state.",
     ).toBe(true);
     expect(
-      pageSource.toLowerCase().includes("evidence"),
+      combinedSource.toLowerCase().includes("evidence"),
       "Fail-first baseline: Copilot page must include one evidence rendering surface.",
     ).toBe(true);
     expect(
-      pageSource.toLowerCase().includes("limitation"),
+      combinedSource.toLowerCase().includes("limitation"),
       "Fail-first baseline: Copilot page must include explicit limitation messaging.",
     ).toBe(true);
   });
@@ -104,26 +148,36 @@ describe("portfolio copilot workspace fail-first contract", () => {
 
   it("includes stable provider failure reason handling for blocked/error states", () => {
     const absolutePagePath = resolve(process.cwd(), COPILOT_PAGE_FILE);
+    const absolutePresentationPath = resolve(
+      process.cwd(),
+      COPILOT_PRESENTATION_FILE,
+    );
     expect(
       existsSync(absolutePagePath),
       `Fail-first baseline: missing Copilot page module at ${COPILOT_PAGE_FILE}.`,
     ).toBe(true);
+    expect(
+      existsSync(absolutePresentationPath),
+      `Fail-first baseline: missing Copilot presentation map at ${COPILOT_PRESENTATION_FILE}.`,
+    ).toBe(true);
 
     const pageSource = readFileSync(absolutePagePath, "utf8");
+    const presentationSource = readFileSync(absolutePresentationPath, "utf8");
+    const combinedSource = `${pageSource}\n${presentationSource}`;
     expect(
-      pageSource.includes("rate_limited"),
+      combinedSource.includes("rate_limited"),
       "Fail-first baseline: Copilot page must map rate_limited reason code.",
     ).toBe(true);
     expect(
-      pageSource.includes("provider_blocked_policy"),
+      combinedSource.includes("provider_blocked_policy"),
       "Fail-first baseline: Copilot page must map provider_blocked_policy reason code.",
     ).toBe(true);
     expect(
-      pageSource.includes("provider_misconfigured"),
+      combinedSource.includes("provider_misconfigured"),
       "Fail-first baseline: Copilot page must map provider_misconfigured reason code.",
     ).toBe(true);
     expect(
-      pageSource.includes("provider_unavailable"),
+      combinedSource.includes("provider_unavailable"),
       "Fail-first baseline: Copilot page must map provider_unavailable reason code.",
     ).toBe(true);
   });

@@ -582,6 +582,172 @@ def test_risk_estimators_endpoint_infers_period_from_window_when_period_omitted(
 
 
 @pytest.mark.integration
+def test_efficient_frontier_endpoint_contract_exposes_frontier_points_and_weights(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Efficient-frontier endpoint should expose points, diagnostics, and weight vectors."""
+
+    routes_module = _load_portfolio_analytics_routes_module()
+    endpoint_path = _workspace_endpoint_path(suffix="efficient-frontier")
+    _assert_endpoint_registered(
+        path=endpoint_path,
+        guidance="Implement Markowitz efficient-frontier route wiring before enabling this contract test.",
+    )
+    _assert_routes_callable_exists(
+        module=routes_module,
+        callable_name="get_portfolio_efficient_frontier_response",
+        guidance="Efficient-frontier route should dispatch to typed service response callable.",
+    )
+
+    async def _fake_efficient_frontier_response(**_: Any) -> dict[str, Any]:
+        return {
+            "as_of_ledger_at": "2026-03-28T00:00:00Z",
+            "scope": "portfolio",
+            "instrument_symbol": None,
+            "period": "90D",
+            "risk_free_rate_annual": "0.030000",
+            "methodology": {
+                "optimization_model": "mean_variance_long_only",
+                "sampling_method": "dirichlet_mc",
+                "annualization_basis": "trading_days_252",
+            },
+            "frontier_points": [
+                {
+                    "point_id": "p01",
+                    "expected_return": "0.080000",
+                    "volatility": "0.140000",
+                    "sharpe_ratio": "0.357143",
+                    "is_max_sharpe": False,
+                    "is_min_volatility": True,
+                },
+                {
+                    "point_id": "p12",
+                    "expected_return": "0.120000",
+                    "volatility": "0.180000",
+                    "sharpe_ratio": "0.500000",
+                    "is_max_sharpe": True,
+                    "is_min_volatility": False,
+                },
+            ],
+            "asset_points": [
+                {
+                    "instrument_symbol": "AAPL",
+                    "expected_return": "0.130000",
+                    "volatility": "0.240000",
+                },
+                {
+                    "instrument_symbol": "VOO",
+                    "expected_return": "0.090000",
+                    "volatility": "0.160000",
+                },
+            ],
+            "max_sharpe_weights": [
+                {"instrument_symbol": "AAPL", "weight": "0.350000"},
+                {"instrument_symbol": "VOO", "weight": "0.650000"},
+            ],
+            "min_volatility_weights": [
+                {"instrument_symbol": "AAPL", "weight": "0.120000"},
+                {"instrument_symbol": "VOO", "weight": "0.880000"},
+            ],
+        }
+
+    monkeypatch.setattr(
+        routes_module,
+        "get_portfolio_efficient_frontier_response",
+        _fake_efficient_frontier_response,
+    )
+
+    with TestClient(app) as client:
+        response = client.get(
+            endpoint_path,
+            params={"period": "90D"},
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["as_of_ledger_at"]
+    assert payload["scope"] == "portfolio"
+    assert payload["period"] == "90D"
+    assert payload["methodology"]["optimization_model"] == "mean_variance_long_only"
+    assert isinstance(payload["frontier_points"], list)
+    assert payload["frontier_points"][0]["point_id"] == "p01"
+    assert isinstance(payload["asset_points"], list)
+    assert isinstance(payload["max_sharpe_weights"], list)
+    assert isinstance(payload["min_volatility_weights"], list)
+
+
+@pytest.mark.integration
+def test_efficient_frontier_endpoint_normalizes_scope_and_symbol_before_service_call(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Efficient-frontier endpoint should normalize scope and symbol query values."""
+
+    routes_module = _load_portfolio_analytics_routes_module()
+    endpoint_path = _workspace_endpoint_path(suffix="efficient-frontier")
+    _assert_endpoint_registered(
+        path=endpoint_path,
+        guidance="Implement efficient-frontier route registration before enabling this normalization test.",
+    )
+    _assert_routes_callable_exists(
+        module=routes_module,
+        callable_name="get_portfolio_efficient_frontier_response",
+        guidance="Efficient-frontier route should dispatch to typed service response callable.",
+    )
+
+    captured_scope_values: list[str] = []
+    captured_symbol_values: list[str | None] = []
+    captured_period_values: list[str] = []
+
+    async def _fake_efficient_frontier_response(**kwargs: Any) -> dict[str, Any]:
+        normalized_scope = kwargs.get("scope")
+        normalized_period = kwargs.get("period")
+        if normalized_scope is None or not hasattr(normalized_scope, "value"):
+            raise AssertionError("Normalized scope enum value was not passed to service callable.")
+        if normalized_period is None or not hasattr(normalized_period, "value"):
+            raise AssertionError("Normalized period enum value was not passed to service callable.")
+        captured_scope_values.append(str(normalized_scope.value))
+        captured_symbol_values.append(cast(str | None, kwargs.get("instrument_symbol")))
+        captured_period_values.append(str(normalized_period.value))
+        return {
+            "as_of_ledger_at": "2026-03-28T00:00:00Z",
+            "scope": str(normalized_scope.value),
+            "instrument_symbol": cast(str | None, kwargs.get("instrument_symbol")),
+            "period": str(normalized_period.value),
+            "risk_free_rate_annual": "0.030000",
+            "methodology": {
+                "optimization_model": "mean_variance_long_only",
+                "sampling_method": "dirichlet_mc",
+                "annualization_basis": "trading_days_252",
+            },
+            "frontier_points": [],
+            "asset_points": [],
+            "max_sharpe_weights": [],
+            "min_volatility_weights": [],
+        }
+
+    monkeypatch.setattr(
+        routes_module,
+        "get_portfolio_efficient_frontier_response",
+        _fake_efficient_frontier_response,
+    )
+
+    with TestClient(app) as client:
+        response = client.get(
+            endpoint_path,
+            params={
+                "period": "max",
+                "scope": "instrument_symbol",
+                "instrument_symbol": " voo ",
+            },
+        )
+
+    assert response.status_code == 200
+    assert captured_period_values == ["MAX"]
+    assert captured_scope_values == ["instrument_symbol"]
+    assert captured_symbol_values == ["VOO"]
+
+
+@pytest.mark.integration
 def test_hierarchy_endpoint_contract_includes_grouping_and_provenance_fields(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

@@ -17,12 +17,14 @@ The system SHALL train and evaluate forecasting candidates using walk-forward ti
 The system SHALL publish a champion forecast snapshot only when policy gates are satisfied against naive baseline metrics and interval calibration constraints.
 
 #### Scenario: Candidate passes quality gates and is promoted
-- **WHEN** a candidate beats configured naive-baseline thresholds and passes interval calibration bounds
+- **WHEN** a candidate improves walk-forward `wMAPE` by at least `5.0%` versus naive baseline
+- **AND** no horizon regresses by more than `2.0%` `wMAPE` versus naive baseline
+- **AND** 80% interval empirical coverage stays within `[0.72, 0.88]`
 - **THEN** the system records that candidate as the new champion snapshot
 - **THEN** forecast endpoint state is `ready` for horizons covered by champion metadata
 
 #### Scenario: Candidate fails quality gates
-- **WHEN** all candidates fail baseline-improvement or calibration thresholds
+- **WHEN** all candidates fail one or more frozen thresholds above
 - **THEN** no new champion is published
 - **THEN** forecast endpoint returns `unavailable` or continues prior non-expired champion with explicit policy metadata
 
@@ -35,7 +37,7 @@ The system SHALL expose horizon-level point and interval forecasts with confiden
 - **THEN** response includes as-of timestamps and training window metadata
 
 #### Scenario: Stale or error states are explicit
-- **WHEN** champion snapshot is expired or runtime errors occur
+- **WHEN** champion snapshot is older than `168` hours without qualified replacement or runtime errors occur
 - **THEN** response state is `stale` or `error` with factual reasons
 - **THEN** clients are not required to infer lifecycle state from null values
 
