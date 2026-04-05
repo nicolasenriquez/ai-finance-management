@@ -8,7 +8,10 @@ import { EmptyState } from "../../components/empty-state/EmptyState";
 import { ErrorBanner } from "../../components/error-banner/ErrorBanner";
 import { LoadingTableSkeleton } from "../../components/skeletons/LoadingTableSkeleton";
 import { PortfolioWorkspaceLayout } from "../../components/workspace-layout/PortfolioWorkspaceLayout";
-import type { PortfolioContributionRow } from "../../core/api/schemas";
+import type {
+  PortfolioChartPeriod,
+  PortfolioContributionRow,
+} from "../../core/api/schemas";
 import { formatUsdMoney } from "../../core/lib/formatters";
 import { PortfolioChartPeriodControl } from "../../features/portfolio-workspace/PortfolioChartPeriodControl";
 import { resolveWorkspaceError } from "../../features/portfolio-workspace/errors";
@@ -118,7 +121,7 @@ export function PortfolioAnalyticsPage() {
     "Analytics charts could not be built from persisted portfolio payloads.",
   );
 
-  function handlePeriodChange(nextPeriod: "30D" | "90D" | "252D" | "MAX"): void {
+  function handlePeriodChange(nextPeriod: PortfolioChartPeriod): void {
     setSearchParams((previous) => {
       const next = new URLSearchParams(previous);
       next.set("period", nextPeriod);

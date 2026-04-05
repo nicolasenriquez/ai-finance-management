@@ -401,6 +401,7 @@ describe("PortfolioHomePage", () => {
       screen.getByRole("heading", { name: "Portfolio health synthesis" }),
     ).toBeInTheDocument();
     expect(screen.getByText("Core 10 first")).toBeInTheDocument();
+    expect(screen.getByRole("table", { name: "Health pillar scores" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Period change waterfall" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Trend preview" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Drill-down routes" })).toBeInTheDocument();

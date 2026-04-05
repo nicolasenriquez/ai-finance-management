@@ -22,6 +22,24 @@ Use this structure for new entries:
 
 `type` guidance: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`.
 
+## 2026-04-04
+
+### feat(portfolio-ai-copilot,frontend-workspace): deliver phase-h read-only AI layering slice with Groq adapter, deterministic opportunity scan, and copilot workspace
+- Summary: Implemented OpenSpec change `phase-h-ai-layering-read-only-portfolio-copilot` through backend `portfolio_ai_copilot` slice delivery (typed contracts, safety boundary enforcement, allowlisted tool orchestration, Groq OpenAI-compatible adapter, deterministic opportunity scoring, stable provider/runtime reason mapping) and frontend `/portfolio/copilot` workspace delivery (explicit `idle/loading/blocked/error/ready` states, evidence + limitation surfaces, separated opportunity candidates vs AI narration, and navigation integration).
+- Why: Activate a narrow, production-usable AI layer over existing deterministic portfolio analytics while preserving fail-fast boundaries, privacy minimization, and non-advice posture.
+- Files: `app/portfolio_ai_copilot/{schemas.py,service.py,routes.py,provider_groq.py,tests/*}`, `app/{core/config.py,main.py}`, `frontend/src/{app/router.tsx,app/styles.css,core/api/schemas.ts,components/workspace-layout/PortfolioWorkspaceLayout.tsx,components/workspace-layout/PortfolioWorkspaceLayout.test.tsx,features/portfolio-copilot/{api.ts,hooks.ts},pages/portfolio-copilot-page/*}`, `docs/{guides/portfolio-ai-copilot-guide.md,guides/frontend-api-and-ux-guide.md,guides/validation-baseline.md,product/{roadmap.md,backlog-sprints.md},README.md}`, `.env.example`, `openspec/changes/phase-h-ai-layering-read-only-portfolio-copilot/tasks.md`, `CHANGELOG.md`.
+- Validation: `uv run ruff check app/` (pass), `uv run black app --check --diff` (pass), `uv run mypy app/` (pass), `uv run pyright app/` (0 errors), `uv run ty check app` (pass), `uv run pytest -v app/portfolio_ai_copilot/tests` (15 passed), `env ALLOW_INTEGRATION_DB_MUTATION=1 uv run pytest -v app/portfolio_ai_copilot/tests app/portfolio_analytics/tests/test_workspace_endpoint_contracts_fail_first.py` (43 passed), `npm --prefix frontend run lint` (pass), `npm --prefix frontend run test` (112 passed), `npm --prefix frontend run build` (pass), `openspec validate phase-h-ai-layering-read-only-portfolio-copilot --type change --strict --json` (pass), `openspec validate --specs --all --json` (22/22 passed).
+- Notes: Provider configuration is intentionally fail-fast (no fallback provider chain) and now documented with explicit Groq project key/spend-limit/model-permission guidance.
+
+## 2026-03-31
+
+### fix(dev-workflow): make justfile parseable and correct db-check URL normalization
+- Summary: Fixed `justfile` recipe parsing by indenting embedded Python heredoc blocks under `db-upgrade` and `test-db-upgrade`, replaced `db-check` with a direct SQLAlchemy `SELECT 1` connectivity probe, and added `db-upgrade` drift recovery to stamp `head` when upgrade fails before running existing missing-table self-heal.
+- Why: `just dev-local` was blocked before execution with `Unknown start of token '.'` due unindented heredoc bodies being treated as top-level `justfile` syntax.
+- Files: `justfile`, `CHANGELOG.md`.
+- Validation: `rtk just --list` (pass), `rtk just db-check` (pass), `rtk just dev-local` (passes guard/connectivity, recovers migration drift via stamp-to-head path, starts backend on `http://127.0.0.1:8123`).
+- Notes: This change is intentionally minimal and does not alter runtime behavior beyond fixing recipe parsing.
+
 ## 2026-03-30
 
 ### feat(frontend-workspace,ux-polish): harden dense-table readability and compact control surfaces for phase-g 9.x

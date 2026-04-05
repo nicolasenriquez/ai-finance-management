@@ -420,6 +420,36 @@ describe("PortfolioRiskPage", () => {
   });
 
   it("maps chart period query to supported risk windows deterministically", () => {
+    renderRiskPage("/portfolio/risk?period=6M");
+    expect(mockedUsePortfolioRiskEstimatorsScopedQuery).toHaveBeenCalledWith(126, {
+      scope: "portfolio",
+      instrumentSymbol: null,
+      period: "6M",
+      enabled: true,
+    });
+
+    cleanup();
+    vi.clearAllMocks();
+    setRiskState({ isSuccess: true, data: riskResponse });
+    setRiskEvolutionState({ isSuccess: true, data: riskEvolutionResponse });
+    setReturnDistributionState({ isSuccess: true, data: returnDistributionResponse });
+    setHealthState({ isSuccess: true, data: healthResponse });
+
+    renderRiskPage("/portfolio/risk?period=YTD");
+    expect(mockedUsePortfolioRiskEstimatorsScopedQuery).toHaveBeenCalledWith(252, {
+      scope: "portfolio",
+      instrumentSymbol: null,
+      period: "YTD",
+      enabled: true,
+    });
+
+    cleanup();
+    vi.clearAllMocks();
+    setRiskState({ isSuccess: true, data: riskResponse });
+    setRiskEvolutionState({ isSuccess: true, data: riskEvolutionResponse });
+    setReturnDistributionState({ isSuccess: true, data: returnDistributionResponse });
+    setHealthState({ isSuccess: true, data: healthResponse });
+
     renderRiskPage("/portfolio/risk?period=MAX");
     expect(mockedUsePortfolioRiskEstimatorsScopedQuery).toHaveBeenCalledWith(252, {
       scope: "portfolio",

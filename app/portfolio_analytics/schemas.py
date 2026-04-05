@@ -73,7 +73,9 @@ class PortfolioChartPeriod(StrEnum):
 
     D30 = "30D"
     D90 = "90D"
+    D6M = "6M"
     D252 = "252D"
+    YTD = "YTD"
     MAX = "MAX"
 
 

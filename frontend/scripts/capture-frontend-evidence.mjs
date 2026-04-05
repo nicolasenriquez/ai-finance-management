@@ -15,6 +15,7 @@ const indexHtmlPath = path.join(distRoot, "index.html");
 
 const SERVER_HOST = "127.0.0.1";
 const DEFAULT_LISTEN_PORT = 0;
+const DEFAULT_SCREENSHOT_SETTLE_DELAY_MS = 1200;
 const THEME_STORAGE_KEY = "ai-finance-management-theme";
 
 const summaryPayload = {
@@ -39,7 +40,7 @@ const summaryPayload = {
       unrealized_gain_pct: "6.67",
     },
     {
-      instrument_symbol: "AAPL",
+      instrument_symbol: "PLTR",
       open_quantity: "2.000000000",
       open_cost_basis_usd: "1000.00",
       open_lot_count: 2,
@@ -87,7 +88,7 @@ const transactionsPayload = {
     {
       id: "trade:101",
       posted_at: "2026-03-24T00:00:00Z",
-      instrument_symbol: "AAPL",
+      instrument_symbol: "PLTR",
       event_type: "buy",
       quantity: "1.000000000",
       cash_amount_usd: "250.00",
@@ -114,6 +115,7 @@ const transactionsPayload = {
 const supportedChartPeriods = ["30D", "90D", "252D", "MAX"];
 const supportedHierarchyGroups = ["sector", "symbol"];
 const supportedRiskWindows = [30, 90, 252];
+const supportedHealthProfilePostures = ["conservative", "balanced", "aggressive"];
 
 const hierarchyPayloadByGroup = {
   sector: {
@@ -131,7 +133,7 @@ const hierarchyPayloadByGroup = {
         total_change_pct: "20.90",
         assets: [
           {
-            instrument_symbol: "AAPL",
+            instrument_symbol: "PLTR",
             sector_label: "Technology",
             open_quantity: "2.000000000",
             open_cost_basis_usd: "1000.00",
@@ -165,7 +167,7 @@ const hierarchyPayloadByGroup = {
             ],
           },
           {
-            instrument_symbol: "MSFT",
+            instrument_symbol: "SCHD",
             sector_label: "Technology",
             open_quantity: "1.000000000",
             open_cost_basis_usd: "220.00",
@@ -235,6 +237,109 @@ const hierarchyPayloadByGroup = {
   },
 };
 
+function buildHealthSynthesisPayload({
+  period,
+  scope,
+  profilePosture,
+  instrumentSymbol,
+}) {
+  return {
+    as_of_ledger_at: "2026-03-24T01:00:00Z",
+    scope,
+    instrument_symbol: scope === "instrument_symbol" ? instrumentSymbol : null,
+    period,
+    profile_posture: profilePosture,
+    health_score: 84,
+    health_label: "healthy",
+    threshold_policy_version: "health_v1_20260330",
+    pillars: [
+      {
+        pillar_id: "growth",
+        label: "Growth",
+        score: 100,
+        status: "favorable",
+        metrics: [
+          {
+            metric_id: "cagr",
+            label: "CAGR",
+            value_display: "+16.89%",
+            score: 100,
+            contribution: "supporting",
+          },
+        ],
+      },
+      {
+        pillar_id: "risk",
+        label: "Risk",
+        score: 75,
+        status: "favorable",
+        metrics: [
+          {
+            metric_id: "max_drawdown",
+            label: "Max Drawdown",
+            value_display: "-23.00%",
+            score: 75,
+            contribution: "supporting",
+          },
+        ],
+      },
+      {
+        pillar_id: "risk_adjusted_quality",
+        label: "Risk-adjusted quality",
+        score: 80,
+        status: "favorable",
+        metrics: [
+          {
+            metric_id: "sharpe_ratio",
+            label: "Sharpe Ratio",
+            value_display: "0.837",
+            score: 80,
+            contribution: "supporting",
+          },
+        ],
+      },
+      {
+        pillar_id: "resilience",
+        label: "Resilience",
+        score: 80,
+        status: "favorable",
+        metrics: [
+          {
+            metric_id: "recovery_factor",
+            label: "Recovery Factor",
+            value_display: "3.689",
+            score: 80,
+            contribution: "supporting",
+          },
+        ],
+      },
+    ],
+    key_drivers: [
+      {
+        metric_id: "three_year_annualized_return",
+        label: "3Y Annualized Return",
+        direction: "supporting",
+        impact_points: 12,
+        rationale: "Sustained annualized growth supports a stable health posture.",
+        value_display: "+28.90%",
+      },
+      {
+        metric_id: "recovery_factor",
+        label: "Recovery Factor",
+        direction: "supporting",
+        impact_points: 8,
+        rationale: "Recovery efficiency remains above threshold policy expectations.",
+        value_display: "3.689",
+      },
+    ],
+    health_caveats: [
+      "Synthetic fixture payload used for deterministic frontend evidence capture.",
+    ],
+    core_metric_ids: ["cagr", "max_drawdown", "sharpe_ratio", "recovery_factor"],
+    advanced_metric_ids: ["value_at_risk_95"],
+  };
+}
+
 const timeSeriesPayloadByPeriod = {
   "30D": {
     as_of_ledger_at: "2026-03-24T01:00:00Z",
@@ -296,36 +401,36 @@ const contributionPayloadByPeriod = {
     as_of_ledger_at: "2026-03-24T01:00:00Z",
     period: "30D",
     rows: [
-      { instrument_symbol: "AAPL", contribution_pnl_usd: "110.00", contribution_pct: "5.44" },
+      { instrument_symbol: "PLTR", contribution_pnl_usd: "110.00", contribution_pct: "5.44" },
       { instrument_symbol: "VOO", contribution_pnl_usd: "60.00", contribution_pct: "2.97" },
-      { instrument_symbol: "MSFT", contribution_pnl_usd: "20.00", contribution_pct: "0.99" },
+      { instrument_symbol: "SCHD", contribution_pnl_usd: "20.00", contribution_pct: "0.99" },
     ],
   },
   "90D": {
     as_of_ledger_at: "2026-03-24T01:00:00Z",
     period: "90D",
     rows: [
-      { instrument_symbol: "AAPL", contribution_pnl_usd: "150.00", contribution_pct: "7.43" },
+      { instrument_symbol: "PLTR", contribution_pnl_usd: "150.00", contribution_pct: "7.43" },
       { instrument_symbol: "VOO", contribution_pnl_usd: "105.00", contribution_pct: "5.20" },
-      { instrument_symbol: "MSFT", contribution_pnl_usd: "35.00", contribution_pct: "1.73" },
+      { instrument_symbol: "SCHD", contribution_pnl_usd: "35.00", contribution_pct: "1.73" },
     ],
   },
   "252D": {
     as_of_ledger_at: "2026-03-24T01:00:00Z",
     period: "252D",
     rows: [
-      { instrument_symbol: "AAPL", contribution_pnl_usd: "320.00", contribution_pct: "15.84" },
+      { instrument_symbol: "PLTR", contribution_pnl_usd: "320.00", contribution_pct: "15.84" },
       { instrument_symbol: "VOO", contribution_pnl_usd: "190.00", contribution_pct: "9.41" },
-      { instrument_symbol: "MSFT", contribution_pnl_usd: "70.00", contribution_pct: "3.47" },
+      { instrument_symbol: "SCHD", contribution_pnl_usd: "70.00", contribution_pct: "3.47" },
     ],
   },
   MAX: {
     as_of_ledger_at: "2026-03-24T01:00:00Z",
     period: "MAX",
     rows: [
-      { instrument_symbol: "AAPL", contribution_pnl_usd: "540.00", contribution_pct: "26.73" },
+      { instrument_symbol: "PLTR", contribution_pnl_usd: "540.00", contribution_pct: "26.73" },
       { instrument_symbol: "VOO", contribution_pnl_usd: "330.00", contribution_pct: "16.34" },
-      { instrument_symbol: "MSFT", contribution_pnl_usd: "120.00", contribution_pct: "5.94" },
+      { instrument_symbol: "SCHD", contribution_pnl_usd: "120.00", contribution_pct: "5.94" },
     ],
   },
 };
@@ -342,6 +447,9 @@ const riskPayloadByWindowDays = {
         return_basis: "simple",
         annualization_basis: { kind: "trading_days", value: 252 },
         as_of_timestamp: "2026-03-24T00:00:00Z",
+        unit: "percent",
+        interpretation_band: "favorable",
+        timeline_series_id: "rolling_volatility",
       },
       {
         estimator_id: "max_drawdown",
@@ -350,6 +458,9 @@ const riskPayloadByWindowDays = {
         return_basis: "simple",
         annualization_basis: { kind: "trading_days", value: 252 },
         as_of_timestamp: "2026-03-24T00:00:00Z",
+        unit: "percent",
+        interpretation_band: "favorable",
+        timeline_series_id: "drawdown",
       },
       {
         estimator_id: "beta",
@@ -358,8 +469,22 @@ const riskPayloadByWindowDays = {
         return_basis: "simple",
         annualization_basis: { kind: "trading_days", value: 252 },
         as_of_timestamp: "2026-03-24T00:00:00Z",
+        unit: "ratio",
+        interpretation_band: "caution",
+        timeline_series_id: "rolling_beta",
       },
     ],
+    timeline_context: {
+      available: true,
+      scope: "portfolio",
+      instrument_symbol: null,
+      period: "30D",
+    },
+    guardrails: {
+      mixed_units: true,
+      unit_groups: ["percent", "ratio"],
+      guidance: "Render grouped charts by unit to preserve interpretation fidelity.",
+    },
   },
   90: {
     as_of_ledger_at: "2026-03-24T01:00:00Z",
@@ -372,6 +497,9 @@ const riskPayloadByWindowDays = {
         return_basis: "simple",
         annualization_basis: { kind: "trading_days", value: 252 },
         as_of_timestamp: "2026-03-24T00:00:00Z",
+        unit: "percent",
+        interpretation_band: "caution",
+        timeline_series_id: "rolling_volatility",
       },
       {
         estimator_id: "max_drawdown",
@@ -380,6 +508,9 @@ const riskPayloadByWindowDays = {
         return_basis: "simple",
         annualization_basis: { kind: "trading_days", value: 252 },
         as_of_timestamp: "2026-03-24T00:00:00Z",
+        unit: "percent",
+        interpretation_band: "caution",
+        timeline_series_id: "drawdown",
       },
       {
         estimator_id: "beta",
@@ -388,8 +519,22 @@ const riskPayloadByWindowDays = {
         return_basis: "simple",
         annualization_basis: { kind: "trading_days", value: 252 },
         as_of_timestamp: "2026-03-24T00:00:00Z",
+        unit: "ratio",
+        interpretation_band: "favorable",
+        timeline_series_id: "rolling_beta",
       },
     ],
+    timeline_context: {
+      available: true,
+      scope: "portfolio",
+      instrument_symbol: null,
+      period: "90D",
+    },
+    guardrails: {
+      mixed_units: true,
+      unit_groups: ["percent", "ratio"],
+      guidance: "Render grouped charts by unit to preserve interpretation fidelity.",
+    },
   },
   252: {
     as_of_ledger_at: "2026-03-24T01:00:00Z",
@@ -402,6 +547,9 @@ const riskPayloadByWindowDays = {
         return_basis: "simple",
         annualization_basis: { kind: "trading_days", value: 252 },
         as_of_timestamp: "2026-03-24T00:00:00Z",
+        unit: "percent",
+        interpretation_band: "caution",
+        timeline_series_id: "rolling_volatility",
       },
       {
         estimator_id: "max_drawdown",
@@ -410,6 +558,9 @@ const riskPayloadByWindowDays = {
         return_basis: "simple",
         annualization_basis: { kind: "trading_days", value: 252 },
         as_of_timestamp: "2026-03-24T00:00:00Z",
+        unit: "percent",
+        interpretation_band: "elevated_risk",
+        timeline_series_id: "drawdown",
       },
       {
         estimator_id: "beta",
@@ -418,7 +569,188 @@ const riskPayloadByWindowDays = {
         return_basis: "simple",
         annualization_basis: { kind: "trading_days", value: 252 },
         as_of_timestamp: "2026-03-24T00:00:00Z",
+        unit: "ratio",
+        interpretation_band: "favorable",
+        timeline_series_id: "rolling_beta",
       },
+    ],
+    timeline_context: {
+      available: true,
+      scope: "portfolio",
+      instrument_symbol: null,
+      period: "252D",
+    },
+    guardrails: {
+      mixed_units: true,
+      unit_groups: ["percent", "ratio"],
+      guidance: "Render grouped charts by unit to preserve interpretation fidelity.",
+    },
+  },
+};
+
+const riskEvolutionPayloadByPeriod = {
+  "30D": {
+    as_of_ledger_at: "2026-03-24T01:00:00Z",
+    scope: "portfolio",
+    instrument_symbol: null,
+    period: "30D",
+    rolling_window_days: 30,
+    methodology: {
+      drawdown_method: "rolling peak-to-trough from cumulative simple-return path",
+      rolling_volatility_method: "30-day rolling stdev annualized by sqrt(252)",
+      rolling_beta_method: "30-day rolling covariance to benchmark / benchmark variance",
+    },
+    drawdown_path_points: [
+      { captured_at: "2026-03-19T00:00:00Z", drawdown: "-0.0120" },
+      { captured_at: "2026-03-20T00:00:00Z", drawdown: "-0.0180" },
+      { captured_at: "2026-03-21T00:00:00Z", drawdown: "-0.0090" },
+      { captured_at: "2026-03-22T00:00:00Z", drawdown: "-0.0150" },
+      { captured_at: "2026-03-23T00:00:00Z", drawdown: "-0.0060" },
+      { captured_at: "2026-03-24T00:00:00Z", drawdown: "0.0000" },
+    ],
+    rolling_points: [
+      { captured_at: "2026-03-19T00:00:00Z", volatility_annualized: "0.1550", beta: "1.0300" },
+      { captured_at: "2026-03-20T00:00:00Z", volatility_annualized: "0.1580", beta: "1.0360" },
+      { captured_at: "2026-03-21T00:00:00Z", volatility_annualized: "0.1600", beta: "1.0400" },
+      { captured_at: "2026-03-22T00:00:00Z", volatility_annualized: "0.1610", beta: "1.0410" },
+      { captured_at: "2026-03-23T00:00:00Z", volatility_annualized: "0.1620", beta: "1.0420" },
+      { captured_at: "2026-03-24T00:00:00Z", volatility_annualized: "0.1625", beta: "1.0420" },
+    ],
+  },
+  "90D": {
+    as_of_ledger_at: "2026-03-24T01:00:00Z",
+    scope: "portfolio",
+    instrument_symbol: null,
+    period: "90D",
+    rolling_window_days: 90,
+    methodology: {
+      drawdown_method: "rolling peak-to-trough from cumulative simple-return path",
+      rolling_volatility_method: "90-day rolling stdev annualized by sqrt(252)",
+      rolling_beta_method: "90-day rolling covariance to benchmark / benchmark variance",
+    },
+    drawdown_path_points: [
+      { captured_at: "2026-02-24T00:00:00Z", drawdown: "-0.0580" },
+      { captured_at: "2026-03-03T00:00:00Z", drawdown: "-0.0430" },
+      { captured_at: "2026-03-10T00:00:00Z", drawdown: "-0.0360" },
+      { captured_at: "2026-03-17T00:00:00Z", drawdown: "-0.0240" },
+      { captured_at: "2026-03-24T00:00:00Z", drawdown: "-0.0100" },
+    ],
+    rolling_points: [
+      { captured_at: "2026-02-24T00:00:00Z", volatility_annualized: "0.1700", beta: "1.0100" },
+      { captured_at: "2026-03-03T00:00:00Z", volatility_annualized: "0.1710", beta: "1.0120" },
+      { captured_at: "2026-03-10T00:00:00Z", volatility_annualized: "0.1725", beta: "1.0140" },
+      { captured_at: "2026-03-17T00:00:00Z", volatility_annualized: "0.1735", beta: "1.0160" },
+      { captured_at: "2026-03-24T00:00:00Z", volatility_annualized: "0.1740", beta: "1.0180" },
+    ],
+  },
+  "252D": {
+    as_of_ledger_at: "2026-03-24T01:00:00Z",
+    scope: "portfolio",
+    instrument_symbol: null,
+    period: "252D",
+    rolling_window_days: 252,
+    methodology: {
+      drawdown_method: "rolling peak-to-trough from cumulative simple-return path",
+      rolling_volatility_method: "252-day rolling stdev annualized by sqrt(252)",
+      rolling_beta_method: "252-day rolling covariance to benchmark / benchmark variance",
+    },
+    drawdown_path_points: [
+      { captured_at: "2025-09-24T00:00:00Z", drawdown: "-0.2015" },
+      { captured_at: "2025-12-24T00:00:00Z", drawdown: "-0.1320" },
+      { captured_at: "2026-01-24T00:00:00Z", drawdown: "-0.0980" },
+      { captured_at: "2026-02-24T00:00:00Z", drawdown: "-0.0700" },
+      { captured_at: "2026-03-24T00:00:00Z", drawdown: "-0.0400" },
+    ],
+    rolling_points: [
+      { captured_at: "2025-09-24T00:00:00Z", volatility_annualized: "0.1920", beta: "1.0040" },
+      { captured_at: "2025-12-24T00:00:00Z", volatility_annualized: "0.1910", beta: "1.0010" },
+      { captured_at: "2026-01-24T00:00:00Z", volatility_annualized: "0.1900", beta: "0.9990" },
+      { captured_at: "2026-02-24T00:00:00Z", volatility_annualized: "0.1895", beta: "0.9970" },
+      { captured_at: "2026-03-24T00:00:00Z", volatility_annualized: "0.1890", beta: "0.9950" },
+    ],
+  },
+};
+
+const returnDistributionPayloadByPeriod = {
+  "30D": {
+    as_of_ledger_at: "2026-03-24T01:00:00Z",
+    scope: "portfolio",
+    instrument_symbol: null,
+    period: "30D",
+    sample_size: 30,
+    bucket_policy: {
+      method: "equal_width",
+      bin_count: 12,
+      min_return: "-0.0350",
+      max_return: "0.0410",
+    },
+    buckets: [
+      { bucket_index: 0, lower_bound: "-0.0350", upper_bound: "-0.0287", count: 1, frequency: "0.0333" },
+      { bucket_index: 1, lower_bound: "-0.0287", upper_bound: "-0.0223", count: 1, frequency: "0.0333" },
+      { bucket_index: 2, lower_bound: "-0.0223", upper_bound: "-0.0160", count: 2, frequency: "0.0667" },
+      { bucket_index: 3, lower_bound: "-0.0160", upper_bound: "-0.0097", count: 3, frequency: "0.1000" },
+      { bucket_index: 4, lower_bound: "-0.0097", upper_bound: "-0.0033", count: 4, frequency: "0.1333" },
+      { bucket_index: 5, lower_bound: "-0.0033", upper_bound: "0.0030", count: 5, frequency: "0.1667" },
+      { bucket_index: 6, lower_bound: "0.0030", upper_bound: "0.0093", count: 4, frequency: "0.1333" },
+      { bucket_index: 7, lower_bound: "0.0093", upper_bound: "0.0157", count: 4, frequency: "0.1333" },
+      { bucket_index: 8, lower_bound: "0.0157", upper_bound: "0.0220", count: 3, frequency: "0.1000" },
+      { bucket_index: 9, lower_bound: "0.0220", upper_bound: "0.0283", count: 2, frequency: "0.0667" },
+      { bucket_index: 10, lower_bound: "0.0283", upper_bound: "0.0347", count: 1, frequency: "0.0333" },
+      { bucket_index: 11, lower_bound: "0.0347", upper_bound: "0.0410", count: 0, frequency: "0.0000" },
+    ],
+  },
+  "90D": {
+    as_of_ledger_at: "2026-03-24T01:00:00Z",
+    scope: "portfolio",
+    instrument_symbol: null,
+    period: "90D",
+    sample_size: 90,
+    bucket_policy: {
+      method: "equal_width",
+      bin_count: 12,
+      min_return: "-0.0520",
+      max_return: "0.0580",
+    },
+    buckets: [
+      { bucket_index: 0, lower_bound: "-0.0520", upper_bound: "-0.0428", count: 2, frequency: "0.0222" },
+      { bucket_index: 1, lower_bound: "-0.0428", upper_bound: "-0.0337", count: 4, frequency: "0.0444" },
+      { bucket_index: 2, lower_bound: "-0.0337", upper_bound: "-0.0245", count: 6, frequency: "0.0667" },
+      { bucket_index: 3, lower_bound: "-0.0245", upper_bound: "-0.0153", count: 8, frequency: "0.0889" },
+      { bucket_index: 4, lower_bound: "-0.0153", upper_bound: "-0.0062", count: 11, frequency: "0.1222" },
+      { bucket_index: 5, lower_bound: "-0.0062", upper_bound: "0.0030", count: 14, frequency: "0.1556" },
+      { bucket_index: 6, lower_bound: "0.0030", upper_bound: "0.0122", count: 14, frequency: "0.1556" },
+      { bucket_index: 7, lower_bound: "0.0122", upper_bound: "0.0213", count: 11, frequency: "0.1222" },
+      { bucket_index: 8, lower_bound: "0.0213", upper_bound: "0.0305", count: 8, frequency: "0.0889" },
+      { bucket_index: 9, lower_bound: "0.0305", upper_bound: "0.0397", count: 6, frequency: "0.0667" },
+      { bucket_index: 10, lower_bound: "0.0397", upper_bound: "0.0488", count: 4, frequency: "0.0444" },
+      { bucket_index: 11, lower_bound: "0.0488", upper_bound: "0.0580", count: 2, frequency: "0.0222" },
+    ],
+  },
+  "252D": {
+    as_of_ledger_at: "2026-03-24T01:00:00Z",
+    scope: "portfolio",
+    instrument_symbol: null,
+    period: "252D",
+    sample_size: 252,
+    bucket_policy: {
+      method: "equal_width",
+      bin_count: 12,
+      min_return: "-0.0900",
+      max_return: "0.0850",
+    },
+    buckets: [
+      { bucket_index: 0, lower_bound: "-0.0900", upper_bound: "-0.0754", count: 4, frequency: "0.0159" },
+      { bucket_index: 1, lower_bound: "-0.0754", upper_bound: "-0.0608", count: 9, frequency: "0.0357" },
+      { bucket_index: 2, lower_bound: "-0.0608", upper_bound: "-0.0463", count: 15, frequency: "0.0595" },
+      { bucket_index: 3, lower_bound: "-0.0463", upper_bound: "-0.0317", count: 24, frequency: "0.0952" },
+      { bucket_index: 4, lower_bound: "-0.0317", upper_bound: "-0.0171", count: 33, frequency: "0.1310" },
+      { bucket_index: 5, lower_bound: "-0.0171", upper_bound: "-0.0025", count: 41, frequency: "0.1627" },
+      { bucket_index: 6, lower_bound: "-0.0025", upper_bound: "0.0121", count: 43, frequency: "0.1706" },
+      { bucket_index: 7, lower_bound: "0.0121", upper_bound: "0.0267", count: 33, frequency: "0.1310" },
+      { bucket_index: 8, lower_bound: "0.0267", upper_bound: "0.0413", count: 24, frequency: "0.0952" },
+      { bucket_index: 9, lower_bound: "0.0413", upper_bound: "0.0558", count: 15, frequency: "0.0595" },
+      { bucket_index: 10, lower_bound: "0.0558", upper_bound: "0.0704", count: 7, frequency: "0.0278" },
+      { bucket_index: 11, lower_bound: "0.0704", upper_bound: "0.0850", count: 4, frequency: "0.0159" },
     ],
   },
 };
@@ -449,6 +781,21 @@ function resolveListenPort() {
   }
 
   return port;
+}
+
+function resolveScreenshotSettleDelayMs() {
+  const rawDelay = process.env.FRONTEND_EVIDENCE_SCREENSHOT_SETTLE_MS;
+  if (!rawDelay) {
+    return DEFAULT_SCREENSHOT_SETTLE_DELAY_MS;
+  }
+
+  const delayMs = Number.parseInt(rawDelay, 10);
+  if (Number.isNaN(delayMs) || delayMs < 0) {
+    throw new Error(
+      `Invalid FRONTEND_EVIDENCE_SCREENSHOT_SETTLE_MS value "${rawDelay}". Use an integer >= 0.`,
+    );
+  }
+  return delayMs;
 }
 
 async function assertBuildArtifactsExist() {
@@ -587,6 +934,108 @@ async function serveRequest(request, response) {
     return;
   }
 
+  if (pathname === "/api/portfolio/risk-evolution") {
+    const requestedPeriod = (requestUrl.searchParams.get("period") || "252D").toUpperCase();
+    if (!supportedChartPeriods.includes(requestedPeriod)) {
+      response.writeHead(422, {
+        "Content-Type": mimeByExtension[".json"],
+        "Cache-Control": "no-store",
+      });
+      response.end(JSON.stringify({ detail: `Unsupported chart period '${requestedPeriod}'.` }));
+      return;
+    }
+
+    response.writeHead(200, {
+      "Content-Type": mimeByExtension[".json"],
+      "Cache-Control": "no-store",
+    });
+    response.end(JSON.stringify(riskEvolutionPayloadByPeriod[requestedPeriod]));
+    return;
+  }
+
+  if (pathname === "/api/portfolio/return-distribution") {
+    const requestedPeriod = (requestUrl.searchParams.get("period") || "252D").toUpperCase();
+    if (!supportedChartPeriods.includes(requestedPeriod)) {
+      response.writeHead(422, {
+        "Content-Type": mimeByExtension[".json"],
+        "Cache-Control": "no-store",
+      });
+      response.end(JSON.stringify({ detail: `Unsupported chart period '${requestedPeriod}'.` }));
+      return;
+    }
+
+    response.writeHead(200, {
+      "Content-Type": mimeByExtension[".json"],
+      "Cache-Control": "no-store",
+    });
+    response.end(JSON.stringify(returnDistributionPayloadByPeriod[requestedPeriod]));
+    return;
+  }
+
+  if (pathname === "/api/portfolio/health-synthesis") {
+    const requestedPeriod = (requestUrl.searchParams.get("period") || "90D").toUpperCase();
+    const requestedScope = (requestUrl.searchParams.get("scope") || "portfolio").toLowerCase();
+    const requestedProfilePosture = (
+      requestUrl.searchParams.get("profile_posture") || "balanced"
+    ).toLowerCase();
+    const requestedInstrumentSymbol = (
+      requestUrl.searchParams.get("instrument_symbol") || "VOO"
+    )
+      .trim()
+      .toUpperCase();
+
+    if (!supportedChartPeriods.includes(requestedPeriod)) {
+      response.writeHead(422, {
+        "Content-Type": mimeByExtension[".json"],
+        "Cache-Control": "no-store",
+      });
+      response.end(JSON.stringify({ detail: `Unsupported chart period '${requestedPeriod}'.` }));
+      return;
+    }
+    if (requestedScope !== "portfolio" && requestedScope !== "instrument_symbol") {
+      response.writeHead(422, {
+        "Content-Type": mimeByExtension[".json"],
+        "Cache-Control": "no-store",
+      });
+      response.end(JSON.stringify({ detail: `Unsupported health scope '${requestedScope}'.` }));
+      return;
+    }
+    if (!supportedHealthProfilePostures.includes(requestedProfilePosture)) {
+      response.writeHead(422, {
+        "Content-Type": mimeByExtension[".json"],
+        "Cache-Control": "no-store",
+      });
+      response.end(
+        JSON.stringify({ detail: `Unsupported profile posture '${requestedProfilePosture}'.` }),
+      );
+      return;
+    }
+    if (requestedScope === "instrument_symbol" && requestedInstrumentSymbol.length === 0) {
+      response.writeHead(422, {
+        "Content-Type": mimeByExtension[".json"],
+        "Cache-Control": "no-store",
+      });
+      response.end(JSON.stringify({ detail: "Instrument symbol is required for health scope." }));
+      return;
+    }
+
+    response.writeHead(200, {
+      "Content-Type": mimeByExtension[".json"],
+      "Cache-Control": "no-store",
+    });
+    response.end(
+      JSON.stringify(
+        buildHealthSynthesisPayload({
+          period: requestedPeriod,
+          scope: requestedScope,
+          profilePosture: requestedProfilePosture,
+          instrumentSymbol: requestedInstrumentSymbol,
+        }),
+      ),
+    );
+    return;
+  }
+
   if (pathname === "/api/portfolio/hierarchy") {
     const requestedGroup = (requestUrl.searchParams.get("group_by") || "sector").toLowerCase();
     if (!supportedHierarchyGroups.includes(requestedGroup)) {
@@ -711,6 +1160,7 @@ async function captureScreenshot({
   waitForSelector,
   theme,
   fullPage,
+  screenshotSettleDelayMs,
 }) {
   const context = await browser.newContext({ viewport });
   const page = await context.newPage();
@@ -732,7 +1182,7 @@ async function captureScreenshot({
   if (waitForSelector) {
     await page.waitForSelector(waitForSelector, { state: "visible" });
   }
-  await page.waitForTimeout(250);
+  await page.waitForTimeout(screenshotSettleDelayMs);
   await page.screenshot({
     path: screenshotPath,
     fullPage,
@@ -1220,6 +1670,7 @@ async function main() {
   const measuredAt = now.toISOString();
   const dateLabel = now.toISOString().slice(0, 10);
   const captureLabel = formatIsoDateForFile(measuredAt);
+  const screenshotSettleDelayMs = resolveScreenshotSettleDelayMs();
   const screenshotRoot = path.join(reportRoot, `screenshots-${dateLabel}`);
   await mkdir(screenshotRoot, { recursive: true });
 
@@ -1345,6 +1796,7 @@ async function main() {
         waitForSelector: screenshotSpec.waitForSelector,
         theme: screenshotSpec.theme,
         fullPage: screenshotSpec.fullPage,
+        screenshotSettleDelayMs,
       });
     }
 

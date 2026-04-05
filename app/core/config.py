@@ -7,10 +7,13 @@ This module provides centralized configuration management:
 - Settings for application, CORS, and future database configuration
 """
 
+import json
+from collections.abc import Sequence
 from functools import lru_cache
+from typing import Annotated, cast
 
-from pydantic import Field
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import Field, field_validator
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -74,6 +77,54 @@ class Settings(BaseSettings):
     # QuantStats reporting
     quant_report_storage_root: str = ".data/quant_reports"
     quant_report_retention_minutes: int = Field(default=60, ge=1, le=1440)
+
+    # Portfolio AI copilot (Groq adapter)
+    groq_api_key: str | None = None
+    portfolio_ai_copilot_model: str | None = None
+    portfolio_ai_copilot_model_allowlist: Annotated[list[str], NoDecode] = Field(
+        default_factory=list
+    )
+    portfolio_ai_copilot_timeout_seconds: float = Field(default=20.0, gt=0.0, le=120.0)
+    portfolio_ai_copilot_max_retries: int = Field(default=1, ge=0, le=5)
+    portfolio_ai_copilot_groq_base_url: str = "https://api.groq.com"
+
+    @field_validator("portfolio_ai_copilot_model_allowlist", mode="before")
+    @classmethod
+    def parse_portfolio_ai_copilot_model_allowlist(cls, value: object) -> object:
+        """Parse copilot model allowlist from JSON array or CSV-style string."""
+        if value is None:
+            return []
+        if isinstance(value, Sequence) and not isinstance(value, str):
+            sequence_items = list(cast(Sequence[object], value))
+            parsed_items: list[str] = []
+            for item in sequence_items:
+                if isinstance(item, str):
+                    normalized_item = item.strip()
+                else:
+                    normalized_item = str(item).strip()
+                if normalized_item:
+                    parsed_items.append(normalized_item)
+            return parsed_items
+        if isinstance(value, str):
+            normalized = value.strip()
+            if normalized == "":
+                return []
+            if normalized.startswith("["):
+                parsed: object = json.loads(normalized)
+                if not isinstance(parsed, list):
+                    raise ValueError("Expected JSON array for model allowlist.")
+                parsed_json_items = cast(list[object], parsed)
+                parsed_items_from_json: list[str] = []
+                for item in parsed_json_items:
+                    if isinstance(item, str):
+                        normalized_item = item.strip()
+                    else:
+                        normalized_item = str(item).strip()
+                    if normalized_item:
+                        parsed_items_from_json.append(normalized_item)
+                return parsed_items_from_json
+            return [item.strip() for item in normalized.split(",") if item.strip()]
+        raise ValueError("Unsupported model allowlist format.")
 
 
 @lru_cache

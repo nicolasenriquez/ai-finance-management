@@ -56,7 +56,9 @@ def test_normalize_chart_period_supports_case_and_whitespace_variants() -> None:
 
     assert normalize_chart_period(period_value=" 30d ") == PortfolioChartPeriod.D30
     assert normalize_chart_period(period_value="90D") == PortfolioChartPeriod.D90
+    assert normalize_chart_period(period_value="6m") == PortfolioChartPeriod.D6M
     assert normalize_chart_period(period_value="252d") == PortfolioChartPeriod.D252
+    assert normalize_chart_period(period_value=" ytd ") == PortfolioChartPeriod.YTD
     assert normalize_chart_period(period_value=" max ") == PortfolioChartPeriod.MAX
 
 

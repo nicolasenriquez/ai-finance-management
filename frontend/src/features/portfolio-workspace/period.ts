@@ -1,7 +1,7 @@
 import type { PortfolioChartPeriod } from "../../core/api/schemas";
 
 export const PORTFOLIO_CHART_PERIOD_OPTIONS: ReadonlyArray<PortfolioChartPeriod> =
-  ["30D", "90D", "252D", "MAX"];
+  ["30D", "90D", "6M", "252D", "YTD", "MAX"];
 
 export function isPortfolioChartPeriod(
   value: string | null | undefined,

@@ -1,0 +1,290 @@
+{
+  "measuredAt": "2026-03-30T22:59:33.146Z",
+  "baseUrl": "http://127.0.0.1:50428",
+  "audits": [
+    {
+      "route": "/portfolio",
+      "passed": false,
+      "findings": [
+        "Expected at least one keyboard-focusable summary row."
+      ],
+      "domChecks": {
+        "h1Count": 1,
+        "mainCount": 1,
+        "unnamedButtons": [],
+        "unnamedLinks": [],
+        "ariaHiddenFocusable": [],
+        "interactiveRows": [],
+        "statusBanners": [],
+        "roleCounts": {
+          "main": 1,
+          "link": 12,
+          "button": 25,
+          "heading": 9,
+          "table": 2,
+          "row": 8,
+          "columnheader": 10,
+          "cell": 28,
+          "img": 1
+        }
+      },
+      "roleCounts": {
+        "main": 1,
+        "link": 12,
+        "button": 25,
+        "heading": 9,
+        "table": 2,
+        "row": 8,
+        "columnheader": 10,
+        "cell": 28,
+        "img": 1
+      }
+    },
+    {
+      "route": "/portfolio/VOO",
+      "passed": true,
+      "findings": [],
+      "domChecks": {
+        "h1Count": 1,
+        "mainCount": 1,
+        "unnamedButtons": [],
+        "unnamedLinks": [],
+        "ariaHiddenFocusable": [],
+        "interactiveRows": [],
+        "statusBanners": [],
+        "roleCounts": {
+          "main": 1,
+          "link": 3,
+          "button": 1,
+          "heading": 2,
+          "table": 1,
+          "row": 2,
+          "columnheader": 5,
+          "cell": 5
+        }
+      },
+      "roleCounts": {
+        "main": 1,
+        "link": 3,
+        "button": 1,
+        "heading": 2,
+        "table": 1,
+        "row": 2,
+        "columnheader": 5,
+        "cell": 5
+      }
+    },
+    {
+      "route": "/portfolio/UNKNOWN",
+      "passed": true,
+      "findings": [],
+      "domChecks": {
+        "h1Count": 1,
+        "mainCount": 1,
+        "unnamedButtons": [],
+        "unnamedLinks": [],
+        "ariaHiddenFocusable": [],
+        "interactiveRows": [],
+        "statusBanners": [
+          {
+            "role": "status",
+            "title": "Instrument not found"
+          }
+        ],
+        "roleCounts": {
+          "main": 1,
+          "link": 3,
+          "button": 2,
+          "heading": 2,
+          "status": 1
+        }
+      },
+      "roleCounts": {
+        "main": 1,
+        "link": 3,
+        "button": 2,
+        "heading": 2,
+        "status": 1
+      }
+    },
+    {
+      "route": "/portfolio/ERR500",
+      "passed": true,
+      "findings": [],
+      "domChecks": {
+        "h1Count": 1,
+        "mainCount": 1,
+        "unnamedButtons": [],
+        "unnamedLinks": [],
+        "ariaHiddenFocusable": [],
+        "interactiveRows": [],
+        "statusBanners": [
+          {
+            "role": "alert",
+            "title": "Lot detail unavailable"
+          }
+        ],
+        "roleCounts": {
+          "main": 1,
+          "link": 3,
+          "button": 2,
+          "heading": 2,
+          "alert": 1
+        }
+      },
+      "roleCounts": {
+        "main": 1,
+        "link": 3,
+        "button": 2,
+        "heading": 2,
+        "alert": 1
+      }
+    },
+    {
+      "route": "/portfolio/home?period=30D",
+      "passed": true,
+      "findings": [],
+      "domChecks": {
+        "h1Count": 1,
+        "mainCount": 1,
+        "unnamedButtons": [],
+        "unnamedLinks": [],
+        "ariaHiddenFocusable": [],
+        "interactiveRows": [],
+        "statusBanners": [],
+        "roleCounts": {
+          "main": 1,
+          "link": 12,
+          "button": 25,
+          "heading": 9,
+          "table": 2,
+          "row": 8,
+          "columnheader": 10,
+          "cell": 28,
+          "img": 1
+        }
+      },
+      "roleCounts": {
+        "main": 1,
+        "link": 12,
+        "button": 25,
+        "heading": 9,
+        "table": 2,
+        "row": 8,
+        "columnheader": 10,
+        "cell": 28,
+        "img": 1
+      }
+    },
+    {
+      "route": "/portfolio/analytics?period=90D",
+      "passed": true,
+      "findings": [],
+      "domChecks": {
+        "h1Count": 1,
+        "mainCount": 1,
+        "unnamedButtons": [],
+        "unnamedLinks": [],
+        "ariaHiddenFocusable": [],
+        "interactiveRows": [],
+        "statusBanners": [],
+        "roleCounts": {
+          "main": 1,
+          "link": 7,
+          "button": 9,
+          "heading": 5,
+          "img": 2,
+          "status": 1,
+          "table": 1,
+          "row": 4,
+          "columnheader": 4,
+          "cell": 12
+        }
+      },
+      "roleCounts": {
+        "main": 1,
+        "link": 7,
+        "button": 9,
+        "heading": 5,
+        "img": 2,
+        "status": 1,
+        "table": 1,
+        "row": 4,
+        "columnheader": 4,
+        "cell": 12
+      }
+    },
+    {
+      "route": "/portfolio/risk?period=252D",
+      "passed": true,
+      "findings": [],
+      "domChecks": {
+        "h1Count": 1,
+        "mainCount": 1,
+        "unnamedButtons": [],
+        "unnamedLinks": [],
+        "ariaHiddenFocusable": [],
+        "interactiveRows": [],
+        "statusBanners": [],
+        "roleCounts": {
+          "main": 1,
+          "link": 7,
+          "button": 7,
+          "heading": 10,
+          "img": 5,
+          "table": 1,
+          "row": 4,
+          "columnheader": 4,
+          "cell": 12,
+          "status": 3
+        }
+      },
+      "roleCounts": {
+        "main": 1,
+        "link": 7,
+        "button": 7,
+        "heading": 10,
+        "img": 5,
+        "table": 1,
+        "row": 4,
+        "columnheader": 4,
+        "cell": 12,
+        "status": 3
+      }
+    },
+    {
+      "route": "/portfolio/transactions",
+      "passed": true,
+      "findings": [],
+      "domChecks": {
+        "h1Count": 1,
+        "mainCount": 1,
+        "unnamedButtons": [],
+        "unnamedLinks": [],
+        "ariaHiddenFocusable": [],
+        "interactiveRows": [],
+        "statusBanners": [],
+        "roleCounts": {
+          "main": 1,
+          "link": 7,
+          "button": 1,
+          "heading": 2,
+          "table": 1,
+          "row": 4,
+          "columnheader": 5,
+          "cell": 15
+        }
+      },
+      "roleCounts": {
+        "main": 1,
+        "link": 7,
+        "button": 1,
+        "heading": 2,
+        "table": 1,
+        "row": 4,
+        "columnheader": 5,
+        "cell": 15
+      }
+    }
+  ]
+}

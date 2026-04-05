@@ -21,6 +21,7 @@ Current implementation status:
 - live-provider stabilization contract is implemented: bounded empty-history fallback ladder, bounded default-currency assumption for missing metadata, and typed refresh recovery diagnostics (`history_fallback_*`, `currency_assumed_*`)
 - latest staged smoke evidence is recorded in `docs/evidence/market-data/staged-live-smoke-2026-03-26.md` (`core` blocker `502`, `100` blocker `408`, combined `data-sync-local` with `core` scope completed)
 - market-refresh verification posture is rebalanced for local-first execution: `core` remains the required live gate, representative non-core PR smoke is the default broader-than-core safeguard, full `100` refresh coverage is optional manual soak, and `200` is excluded from routine verification
+- portfolio AI copilot v1 is implemented with typed chat/opportunity contracts, stable reason-code mapping, and deterministic frontend state rendering (`/api/portfolio/copilot/chat`, `/portfolio/copilot`)
 
 ## Repository Baseline
 
@@ -130,6 +131,7 @@ For each golden set dataset:
 - migration schema contract checks for `market_data_snapshot` / `price_history` boundary constraints
 - provider-backed ingest idempotency/non-mutation coverage using mocked adapter responses (no live network dependency in CI)
 - backend integration marker suite (`just test-integration`)
+- backend copilot contract/safety/opportunity/provider suites (`app/portfolio_ai_copilot/tests`)
 
 ### Level 4: Manual Verification
 
@@ -144,6 +146,10 @@ For each golden set dataset:
   - recovery evidence fields from typed refresh output (`retry_attempted_symbols`, `failed_symbols`, `history_fallback_symbols`, `history_fallback_periods_by_symbol`, `currency_assumed_symbols`)
   - blocker evidence fields from fail-fast payload (`status`, `stage`, `status_code`, `error`)
 - avoid routine `200` smoke in the current local-first workflow and track any future `200` validation as explicit follow-up scope
+- run one copilot contract smoke over `POST /api/portfolio/copilot/chat` and verify:
+  - typed `state` and `reason_code` semantics
+  - evidence and limitation payload visibility
+  - explicit blocked/error behavior for boundary/provider failures
 
 ## Reporting Rule
 

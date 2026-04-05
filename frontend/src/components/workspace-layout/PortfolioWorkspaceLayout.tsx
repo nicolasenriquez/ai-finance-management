@@ -28,6 +28,7 @@ const WORKSPACE_ROUTES: WorkspaceRoute[] = [
   { label: "Analytics (Preview)", path: "/portfolio/analytics" },
   { label: "Risk (Interpretation)", path: "/portfolio/risk" },
   { label: "Quant/Reports", path: "/portfolio/reports" },
+  { label: "Copilot (Read-only)", path: "/portfolio/copilot" },
   { label: "Transactions", path: "/portfolio/transactions" },
 ];
 

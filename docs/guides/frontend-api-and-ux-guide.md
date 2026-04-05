@@ -18,6 +18,7 @@ It documents the current workspace-first IA, state mapping rules, and methodolog
 - Quant metrics: `GET /api/portfolio/quant-metrics?period={30D|90D|252D|MAX}`
 - Quant report generate: `POST /api/portfolio/quant-reports`
 - Quant report artifact: `GET /api/portfolio/quant-reports/{report_id}`
+- Portfolio copilot chat: `POST /api/portfolio/copilot/chat`
 
 ## Route Information Architecture
 
@@ -34,6 +35,8 @@ It documents the current workspace-first IA, state mapping rules, and methodolog
   - estimator cards/charts + methodology metadata + explainability + drawdown/rolling/distribution modules (`Interpretation` framing in navigation)
 - `/portfolio/reports`
   - quant scorecards + benchmark omission context + Monte Carlo workflow + report lifecycle states + HTML preview
+- `/portfolio/copilot`
+  - read-only copilot chat + deterministic opportunity candidate rendering + explicit evidence/limitations/state mapping
 - `/portfolio/transactions`
   - ledger-event-only table and filters (v1 scope)
 
@@ -227,6 +230,23 @@ Behavior notes:
 - Insufficient aligned history remains explicit (`409`) and is not coerced.
 - Profile comparison is rendered as a stable three-row matrix (`Conservative`, `Balanced`, `Growth`) for panoramic scan before deeper percentile drill-down.
 
+### Portfolio Copilot Response
+
+- `state: ready | blocked | error`
+- `answer_text: string`
+- `evidence: [{ tool_id, metric_id, as_of_ledger_at }]`
+- `limitations: string[]`
+- `reason_code: boundary_restricted | insufficient_context | provider_blocked_policy | rate_limited | provider_misconfigured | provider_unavailable | null`
+- `opportunity_candidates: [{ symbol, opportunity_score, discount_score, momentum_score, stability_score, latest_close_price_usd, rolling_90d_high_price_usd, return_30d, volatility_30d }]`
+- `opportunity_narration: string | null`
+
+Behavior notes:
+
+- Frontend must render deterministic route states explicitly: `idle`, `loading`, `blocked`, `error`, `ready`.
+- `blocked` and `error` renders must use `reason_code` mapping, not raw provider strings.
+- Opportunity candidate data must stay visually separated from AI narration.
+- Evidence and limitations must remain visible in ready/blocked/error workflows.
+
 ## Normalization And Validation Rules
 
 - Supported chart period enum is fixed to `30D`, `90D`, `252D`, `MAX`.
@@ -275,6 +295,10 @@ Each route must render explicit `loading`, `empty`, and `error` states:
   - Monte Carlo workflow: explicit unavailable/loading/error/ready states
   - report lifecycle: explicit loading/error/unavailable/ready states
   - preview retry remains deterministic and keyboard accessible
+- `/portfolio/copilot`
+  - explicit `idle`, `loading`, `blocked`, `error`, and `ready` states
+  - blocked/error reason messages mapped from stable machine-readable reason codes
+  - evidence and limitation panels always visible as trust context surfaces
 - `/portfolio/transactions`
   - empty when filtered ledger events are empty
 

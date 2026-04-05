@@ -240,6 +240,6 @@ describe("PortfolioAnalyticsPage", () => {
     const optionValues = screen
       .getAllByRole("option")
       .map((option) => option.getAttribute("value"));
-    expect(optionValues).toEqual(["30D", "90D", "252D", "MAX"]);
+    expect(optionValues).toEqual(["30D", "90D", "6M", "252D", "YTD", "MAX"]);
   });
 });

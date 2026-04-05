@@ -2,7 +2,14 @@ import { z } from "zod";
 
 const decimalFieldSchema = z.string().min(1);
 const nullableDecimalFieldSchema = z.union([decimalFieldSchema, z.null()]);
-export const portfolioChartPeriodSchema = z.enum(["30D", "90D", "252D", "MAX"]);
+export const portfolioChartPeriodSchema = z.enum([
+  "30D",
+  "90D",
+  "6M",
+  "252D",
+  "YTD",
+  "MAX",
+]);
 export const portfolioTimeSeriesScopeSchema = z.enum([
   "portfolio",
   "instrument_symbol",
@@ -436,6 +443,70 @@ export const portfolioHierarchyResponseSchema = z.object({
   groups: z.array(portfolioHierarchyGroupRowSchema),
 });
 
+export const portfolioCopilotOperationSchema = z.enum([
+  "chat",
+  "opportunity_scan",
+]);
+export const portfolioCopilotConversationRoleSchema = z.enum([
+  "user",
+  "assistant",
+]);
+export const portfolioCopilotResponseStateSchema = z.enum([
+  "ready",
+  "blocked",
+  "error",
+]);
+export const portfolioCopilotReasonCodeSchema = z.enum([
+  "boundary_restricted",
+  "insufficient_context",
+  "provider_blocked_policy",
+  "rate_limited",
+  "provider_misconfigured",
+  "provider_unavailable",
+]);
+
+export const portfolioCopilotConversationMessageSchema = z.object({
+  role: portfolioCopilotConversationRoleSchema,
+  content: z.string().min(1).max(2000),
+});
+
+export const portfolioCopilotEvidenceReferenceSchema = z.object({
+  tool_id: z.string().min(1),
+  metric_id: z.string().nullable().optional(),
+  as_of_ledger_at: z.string().nullable().optional(),
+});
+
+export const portfolioCopilotOpportunityCandidateSchema = z.object({
+  symbol: z.string().min(1),
+  opportunity_score: decimalFieldSchema,
+  discount_score: decimalFieldSchema,
+  momentum_score: decimalFieldSchema,
+  stability_score: decimalFieldSchema,
+  latest_close_price_usd: decimalFieldSchema,
+  rolling_90d_high_price_usd: decimalFieldSchema,
+  return_30d: decimalFieldSchema,
+  volatility_30d: decimalFieldSchema,
+});
+
+export const portfolioCopilotChatRequestSchema = z.object({
+  operation: portfolioCopilotOperationSchema.default("chat"),
+  messages: z.array(portfolioCopilotConversationMessageSchema).min(1).max(8),
+  period: portfolioChartPeriodSchema.default("90D"),
+  scope: portfolioQuantReportScopeSchema.default("portfolio"),
+  instrument_symbol: z.string().min(1).nullable().optional(),
+  max_tool_calls: z.number().int().min(1).max(6).default(6),
+});
+
+export const portfolioCopilotChatResponseSchema = z.object({
+  state: portfolioCopilotResponseStateSchema,
+  answer_text: z.string(),
+  evidence: z.array(portfolioCopilotEvidenceReferenceSchema),
+  limitations: z.array(z.string().min(1)),
+  reason_code: portfolioCopilotReasonCodeSchema.nullable(),
+  opportunity_candidates: z.array(portfolioCopilotOpportunityCandidateSchema),
+  opportunity_narration: z.string().nullable(),
+});
+
 export type PortfolioSummaryRow = z.infer<typeof portfolioSummaryRowSchema>;
 export type PortfolioSummaryResponse = z.infer<typeof portfolioSummaryResponseSchema>;
 export type LotDispositionDetail = z.infer<typeof lotDispositionDetailSchema>;
@@ -560,4 +631,31 @@ export type PortfolioHierarchyGroupRow = z.infer<
 >;
 export type PortfolioHierarchyResponse = z.infer<
   typeof portfolioHierarchyResponseSchema
+>;
+export type PortfolioCopilotOperation = z.infer<
+  typeof portfolioCopilotOperationSchema
+>;
+export type PortfolioCopilotConversationRole = z.infer<
+  typeof portfolioCopilotConversationRoleSchema
+>;
+export type PortfolioCopilotResponseState = z.infer<
+  typeof portfolioCopilotResponseStateSchema
+>;
+export type PortfolioCopilotReasonCode = z.infer<
+  typeof portfolioCopilotReasonCodeSchema
+>;
+export type PortfolioCopilotConversationMessage = z.infer<
+  typeof portfolioCopilotConversationMessageSchema
+>;
+export type PortfolioCopilotEvidenceReference = z.infer<
+  typeof portfolioCopilotEvidenceReferenceSchema
+>;
+export type PortfolioCopilotOpportunityCandidate = z.infer<
+  typeof portfolioCopilotOpportunityCandidateSchema
+>;
+export type PortfolioCopilotChatRequest = z.infer<
+  typeof portfolioCopilotChatRequestSchema
+>;
+export type PortfolioCopilotChatResponse = z.infer<
+  typeof portfolioCopilotChatResponseSchema
 >;

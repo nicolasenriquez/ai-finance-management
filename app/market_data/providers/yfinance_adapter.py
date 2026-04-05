@@ -6,6 +6,7 @@ import asyncio
 import importlib
 import math
 import re
+import socket
 import time
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
@@ -15,6 +16,10 @@ from typing import Final, TypeGuard, cast
 
 _CURRENCY_PATTERN: Final[re.Pattern[str]] = re.compile(r"^[A-Z]{3,8}$")
 _CANONICAL_HISTORY_PERIOD_ORDER: Final[tuple[str, ...]] = ("5y", "3y", "1y", "6mo")
+_YAHOO_REQUIRED_ENDPOINTS: Final[tuple[str, ...]] = (
+    "query2.finance.yahoo.com",
+    "guce.yahoo.com",
+)
 _YFINANCE_PROVIDER_SYMBOL_ALIASES: Final[dict[str, str]] = {
     "BRK.B": "BRK-B",
 }
@@ -490,6 +495,8 @@ def _download_symbol_history(
             status_code=502,
         )
     typed_download_function = download_function
+    if _is_real_yfinance_download_function(download_function=typed_download_function):
+        _assert_yahoo_endpoints_resolvable()
 
     attempted_periods: list[str] = []
     periods_to_try = (config.period, *config.history_fallback_periods)
@@ -549,7 +556,10 @@ def _download_symbol_history_for_period(
 
     reason = "unknown provider failure"
     if last_error is not None:
-        reason = _format_provider_exception_reason(last_error)
+        if _is_dns_or_endpoint_resolution_error(last_error):
+            reason = _format_dns_endpoint_failure_reason(last_error)
+        else:
+            reason = _format_provider_exception_reason(last_error)
     raise YFinanceAdapterError(
         f"YFinance failed while downloading history for symbol '{symbol}' "
         f"using period '{period}' ({reason}).",
@@ -831,3 +841,51 @@ def _format_provider_exception_reason(exc: Exception) -> str:
     if message:
         return f"{type(exc).__name__}: {message}"
     return type(exc).__name__
+
+
+def _is_real_yfinance_download_function(*, download_function: Callable[..., object]) -> bool:
+    """Return whether download function belongs to yfinance implementation modules."""
+
+    module_name = getattr(download_function, "__module__", "")
+    if not isinstance(module_name, str):
+        return False
+    return module_name.startswith("yfinance")
+
+
+def _assert_yahoo_endpoints_resolvable() -> None:
+    """Fail fast when required Yahoo endpoints are not DNS-resolvable."""
+
+    for endpoint in _YAHOO_REQUIRED_ENDPOINTS:
+        try:
+            socket.getaddrinfo(endpoint, 443, type=socket.SOCK_STREAM)
+        except socket.gaierror as exc:
+            raise YFinanceAdapterError(
+                "YFinance endpoint DNS resolution failed before history download "
+                f"(endpoint='{endpoint}', error={_format_provider_exception_reason(exc)}).",
+                status_code=502,
+            ) from exc
+
+
+def _is_dns_or_endpoint_resolution_error(exc: Exception) -> bool:
+    """Return whether provider exception indicates DNS/endpoint resolution failure."""
+
+    if isinstance(exc, socket.gaierror):
+        return True
+    normalized_message = str(exc).strip().lower()
+    if not normalized_message:
+        return False
+    return (
+        "could not resolve host" in normalized_message
+        or "name or service not known" in normalized_message
+        or "temporary failure in name resolution" in normalized_message
+        or "nodename nor servname provided" in normalized_message
+    )
+
+
+def _format_dns_endpoint_failure_reason(exc: Exception) -> str:
+    """Return normalized DNS/endpoint reason for operator-facing transport diagnostics."""
+
+    return (
+        "endpoint/DNS resolution failed; verify outbound DNS/network access to Yahoo "
+        f"hosts ({_format_provider_exception_reason(exc)})"
+    )

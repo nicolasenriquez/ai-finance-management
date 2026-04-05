@@ -29,6 +29,7 @@ from app.pdf_normalization.routes import router as pdf_normalization_router
 from app.pdf_persistence.routes import router as pdf_persistence_router
 from app.pdf_preflight.routes import router as pdf_preflight_router
 from app.pdf_verification.routes import router as pdf_verification_router
+from app.portfolio_ai_copilot.routes import router as portfolio_ai_copilot_router
 from app.portfolio_analytics.routes import router as portfolio_analytics_router
 
 settings = get_settings()
@@ -89,6 +90,7 @@ app.include_router(pdf_normalization_router)
 app.include_router(pdf_persistence_router)
 app.include_router(pdf_verification_router)
 app.include_router(portfolio_analytics_router)
+app.include_router(portfolio_ai_copilot_router)
 
 
 @app.get("/")

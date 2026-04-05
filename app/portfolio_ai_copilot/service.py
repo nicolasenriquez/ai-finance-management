@@ -1,0 +1,1180 @@
+"""Service orchestration for read-only portfolio AI copilot workflows."""
+
+from __future__ import annotations
+
+import json
+import math
+import re
+import statistics
+from collections.abc import Awaitable, Callable, Mapping, Sequence
+from dataclasses import dataclass
+from datetime import UTC, datetime
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
+from typing import cast
+
+from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.logging import get_logger
+from app.market_data.service import (
+    MarketDataClientError,
+    list_market_data_library_symbols,
+    list_price_history_for_symbol,
+)
+from app.portfolio_ai_copilot.provider_groq import (
+    GroqProviderError,
+    build_groq_chat_completions_adapter_config,
+    request_groq_chat_completion,
+)
+from app.portfolio_ai_copilot.schemas import (
+    CopilotEvidenceReference,
+    CopilotOperation,
+    CopilotOpportunityCandidate,
+    CopilotReasonCode,
+    CopilotResponseState,
+    PortfolioCopilotChatRequest,
+    PortfolioCopilotChatResponse,
+)
+from app.portfolio_analytics.schemas import (
+    PortfolioChartPeriod,
+    PortfolioHealthProfilePosture,
+    PortfolioHierarchyGroupBy,
+    PortfolioMonteCarloCalibrationBasis,
+    PortfolioMonteCarloRequest,
+)
+from app.portfolio_analytics.service import (
+    PortfolioAnalyticsClientError,
+    generate_portfolio_monte_carlo_response,
+    get_portfolio_contribution_response,
+    get_portfolio_health_synthesis_response,
+    get_portfolio_hierarchy_response,
+    get_portfolio_quant_metrics_response,
+    get_portfolio_return_distribution_response,
+    get_portfolio_risk_estimators_response,
+    get_portfolio_risk_evolution_response,
+    get_portfolio_summary_response,
+    get_portfolio_time_series_response,
+)
+
+logger = get_logger(__name__)
+
+MODEL_CONTEXT_EXCLUDED_FIELDS: frozenset[str] = frozenset(
+    {
+        "raw_payload",
+        "source_payload",
+        "canonical_payload",
+        "transaction_events",
+        "provider_secret",
+        "api_key",
+        "authorization",
+    }
+)
+
+_MAX_TOOL_CALLS = 6
+_MIN_OPPORTUNITY_ELIGIBLE_COUNT = 20
+_MIN_OPPORTUNITY_HISTORY_POINTS = 90
+_BOUNDARY_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(r"\b(buy|sell|short|rebalance|auto(?:matically)?|execute)\b", re.IGNORECASE),
+    re.compile(r"\b(place|submit)\s+(a\s+)?(trade|order)\b", re.IGNORECASE),
+    re.compile(r"\b(guarantee|guaranteed|risk[-\s]?free|certain return)\b", re.IGNORECASE),
+    re.compile(
+        r"\b(raw payload|canonical payload|source payload|transaction events?)\b",
+        re.IGNORECASE,
+    ),
+)
+
+_RISK_WINDOW_BY_PERIOD: dict[PortfolioChartPeriod, int] = {
+    PortfolioChartPeriod.D30: 30,
+    PortfolioChartPeriod.D90: 90,
+    PortfolioChartPeriod.D6M: 126,
+    PortfolioChartPeriod.D252: 252,
+    PortfolioChartPeriod.YTD: 252,
+    PortfolioChartPeriod.MAX: 252,
+}
+
+_QUANTIZE_6DP = Decimal("0.000001")
+
+
+class PortfolioAiCopilotClientError(ValueError):
+    """Raised when copilot request cannot be processed within v1 boundaries."""
+
+    status_code: int
+    reason_code: CopilotReasonCode
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        status_code: int,
+        reason_code: CopilotReasonCode,
+    ) -> None:
+        """Initialize one typed copilot client error."""
+
+        super().__init__(message)
+        self.status_code = status_code
+        self.reason_code = reason_code
+
+
+@dataclass(frozen=True)
+class _CopilotToolDefinition:
+    """One allowlisted tool definition for portfolio copilot orchestration."""
+
+    tool_id: str
+    metric_id: str
+    execute: Callable[[AsyncSession, PortfolioCopilotChatRequest], Awaitable[object]]
+
+
+@dataclass(frozen=True)
+class _ToolExecutionResult:
+    """One executed tool result bundle used for evidence and prompt assembly."""
+
+    tool_id: str
+    metric_id: str
+    payload: dict[str, object]
+    as_of_ledger_at: str | None
+
+
+@dataclass(frozen=True)
+class _OpportunityCandidateInput:
+    """One normalized deterministic-opportunity candidate input row."""
+
+    symbol: str
+    latest_close_price_usd: Decimal
+    rolling_90d_high_price_usd: Decimal
+    return_30d: Decimal
+    volatility_30d: Decimal
+    history_points_count: int
+    currently_held: bool
+
+
+def sanitize_model_context_payload(*, context_payload: dict[str, object]) -> dict[str, object]:
+    """Remove excluded raw/private fields recursively from model-visible context payload."""
+
+    sanitized_payload = _sanitize_context_value(value=context_payload)
+    if not isinstance(sanitized_payload, dict):
+        return {}
+    return cast(dict[str, object], sanitized_payload)
+
+
+def _sanitize_context_value(*, value: object) -> object:
+    """Sanitize one arbitrary value recursively for model prompt visibility."""
+
+    if isinstance(value, dict):
+        typed_mapping = cast(dict[str, object], value)
+        sanitized_mapping: dict[str, object] = {}
+        for key, raw_item in typed_mapping.items():
+            if key.lower() in MODEL_CONTEXT_EXCLUDED_FIELDS:
+                continue
+            sanitized_mapping[key] = _sanitize_context_value(value=raw_item)
+        return sanitized_mapping
+    if isinstance(value, list):
+        typed_list = cast(list[object], value)
+        return [_sanitize_context_value(value=item) for item in typed_list]
+    return value
+
+
+def classify_copilot_boundary_violation_reason(*, user_message: str) -> str | None:
+    """Return one blocked boundary reason for unsafe asks, otherwise return None."""
+
+    normalized_message = user_message.strip()
+    if not normalized_message:
+        return "boundary_restricted"
+
+    for boundary_pattern in _BOUNDARY_PATTERNS:
+        if boundary_pattern.search(normalized_message):
+            return CopilotReasonCode.BOUNDARY_RESTRICTED.value
+    return None
+
+
+def enforce_copilot_request_boundary(*, user_message: str) -> None:
+    """Raise typed client error when one user request violates read-only boundaries."""
+
+    violation_reason = classify_copilot_boundary_violation_reason(user_message=user_message)
+    if violation_reason is None:
+        return
+    raise PortfolioAiCopilotClientError(
+        "Request exceeds read-only copilot boundary.",
+        status_code=422,
+        reason_code=CopilotReasonCode.BOUNDARY_RESTRICTED,
+    )
+
+
+def map_provider_failure_to_copilot_state(
+    *,
+    status_code: int | None,
+    provider_error_code: str | None,
+    error_type: str | None,
+) -> dict[str, str]:
+    """Normalize provider/runtime failures to stable copilot state + reason codes."""
+
+    normalized_provider_error_code = (provider_error_code or "").strip().lower()
+    normalized_error_type = (error_type or "").strip().lower()
+
+    if status_code == 429:
+        return {
+            "state": CopilotResponseState.ERROR.value,
+            "reason_code": CopilotReasonCode.RATE_LIMITED.value,
+        }
+    if status_code == 403:
+        return {
+            "state": CopilotResponseState.BLOCKED.value,
+            "reason_code": CopilotReasonCode.PROVIDER_BLOCKED_POLICY.value,
+        }
+    if status_code in {400, 401, 404, 422}:
+        return {
+            "state": CopilotResponseState.ERROR.value,
+            "reason_code": CopilotReasonCode.PROVIDER_MISCONFIGURED.value,
+        }
+    if normalized_provider_error_code in {
+        "invalid_api_key",
+        "model_not_found",
+        "model_not_allowlisted",
+        "missing_api_key",
+        "missing_model",
+        "missing_model_allowlist",
+        "missing_base_url",
+    }:
+        return {
+            "state": CopilotResponseState.ERROR.value,
+            "reason_code": CopilotReasonCode.PROVIDER_MISCONFIGURED.value,
+        }
+    if "auth" in normalized_error_type or "configuration" in normalized_error_type:
+        return {
+            "state": CopilotResponseState.ERROR.value,
+            "reason_code": CopilotReasonCode.PROVIDER_MISCONFIGURED.value,
+        }
+    if status_code is not None and status_code >= 500:
+        return {
+            "state": CopilotResponseState.ERROR.value,
+            "reason_code": CopilotReasonCode.PROVIDER_UNAVAILABLE.value,
+        }
+    if "timeout" in normalized_error_type or "transport" in normalized_error_type:
+        return {
+            "state": CopilotResponseState.ERROR.value,
+            "reason_code": CopilotReasonCode.PROVIDER_UNAVAILABLE.value,
+        }
+    return {
+        "state": CopilotResponseState.ERROR.value,
+        "reason_code": CopilotReasonCode.PROVIDER_UNAVAILABLE.value,
+    }
+
+
+def compute_deterministic_opportunity_candidates(
+    *,
+    candidate_inputs: list[dict[str, object]],
+    minimum_eligible_count: int = _MIN_OPPORTUNITY_ELIGIBLE_COUNT,
+) -> list[dict[str, object]]:
+    """Return deterministic opportunity ranking rows from normalized candidate inputs."""
+
+    normalized_rows: list[_OpportunityCandidateInput] = []
+    for input_row in candidate_inputs:
+        normalized_input = _normalize_candidate_input_row(candidate_input=input_row)
+        if normalized_input is None:
+            continue
+        normalized_rows.append(normalized_input)
+
+    eligible_rows = [
+        row
+        for row in normalized_rows
+        if (
+            not row.currently_held
+            and row.history_points_count >= _MIN_OPPORTUNITY_HISTORY_POINTS
+            and row.latest_close_price_usd > Decimal("0")
+            and row.rolling_90d_high_price_usd > Decimal("0")
+        )
+    ]
+    if len(eligible_rows) < minimum_eligible_count:
+        raise PortfolioAiCopilotClientError(
+            "Insufficient eligible opportunity candidates after deterministic filters.",
+            status_code=409,
+            reason_code=CopilotReasonCode.INSUFFICIENT_CONTEXT,
+        )
+
+    discount_by_symbol: dict[str, float] = {
+        row.symbol: max(
+            0.0,
+            float(
+                (row.rolling_90d_high_price_usd - row.latest_close_price_usd)
+                / row.rolling_90d_high_price_usd
+            ),
+        )
+        for row in eligible_rows
+    }
+    momentum_by_symbol: dict[str, float] = {
+        row.symbol: float(row.return_30d) for row in eligible_rows
+    }
+    volatility_by_symbol: dict[str, float] = {
+        row.symbol: max(float(row.volatility_30d), 0.0) for row in eligible_rows
+    }
+
+    discount_scores = _normalize_scores(raw_scores=discount_by_symbol)
+    momentum_scores = _normalize_scores(raw_scores=momentum_by_symbol)
+    stability_scores = _normalize_inverted_scores(raw_scores=volatility_by_symbol)
+
+    ranked_rows: list[dict[str, object]] = []
+    for row in eligible_rows:
+        discount_score = discount_scores[row.symbol]
+        momentum_score = momentum_scores[row.symbol]
+        stability_score = stability_scores[row.symbol]
+        opportunity_score = (
+            (0.45 * discount_score) + (0.35 * momentum_score) + (0.20 * stability_score)
+        )
+        ranked_rows.append(
+            {
+                "symbol": row.symbol,
+                "opportunity_score": _quantize_score(opportunity_score),
+                "discount_score": _quantize_score(discount_score),
+                "momentum_score": _quantize_score(momentum_score),
+                "stability_score": _quantize_score(stability_score),
+                "latest_close_price_usd": row.latest_close_price_usd,
+                "rolling_90d_high_price_usd": row.rolling_90d_high_price_usd,
+                "return_30d": row.return_30d,
+                "volatility_30d": row.volatility_30d,
+            }
+        )
+
+    ranked_rows.sort(
+        key=lambda row: (
+            -_row_float_value(row=row, field="opportunity_score"),
+            -_row_float_value(row=row, field="discount_score"),
+            str(row["symbol"]),
+        ),
+    )
+    return ranked_rows
+
+
+def _row_float_value(*, row: dict[str, object], field: str) -> float:
+    """Extract one row decimal field as float for deterministic sorting."""
+
+    raw_value = row.get(field)
+    if isinstance(raw_value, Decimal):
+        return float(raw_value)
+    if isinstance(raw_value, (int, float)):
+        return float(raw_value)
+    return 0.0
+
+
+def _normalize_scores(*, raw_scores: Mapping[str, float]) -> dict[str, float]:
+    """Min-max normalize score map to stable [0, 1] range."""
+
+    values = list(raw_scores.values())
+    if not values:
+        return {}
+    min_value = min(values)
+    max_value = max(values)
+    if math.isclose(min_value, max_value):
+        return dict.fromkeys(raw_scores, 1.0)
+    scale = max_value - min_value
+    return {symbol: (value - min_value) / scale for symbol, value in raw_scores.items()}
+
+
+def _normalize_inverted_scores(*, raw_scores: Mapping[str, float]) -> dict[str, float]:
+    """Min-max normalize where lower raw value means higher normalized score."""
+
+    normalized_direct = _normalize_scores(raw_scores=raw_scores)
+    if not normalized_direct:
+        return {}
+    return {symbol: 1.0 - value for symbol, value in normalized_direct.items()}
+
+
+def _quantize_score(score: float) -> Decimal:
+    """Quantize one normalized score to stable six-decimal precision."""
+
+    return Decimal(str(score)).quantize(_QUANTIZE_6DP, rounding=ROUND_HALF_UP)
+
+
+def _normalize_candidate_input_row(
+    *,
+    candidate_input: dict[str, object],
+) -> _OpportunityCandidateInput | None:
+    """Normalize one candidate-input row into deterministic numeric fields."""
+
+    symbol_candidate = candidate_input.get("symbol")
+    if not isinstance(symbol_candidate, str) or not symbol_candidate.strip():
+        return None
+    symbol = symbol_candidate.strip().upper()
+
+    latest_close_price_usd = _decimal_from_object(
+        value=candidate_input.get("latest_close_price_usd"),
+    )
+    rolling_90d_high_price_usd = _decimal_from_object(
+        value=candidate_input.get("rolling_90d_high_price_usd"),
+    )
+    return_30d = _decimal_from_object(value=candidate_input.get("return_30d"))
+    volatility_30d = _decimal_from_object(value=candidate_input.get("volatility_30d"))
+
+    history_points_count_candidate = candidate_input.get("history_points_count")
+    if not isinstance(history_points_count_candidate, int):
+        return None
+    currently_held = bool(candidate_input.get("currently_held", False))
+    return _OpportunityCandidateInput(
+        symbol=symbol,
+        latest_close_price_usd=latest_close_price_usd,
+        rolling_90d_high_price_usd=rolling_90d_high_price_usd,
+        return_30d=return_30d,
+        volatility_30d=volatility_30d,
+        history_points_count=history_points_count_candidate,
+        currently_held=currently_held,
+    )
+
+
+def _decimal_from_object(*, value: object) -> Decimal:
+    """Parse one object into Decimal with fail-fast numeric validation."""
+
+    if isinstance(value, Decimal):
+        return value
+    if isinstance(value, int):
+        return Decimal(value)
+    if isinstance(value, float):
+        return Decimal(str(value))
+    if isinstance(value, str):
+        trimmed_value = value.strip()
+        if not trimmed_value:
+            return Decimal("0")
+        try:
+            return Decimal(trimmed_value)
+        except InvalidOperation as exc:
+            raise PortfolioAiCopilotClientError(
+                "Invalid numeric candidate input.",
+                status_code=422,
+                reason_code=CopilotReasonCode.INSUFFICIENT_CONTEXT,
+            ) from exc
+    return Decimal("0")
+
+
+def _extract_latest_user_message(*, request: PortfolioCopilotChatRequest) -> str:
+    """Extract latest user message from bounded request history."""
+
+    for message in reversed(request.messages):
+        if message.role.value == "user":
+            return message.content.strip()
+    return ""
+
+
+async def get_portfolio_copilot_chat_response(
+    *,
+    db: AsyncSession,
+    request: PortfolioCopilotChatRequest,
+) -> PortfolioCopilotChatResponse:
+    """Return one typed copilot response for chat or opportunity scan operation."""
+
+    latest_user_message = _extract_latest_user_message(request=request)
+    logger.info(
+        "portfolio_ai_copilot.chat_started",
+        operation=request.operation.value,
+        period=request.period.value,
+        scope=request.scope.value,
+        instrument_symbol=request.instrument_symbol,
+        message_count=len(request.messages),
+    )
+    try:
+        enforce_copilot_request_boundary(user_message=latest_user_message)
+        if request.max_tool_calls > _MAX_TOOL_CALLS:
+            raise PortfolioAiCopilotClientError(
+                "Request exceeds maximum tool-call budget.",
+                status_code=422,
+                reason_code=CopilotReasonCode.BOUNDARY_RESTRICTED,
+            )
+
+        if request.operation == CopilotOperation.OPPORTUNITY_SCAN:
+            response = await _build_opportunity_scan_response(
+                db=db,
+                request=request,
+                latest_user_message=latest_user_message,
+            )
+            logger.info(
+                "portfolio_ai_copilot.chat_completed",
+                operation=request.operation.value,
+                state=response.state.value,
+                reason_code=response.reason_code.value if response.reason_code else None,
+                evidence_count=len(response.evidence),
+                opportunity_candidate_count=len(response.opportunity_candidates),
+            )
+            return response
+
+        tool_results = await _execute_allowlisted_tools(
+            db=db,
+            request=request,
+            latest_user_message=latest_user_message,
+        )
+        prompt_context = _build_prompt_context_from_tool_results(
+            request=request,
+            tool_results=tool_results,
+        )
+        answer_text = await _request_provider_narration(
+            request=request,
+            latest_user_message=latest_user_message,
+            prompt_context=prompt_context,
+        )
+        response = PortfolioCopilotChatResponse(
+            state=CopilotResponseState.READY,
+            answer_text=answer_text,
+            evidence=[
+                CopilotEvidenceReference(
+                    tool_id=result.tool_id,
+                    metric_id=result.metric_id,
+                    as_of_ledger_at=result.as_of_ledger_at,
+                )
+                for result in tool_results
+            ],
+            limitations=_default_limitations(),
+            reason_code=None,
+        )
+        logger.info(
+            "portfolio_ai_copilot.chat_completed",
+            operation=request.operation.value,
+            state=response.state.value,
+            reason_code=None,
+            evidence_count=len(response.evidence),
+            opportunity_candidate_count=0,
+        )
+        return response
+    except PortfolioAiCopilotClientError as exc:
+        response = _response_for_client_error(error=exc)
+        logger.info(
+            "portfolio_ai_copilot.chat_rejected",
+            operation=request.operation.value,
+            reason_code=exc.reason_code.value,
+            state=response.state.value,
+            error=str(exc),
+        )
+        return response
+    except (PortfolioAnalyticsClientError, MarketDataClientError) as exc:
+        logger.info(
+            "portfolio_ai_copilot.chat_rejected",
+            operation=request.operation.value,
+            reason_code=CopilotReasonCode.INSUFFICIENT_CONTEXT.value,
+            state=CopilotResponseState.BLOCKED.value,
+            error=str(exc),
+        )
+        return PortfolioCopilotChatResponse(
+            state=CopilotResponseState.BLOCKED,
+            answer_text="",
+            evidence=[],
+            limitations=[
+                *_default_limitations(),
+                "Required portfolio or market-data context was unavailable for this request.",
+            ],
+            reason_code=CopilotReasonCode.INSUFFICIENT_CONTEXT,
+        )
+    except GroqProviderError as exc:
+        mapped_failure = map_provider_failure_to_copilot_state(
+            status_code=exc.status_code,
+            provider_error_code=exc.provider_error_code,
+            error_type=exc.error_type,
+        )
+        response = _response_for_provider_failure(
+            mapped_state=mapped_failure.get("state"),
+            mapped_reason_code=mapped_failure.get("reason_code"),
+            error_message=str(exc),
+        )
+        logger.info(
+            "portfolio_ai_copilot.chat_failed",
+            operation=request.operation.value,
+            provider_status_code=exc.status_code,
+            provider_error_code=exc.provider_error_code,
+            mapped_state=response.state.value,
+            mapped_reason_code=response.reason_code.value if response.reason_code else None,
+            error=str(exc),
+        )
+        return response
+    except Exception as exc:
+        logger.error(
+            "portfolio_ai_copilot.chat_failed",
+            operation=request.operation.value,
+            error=str(exc),
+            error_type=type(exc).__name__,
+            exc_info=True,
+        )
+        return PortfolioCopilotChatResponse(
+            state=CopilotResponseState.ERROR,
+            answer_text="",
+            evidence=[],
+            limitations=[
+                *_default_limitations(),
+                "Unexpected runtime failure occurred while processing this copilot request.",
+            ],
+            reason_code=CopilotReasonCode.PROVIDER_UNAVAILABLE,
+        )
+
+
+def _response_for_client_error(
+    *, error: PortfolioAiCopilotClientError
+) -> PortfolioCopilotChatResponse:
+    """Map one typed client error to frozen blocked/error response semantics."""
+
+    if error.reason_code in {
+        CopilotReasonCode.BOUNDARY_RESTRICTED,
+        CopilotReasonCode.INSUFFICIENT_CONTEXT,
+        CopilotReasonCode.PROVIDER_BLOCKED_POLICY,
+    }:
+        return PortfolioCopilotChatResponse(
+            state=CopilotResponseState.BLOCKED,
+            answer_text="",
+            evidence=[],
+            limitations=[*_default_limitations(), str(error)],
+            reason_code=error.reason_code,
+        )
+    return PortfolioCopilotChatResponse(
+        state=CopilotResponseState.ERROR,
+        answer_text="",
+        evidence=[],
+        limitations=[*_default_limitations(), str(error)],
+        reason_code=error.reason_code,
+    )
+
+
+def _response_for_provider_failure(
+    *,
+    mapped_state: str | None,
+    mapped_reason_code: str | None,
+    error_message: str,
+) -> PortfolioCopilotChatResponse:
+    """Build one typed response from normalized provider failure mapping."""
+
+    state = (
+        CopilotResponseState(mapped_state)
+        if mapped_state in {state.value for state in CopilotResponseState}
+        else CopilotResponseState.ERROR
+    )
+    reason_code = (
+        CopilotReasonCode(mapped_reason_code)
+        if mapped_reason_code in {reason.value for reason in CopilotReasonCode}
+        else CopilotReasonCode.PROVIDER_UNAVAILABLE
+    )
+    return PortfolioCopilotChatResponse(
+        state=state,
+        answer_text="",
+        evidence=[],
+        limitations=[*_default_limitations(), error_message],
+        reason_code=reason_code,
+    )
+
+
+def _default_limitations() -> list[str]:
+    """Return stable limitation messaging for all copilot responses."""
+
+    return [
+        "Read-only analytical copilot; no trade execution, order routing, or account mutation.",
+        "Outputs are grounded in allowlisted aggregated analytics and deterministic market rules.",
+        "Responses are informational only and not financial advice.",
+    ]
+
+
+async def _request_provider_narration(
+    *,
+    request: PortfolioCopilotChatRequest,
+    latest_user_message: str,
+    prompt_context: dict[str, object],
+) -> str:
+    """Request one provider narration response for assembled bounded prompt context."""
+
+    config = build_groq_chat_completions_adapter_config()
+    context_json = json.dumps(prompt_context, default=str, sort_keys=True)
+    system_prompt = (
+        "You are a read-only portfolio analytics copilot. "
+        "Use only provided context and do not invent unavailable facts. "
+        "Never provide trade execution instructions or guaranteed return claims. "
+        "Always include uncertainty when evidence is limited."
+    )
+    user_prompt = (
+        f"Operation: {request.operation.value}\n"
+        f"Period: {request.period.value}\n"
+        f"Scope: {request.scope.value}\n"
+        f"Instrument: {request.instrument_symbol or 'N/A'}\n"
+        f"User question: {latest_user_message}\n"
+        "Context JSON:\n"
+        f"{context_json}\n"
+        "Respond with concise portfolio analysis grounded in the context."
+    )
+    return await request_groq_chat_completion(
+        config=config,
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ],
+    )
+
+
+def _build_prompt_context_from_tool_results(
+    *,
+    request: PortfolioCopilotChatRequest,
+    tool_results: Sequence[_ToolExecutionResult],
+) -> dict[str, object]:
+    """Build one privacy-minimized prompt context from tool execution outputs."""
+
+    context_payload: dict[str, object] = {
+        "operation": request.operation.value,
+        "period": request.period.value,
+        "scope": request.scope.value,
+        "instrument_symbol": request.instrument_symbol,
+        "tool_context": {result.tool_id: result.payload for result in tool_results},
+    }
+    return sanitize_model_context_payload(context_payload=context_payload)
+
+
+async def _build_opportunity_scan_response(
+    *,
+    db: AsyncSession,
+    request: PortfolioCopilotChatRequest,
+    latest_user_message: str,
+) -> PortfolioCopilotChatResponse:
+    """Build one deterministic opportunity-scan response with separate narration."""
+
+    candidate_inputs = await _load_opportunity_candidate_inputs(db=db)
+    ranked_candidates_raw = compute_deterministic_opportunity_candidates(
+        candidate_inputs=candidate_inputs,
+        minimum_eligible_count=_MIN_OPPORTUNITY_ELIGIBLE_COUNT,
+    )
+    top_candidates_raw = ranked_candidates_raw[:10]
+    top_candidates = [
+        CopilotOpportunityCandidate.model_validate(candidate) for candidate in top_candidates_raw
+    ]
+    prompt_context: dict[str, object] = {
+        "operation": request.operation.value,
+        "period": request.period.value,
+        "scope": request.scope.value,
+        "instrument_symbol": request.instrument_symbol,
+        "candidate_count": len(top_candidates_raw),
+        "candidates": top_candidates_raw,
+    }
+    answer_text = await _request_provider_narration(
+        request=request,
+        latest_user_message=latest_user_message,
+        prompt_context=sanitize_model_context_payload(context_payload=prompt_context),
+    )
+    return PortfolioCopilotChatResponse(
+        state=CopilotResponseState.READY,
+        answer_text=answer_text,
+        evidence=[
+            CopilotEvidenceReference(
+                tool_id="opportunity_scanner",
+                metric_id="opportunity_score",
+                as_of_ledger_at=datetime.now(UTC).isoformat(),
+            )
+        ],
+        limitations=[
+            *_default_limitations(),
+            "Deterministic candidate ranking precedes AI narration in this workflow.",
+        ],
+        reason_code=None,
+        opportunity_candidates=top_candidates,
+        opportunity_narration=answer_text,
+    )
+
+
+async def _load_opportunity_candidate_inputs(*, db: AsyncSession) -> list[dict[str, object]]:
+    """Load deterministic scanner inputs from starter universe and persisted market data."""
+
+    starter_symbols = list_market_data_library_symbols(size=100)
+    summary_response = await get_portfolio_summary_response(db=db)
+    held_symbols = {row.instrument_symbol.strip().upper() for row in summary_response.rows}
+
+    candidate_inputs: list[dict[str, object]] = []
+    for symbol in starter_symbols:
+        price_history_rows = await list_price_history_for_symbol(db=db, instrument_symbol=symbol)
+        normalized_closes = _extract_recent_unique_usd_closes(price_history_rows=price_history_rows)
+        if not normalized_closes:
+            continue
+
+        latest_close = normalized_closes[0]
+        rolling_window = normalized_closes[:_MIN_OPPORTUNITY_HISTORY_POINTS]
+        rolling_90d_high = max(rolling_window) if rolling_window else Decimal("0")
+        return_30d, volatility_30d = _compute_30d_return_and_volatility(
+            descending_close_values=normalized_closes
+        )
+        candidate_inputs.append(
+            {
+                "symbol": symbol,
+                "latest_close_price_usd": latest_close,
+                "rolling_90d_high_price_usd": rolling_90d_high,
+                "return_30d": return_30d,
+                "volatility_30d": volatility_30d,
+                "history_points_count": len(normalized_closes),
+                "currently_held": symbol in held_symbols,
+            }
+        )
+    return candidate_inputs
+
+
+def _extract_recent_unique_usd_closes(*, price_history_rows: Sequence[object]) -> list[Decimal]:
+    """Extract descending unique-date USD close values for one symbol history series."""
+
+    normalized_closes: list[Decimal] = []
+    seen_calendar_keys: set[str] = set()
+    for row_candidate in price_history_rows:
+        if not isinstance(row_candidate, BaseModel):
+            continue
+        row_mapping = cast(dict[str, object], row_candidate.model_dump(mode="python"))
+        currency_code = str(row_mapping.get("currency_code", "")).upper()
+        if currency_code != "USD":
+            continue
+        price_value_candidate = row_mapping.get("price_value")
+        if not isinstance(price_value_candidate, Decimal) or price_value_candidate <= Decimal("0"):
+            continue
+        trading_date_candidate = row_mapping.get("trading_date")
+        market_timestamp_candidate = row_mapping.get("market_timestamp")
+
+        calendar_key = _resolve_calendar_key(
+            trading_date=trading_date_candidate,
+            market_timestamp=market_timestamp_candidate,
+        )
+        if calendar_key is None or calendar_key in seen_calendar_keys:
+            continue
+        seen_calendar_keys.add(calendar_key)
+        normalized_closes.append(price_value_candidate)
+    return normalized_closes
+
+
+def _resolve_calendar_key(*, trading_date: object, market_timestamp: object) -> str | None:
+    """Resolve deterministic per-day key for one market-data row."""
+
+    if hasattr(trading_date, "isoformat"):
+        isoformat_method = getattr(trading_date, "isoformat", None)
+        if callable(isoformat_method):
+            return str(isoformat_method())
+    if isinstance(market_timestamp, datetime):
+        return market_timestamp.date().isoformat()
+    return None
+
+
+def _compute_30d_return_and_volatility(
+    *,
+    descending_close_values: Sequence[Decimal],
+) -> tuple[Decimal, Decimal]:
+    """Compute 30-day return and return volatility from descending close sequence."""
+
+    if len(descending_close_values) < 31:
+        return Decimal("0"), Decimal("0")
+
+    latest_close = descending_close_values[0]
+    baseline_close = descending_close_values[30]
+    if baseline_close <= Decimal("0"):
+        return Decimal("0"), Decimal("0")
+
+    return_30d = (latest_close / baseline_close) - Decimal("1")
+
+    daily_returns: list[float] = []
+    for index in range(30):
+        newer = descending_close_values[index]
+        older = descending_close_values[index + 1]
+        if older <= Decimal("0"):
+            continue
+        daily_returns.append(float((newer / older) - Decimal("1")))
+    if len(daily_returns) >= 2:
+        volatility_30d = Decimal(str(statistics.stdev(daily_returns)))
+    else:
+        volatility_30d = Decimal("0")
+    return return_30d, volatility_30d
+
+
+async def _execute_allowlisted_tools(
+    *,
+    db: AsyncSession,
+    request: PortfolioCopilotChatRequest,
+    latest_user_message: str,
+) -> list[_ToolExecutionResult]:
+    """Execute bounded allowlisted tools and return serialized evidence payloads."""
+
+    selected_tool_ids = _select_allowlisted_tool_ids(
+        request=request,
+        latest_user_message=latest_user_message,
+    )[: request.max_tool_calls]
+    if not selected_tool_ids:
+        raise PortfolioAiCopilotClientError(
+            "No allowlisted tools were selected for this request.",
+            status_code=409,
+            reason_code=CopilotReasonCode.INSUFFICIENT_CONTEXT,
+        )
+
+    tool_registry = _build_allowlisted_tool_registry()
+    tool_results: list[_ToolExecutionResult] = []
+    for tool_id in selected_tool_ids:
+        tool_definition = tool_registry.get(tool_id)
+        if tool_definition is None:
+            continue
+        raw_payload = await tool_definition.execute(db, request)
+        payload_mapping = _serialize_tool_payload(raw_payload=raw_payload)
+        sanitized_payload = sanitize_model_context_payload(context_payload=payload_mapping)
+        tool_results.append(
+            _ToolExecutionResult(
+                tool_id=tool_definition.tool_id,
+                metric_id=tool_definition.metric_id,
+                payload=sanitized_payload,
+                as_of_ledger_at=_extract_as_of_ledger_at(payload=sanitized_payload),
+            )
+        )
+    if not tool_results:
+        raise PortfolioAiCopilotClientError(
+            "No allowlisted tool payloads were available for safe response generation.",
+            status_code=409,
+            reason_code=CopilotReasonCode.INSUFFICIENT_CONTEXT,
+        )
+    return tool_results
+
+
+def _extract_as_of_ledger_at(*, payload: Mapping[str, object]) -> str | None:
+    """Extract as_of_ledger_at field from serialized tool payload for evidence metadata."""
+
+    as_of_candidate = payload.get("as_of_ledger_at")
+    if isinstance(as_of_candidate, str):
+        return as_of_candidate
+    if isinstance(as_of_candidate, datetime):
+        return as_of_candidate.isoformat()
+    if hasattr(as_of_candidate, "isoformat"):
+        isoformat_method = getattr(as_of_candidate, "isoformat", None)
+        if callable(isoformat_method):
+            return str(isoformat_method())
+    return None
+
+
+def _serialize_tool_payload(*, raw_payload: object) -> dict[str, object]:
+    """Serialize one tool payload object into mapping form for prompt/evidence usage."""
+
+    if isinstance(raw_payload, BaseModel):
+        return cast(dict[str, object], raw_payload.model_dump(mode="python"))
+    if isinstance(raw_payload, dict):
+        return cast(dict[str, object], raw_payload)
+    raise PortfolioAiCopilotClientError(
+        "Tool payload could not be serialized safely.",
+        status_code=500,
+        reason_code=CopilotReasonCode.PROVIDER_UNAVAILABLE,
+    )
+
+
+def _select_allowlisted_tool_ids(
+    *,
+    request: PortfolioCopilotChatRequest,
+    latest_user_message: str,
+) -> list[str]:
+    """Select one deterministic bounded allowlisted-tool plan from user request context."""
+
+    normalized_message = latest_user_message.lower()
+    selected_tool_ids: list[str] = [
+        "portfolio_summary",
+        "portfolio_health_synthesis",
+        "portfolio_risk_estimators",
+    ]
+    if request.scope.value == "instrument_symbol":
+        selected_tool_ids.append("portfolio_time_series")
+    keyword_to_tool_id: tuple[tuple[str, str], ...] = (
+        ("time series", "portfolio_time_series"),
+        ("trend", "portfolio_time_series"),
+        ("contribution", "portfolio_contribution"),
+        ("drawdown", "portfolio_risk_evolution"),
+        ("volatility", "portfolio_risk_evolution"),
+        ("distribution", "portfolio_return_distribution"),
+        ("histogram", "portfolio_return_distribution"),
+        ("hierarchy", "portfolio_hierarchy"),
+        ("sector", "portfolio_hierarchy"),
+        ("allocation", "portfolio_hierarchy"),
+        ("monte carlo", "portfolio_monte_carlo"),
+        ("simulation", "portfolio_monte_carlo"),
+        ("quant", "portfolio_quant_metrics"),
+        ("sharpe", "portfolio_quant_metrics"),
+        ("sortino", "portfolio_quant_metrics"),
+        ("beta", "portfolio_quant_metrics"),
+    )
+    for keyword, tool_id in keyword_to_tool_id:
+        if keyword in normalized_message and tool_id not in selected_tool_ids:
+            selected_tool_ids.append(tool_id)
+
+    deduplicated_tool_ids: list[str] = []
+    for tool_id in selected_tool_ids:
+        if tool_id not in deduplicated_tool_ids:
+            deduplicated_tool_ids.append(tool_id)
+    return deduplicated_tool_ids[:_MAX_TOOL_CALLS]
+
+
+def _build_allowlisted_tool_registry() -> dict[str, _CopilotToolDefinition]:
+    """Build frozen v1 allowlisted tool registry for copilot orchestration."""
+
+    return {
+        "portfolio_summary": _CopilotToolDefinition(
+            tool_id="portfolio_summary",
+            metric_id="rows",
+            execute=_tool_portfolio_summary,
+        ),
+        "portfolio_time_series": _CopilotToolDefinition(
+            tool_id="portfolio_time_series",
+            metric_id="points",
+            execute=_tool_portfolio_time_series,
+        ),
+        "portfolio_contribution": _CopilotToolDefinition(
+            tool_id="portfolio_contribution",
+            metric_id="rows",
+            execute=_tool_portfolio_contribution,
+        ),
+        "portfolio_risk_estimators": _CopilotToolDefinition(
+            tool_id="portfolio_risk_estimators",
+            metric_id="metrics",
+            execute=_tool_portfolio_risk_estimators,
+        ),
+        "portfolio_risk_evolution": _CopilotToolDefinition(
+            tool_id="portfolio_risk_evolution",
+            metric_id="drawdown_path_points",
+            execute=_tool_portfolio_risk_evolution,
+        ),
+        "portfolio_return_distribution": _CopilotToolDefinition(
+            tool_id="portfolio_return_distribution",
+            metric_id="buckets",
+            execute=_tool_portfolio_return_distribution,
+        ),
+        "portfolio_hierarchy": _CopilotToolDefinition(
+            tool_id="portfolio_hierarchy",
+            metric_id="groups",
+            execute=_tool_portfolio_hierarchy,
+        ),
+        "portfolio_monte_carlo": _CopilotToolDefinition(
+            tool_id="portfolio_monte_carlo",
+            metric_id="summary",
+            execute=_tool_portfolio_monte_carlo,
+        ),
+        "portfolio_health_synthesis": _CopilotToolDefinition(
+            tool_id="portfolio_health_synthesis",
+            metric_id="health_score",
+            execute=_tool_portfolio_health_synthesis,
+        ),
+        "portfolio_quant_metrics": _CopilotToolDefinition(
+            tool_id="portfolio_quant_metrics",
+            metric_id="metrics",
+            execute=_tool_portfolio_quant_metrics,
+        ),
+    }
+
+
+async def _tool_portfolio_summary(
+    db: AsyncSession,
+    _request: PortfolioCopilotChatRequest,
+) -> object:
+    """Execute allowlisted portfolio-summary tool."""
+
+    return await get_portfolio_summary_response(db=db)
+
+
+async def _tool_portfolio_time_series(
+    db: AsyncSession,
+    request: PortfolioCopilotChatRequest,
+) -> object:
+    """Execute allowlisted portfolio time-series tool."""
+
+    return await get_portfolio_time_series_response(
+        db=db,
+        period=request.period,
+        scope=request.scope,
+        instrument_symbol=request.instrument_symbol,
+    )
+
+
+async def _tool_portfolio_contribution(
+    db: AsyncSession,
+    request: PortfolioCopilotChatRequest,
+) -> object:
+    """Execute allowlisted portfolio-contribution tool."""
+
+    return await get_portfolio_contribution_response(
+        db=db,
+        period=request.period,
+    )
+
+
+async def _tool_portfolio_risk_estimators(
+    db: AsyncSession,
+    request: PortfolioCopilotChatRequest,
+) -> object:
+    """Execute allowlisted risk-estimators tool."""
+
+    return await get_portfolio_risk_estimators_response(
+        db=db,
+        window_days=_RISK_WINDOW_BY_PERIOD[request.period],
+        scope=request.scope,
+        instrument_symbol=request.instrument_symbol,
+        period=request.period,
+    )
+
+
+async def _tool_portfolio_risk_evolution(
+    db: AsyncSession,
+    request: PortfolioCopilotChatRequest,
+) -> object:
+    """Execute allowlisted risk-evolution tool."""
+
+    return await get_portfolio_risk_evolution_response(
+        db=db,
+        period=request.period,
+        scope=request.scope,
+        instrument_symbol=request.instrument_symbol,
+    )
+
+
+async def _tool_portfolio_return_distribution(
+    db: AsyncSession,
+    request: PortfolioCopilotChatRequest,
+) -> object:
+    """Execute allowlisted return-distribution tool."""
+
+    return await get_portfolio_return_distribution_response(
+        db=db,
+        period=request.period,
+        scope=request.scope,
+        instrument_symbol=request.instrument_symbol,
+    )
+
+
+async def _tool_portfolio_hierarchy(
+    db: AsyncSession,
+    _request: PortfolioCopilotChatRequest,
+) -> object:
+    """Execute allowlisted portfolio-hierarchy tool."""
+
+    return await get_portfolio_hierarchy_response(
+        db=db,
+        group_by=PortfolioHierarchyGroupBy.SECTOR,
+    )
+
+
+async def _tool_portfolio_monte_carlo(
+    db: AsyncSession,
+    request: PortfolioCopilotChatRequest,
+) -> object:
+    """Execute allowlisted Monte Carlo tool with bounded diagnostics settings."""
+
+    monte_carlo_request = PortfolioMonteCarloRequest(
+        scope=request.scope,
+        instrument_symbol=request.instrument_symbol,
+        period=request.period,
+        sims=500,
+        enable_profile_comparison=True,
+        calibration_basis=PortfolioMonteCarloCalibrationBasis.MONTHLY,
+    )
+    return await generate_portfolio_monte_carlo_response(
+        db=db,
+        request=monte_carlo_request,
+    )
+
+
+async def _tool_portfolio_health_synthesis(
+    db: AsyncSession,
+    request: PortfolioCopilotChatRequest,
+) -> object:
+    """Execute allowlisted portfolio-health synthesis tool."""
+
+    return await get_portfolio_health_synthesis_response(
+        db=db,
+        period=request.period,
+        scope=request.scope,
+        instrument_symbol=request.instrument_symbol,
+        profile_posture=PortfolioHealthProfilePosture.BALANCED,
+    )
+
+
+async def _tool_portfolio_quant_metrics(
+    db: AsyncSession,
+    request: PortfolioCopilotChatRequest,
+) -> object:
+    """Execute allowlisted quant-metrics tool."""
+
+    return await get_portfolio_quant_metrics_response(
+        db=db,
+        period=request.period,
+    )

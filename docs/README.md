@@ -27,6 +27,7 @@ This repository organizes documentation by function so standards, product artifa
 - Frontend API and UX guide: `docs/guides/frontend-api-and-ux-guide.md`
 - Frontend design system guide: `docs/guides/frontend-design-system-guide.md`
 - Frontend delivery checklist: `docs/guides/frontend-delivery-checklist.md`
+- Portfolio AI copilot guide: `docs/guides/portfolio-ai-copilot-guide.md`
 - Local workflow (`just`): `docs/guides/local-workflow-justfile.md`
 - Logging standard: `docs/standards/logging-standard.md`
 - Frontend standard: `docs/standards/frontend-standard.md`

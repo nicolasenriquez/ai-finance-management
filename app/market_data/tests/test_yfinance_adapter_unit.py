@@ -780,6 +780,54 @@ async def test_fetch_raises_explicit_error_when_history_fallback_ladder_is_exhau
 
 
 @pytest.mark.asyncio
+async def test_fetch_surfaces_dns_endpoint_failure_with_explicit_reason(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Adapter should classify Yahoo endpoint resolution errors with clear diagnostics."""
+
+    class _FakeYFinanceModule:
+        """Minimal yfinance module that reproduces endpoint resolution failures."""
+
+        @staticmethod
+        def download(
+            *,
+            tickers: str,
+            period: str,
+            interval: str,
+            auto_adjust: bool,
+            repair: bool,
+            progress: bool,
+            threads: bool,
+            timeout: float,
+        ) -> object:
+            del tickers
+            del period
+            del interval
+            del auto_adjust
+            del repair
+            del progress
+            del threads
+            del timeout
+            raise RuntimeError("Could not resolve host: guce.yahoo.com")
+
+    monkeypatch.setattr(
+        "app.market_data.providers.yfinance_adapter._load_yfinance_module",
+        lambda: _FakeYFinanceModule(),
+    )
+
+    with pytest.raises(
+        YFinanceAdapterError,
+        match="endpoint/DNS resolution failed",
+    ) as exc_info:
+        await fetch_yfinance_daily_close_rows(
+            symbols=("AMD",),
+            config=_valid_config(),
+        )
+
+    assert exc_info.value.status_code == 502
+
+
+@pytest.mark.asyncio
 async def test_fetch_uses_operational_default_currency_when_metadata_is_missing(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

@@ -31,7 +31,7 @@ import {
   generatePortfolioQuantReport,
 } from "./api";
 
-export type PortfolioRiskWindowDays = 30 | 90 | 252;
+export type PortfolioRiskWindowDays = 30 | 90 | 126 | 252;
 export type { PortfolioTransactionEvent, PortfolioTransactionsResponse };
 
 type PortfolioTimeSeriesQueryOptions = {
@@ -44,7 +44,9 @@ const RISK_WINDOW_PERIOD_MAP: Record<PortfolioChartPeriod, PortfolioRiskWindowDa
   {
     "30D": 30,
     "90D": 90,
+    "6M": 126,
     "252D": 252,
+    YTD: 252,
     MAX: 252,
   };
 
