@@ -12,6 +12,9 @@ type WorkspacePrimaryJobPanelProps = {
   decisionTags: PersonalFinanceDecisionTag[];
   coreTenMetrics: CoreTenMetricCatalogEntry[];
   supplementary?: ReactNode;
+  metricValuesById?: Record<string, string>;
+  questionKey?: string;
+  widgetId?: string;
 };
 
 export function WorkspacePrimaryJobPanel({
@@ -21,9 +24,17 @@ export function WorkspacePrimaryJobPanel({
   decisionTags,
   coreTenMetrics,
   supplementary,
+  metricValuesById,
+  questionKey,
+  widgetId,
 }: WorkspacePrimaryJobPanelProps) {
   return (
-    <section className="panel workspace-primary-job">
+    <section
+      className="panel workspace-primary-job"
+      data-module-priority="primary"
+      data-question-key={questionKey}
+      data-widget-id={widgetId}
+    >
       <header className="panel__header workspace-primary-job__header">
         <div>
           <h2 className="panel__title">{jobTitle}</h2>
@@ -48,7 +59,14 @@ export function WorkspacePrimaryJobPanel({
         <ul className="workspace-primary-job__core-list">
           {coreTenMetrics.map((metric) => (
             <li key={metric.metricId}>
-              <strong>{metric.label}</strong>
+              <div className="workspace-primary-job__metric-row">
+                <strong>{metric.label}</strong>
+                {metricValuesById?.[metric.metricId] ? (
+                  <span className="workspace-primary-job__metric-value">
+                    {metricValuesById[metric.metricId]}
+                  </span>
+                ) : null}
+              </div>
               <p>{metric.interpretation}</p>
             </li>
           ))}

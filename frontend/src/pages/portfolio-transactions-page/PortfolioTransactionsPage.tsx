@@ -5,6 +5,7 @@ import { EmptyState } from "../../components/empty-state/EmptyState";
 import { ErrorBanner } from "../../components/error-banner/ErrorBanner";
 import { LoadingTableSkeleton } from "../../components/skeletons/LoadingTableSkeleton";
 import { PortfolioWorkspaceLayout } from "../../components/workspace-layout/PortfolioWorkspaceLayout";
+import { WorkspaceStateBanner } from "../../components/workspace-layout/WorkspaceStateBanner";
 import { formatDateTimeLabel } from "../../core/lib/dates";
 import { formatQuantity, formatUsdMoney } from "../../core/lib/formatters";
 import { resolveWorkspaceError } from "../../features/portfolio-workspace/errors";
@@ -43,17 +44,27 @@ export function PortfolioTransactionsPage() {
   return (
     <PortfolioWorkspaceLayout
       eyebrow="Transactions route"
-      title="Ledger event history"
-      description="v1 route remains scoped to ledger events only. Market-refresh diagnostics are deferred."
+      title="Cash and ledger operating narrative"
+      description="Cash/Transactions lens focused on deterministic ledger events, operating cash deltas, and concise filterable history."
       actions={
-        <Link className="button-secondary" to="/portfolio/home">
-          Back to home
+        <Link className="button-secondary" to="/portfolio/dashboard">
+          Back to dashboard
         </Link>
       }
       freshnessTimestamp={transactionsQuery.data?.as_of_ledger_at}
       scopeLabel="Ledger events only (v1)"
       provenanceLabel="Persisted portfolio transactions API"
     >
+      {isLoading ? (
+        <WorkspaceStateBanner state="loading" />
+      ) : isError ? (
+        <WorkspaceStateBanner state="error" message={errorCopy.message} />
+      ) : isSuccess && isEmpty ? (
+        <WorkspaceStateBanner state="unavailable" />
+      ) : isSuccess ? (
+        <WorkspaceStateBanner state="ready" />
+      ) : null}
+
       {isLoading ? <LoadingTableSkeleton rows={5} /> : null}
 
       {isError ? (

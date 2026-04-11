@@ -65,9 +65,13 @@ function renderShell(path: string) {
     <ThemeProvider>
       <MemoryRouter initialEntries={[path]}>
         <Routes>
+          <Route path="/portfolio/dashboard" element={<WorkspaceRouteHarness />} />
+          <Route path="/portfolio/holdings" element={<WorkspaceRouteHarness />} />
+          <Route path="/portfolio/performance" element={<WorkspaceRouteHarness />} />
           <Route path="/portfolio/home" element={<WorkspaceRouteHarness />} />
           <Route path="/portfolio/analytics" element={<WorkspaceRouteHarness />} />
           <Route path="/portfolio/risk" element={<WorkspaceRouteHarness />} />
+          <Route path="/portfolio/rebalancing" element={<WorkspaceRouteHarness />} />
           <Route path="/portfolio/reports" element={<WorkspaceRouteHarness />} />
           <Route path="/portfolio/copilot" element={<WorkspaceRouteHarness />} />
           <Route path="/portfolio/transactions" element={<WorkspaceRouteHarness />} />
@@ -87,7 +91,7 @@ describe("Portfolio workspace shell", () => {
   });
 
   it("renders stable navigation + context strip framing", () => {
-    renderShell("/portfolio/analytics");
+    renderShell("/portfolio/performance");
 
     expect(
       screen.getByRole("navigation", {
@@ -95,14 +99,14 @@ describe("Portfolio workspace shell", () => {
       }),
     ).toBeInTheDocument();
     expect(screen.getByLabelText("Data trust context")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Analytics" })).toHaveClass(
+    expect(screen.getByRole("link", { name: "Performance" })).toHaveClass(
       "workspace-nav__link--active",
     );
   });
 
   it("opens and closes command palette from shell trigger", async () => {
     const user = userEvent.setup();
-    renderShell("/portfolio/home");
+    renderShell("/portfolio/dashboard");
 
     await user.click(
       screen.getByRole("button", { name: "Open command palette" }),

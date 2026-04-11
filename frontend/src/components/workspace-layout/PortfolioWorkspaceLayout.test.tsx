@@ -5,6 +5,7 @@ import {
   cleanup,
   render,
   screen,
+  within,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {
@@ -81,9 +82,13 @@ function renderWorkspaceRoute(path: string) {
     <ThemeProvider>
       <MemoryRouter initialEntries={[path]}>
         <Routes>
+          <Route path="/portfolio/dashboard" element={<WorkspaceHarness />} />
+          <Route path="/portfolio/holdings" element={<WorkspaceHarness />} />
+          <Route path="/portfolio/performance" element={<WorkspaceHarness />} />
           <Route path="/portfolio/home" element={<WorkspaceHarness />} />
           <Route path="/portfolio/analytics" element={<WorkspaceHarness />} />
           <Route path="/portfolio/risk" element={<WorkspaceHarness />} />
+          <Route path="/portfolio/rebalancing" element={<WorkspaceHarness />} />
           <Route path="/portfolio/reports" element={<WorkspaceHarness />} />
           <Route path="/portfolio/copilot" element={<WorkspaceHarness />} />
           <Route path="/portfolio/transactions" element={<WorkspaceHarness />} />
@@ -147,20 +152,24 @@ describe("PortfolioWorkspaceLayout", () => {
 
   it.each([
     {
-      activeLabel: "Home",
-      path: "/portfolio/home",
+      activeLabel: "Dashboard",
+      path: "/portfolio/dashboard",
     },
     {
-      activeLabel: "Analytics",
-      path: "/portfolio/analytics",
+      activeLabel: "Holdings",
+      path: "/portfolio/holdings",
+    },
+    {
+      activeLabel: "Performance",
+      path: "/portfolio/performance",
     },
     {
       activeLabel: "Risk",
       path: "/portfolio/risk",
     },
     {
-      activeLabel: "Quant/Reports",
-      path: "/portfolio/reports",
+      activeLabel: "Rebalancing",
+      path: "/portfolio/rebalancing",
     },
     {
       activeLabel: "Copilot",
@@ -173,30 +182,36 @@ describe("PortfolioWorkspaceLayout", () => {
   ])("maps route state to active navigation link for $path", ({ activeLabel, path }) => {
     renderWorkspaceRoute(path);
 
+    const navigation = screen.getByRole("navigation", {
+      name: "Portfolio analytics workspace navigation",
+    });
     const links = [
-      "Home",
-      "Analytics",
+      "Dashboard",
+      "Holdings",
+      "Performance",
       "Risk",
-      "Quant/Reports",
+      "Rebalancing",
       "Copilot",
       "Transactions",
-    ].map((label) => screen.getByRole("link", { name: label }));
+    ].map((label) => within(navigation).getByRole("link", { name: label }));
 
     for (const link of links) {
-      if (link.textContent === activeLabel) {
+      if (link.textContent?.includes(activeLabel)) {
         expect(link).toHaveClass("workspace-nav__link--active");
+        expect(link).toHaveAttribute("aria-current", "page");
       } else {
         expect(link).not.toHaveClass("workspace-nav__link--active");
+        expect(link).not.toHaveAttribute("aria-current", "page");
       }
     }
   });
 
   it("supports keyboard tab navigation and enter activation between workspace routes", async () => {
     const user = userEvent.setup();
-    renderWorkspaceRoute("/portfolio/home");
+    renderWorkspaceRoute("/portfolio/dashboard");
 
-    const homeLink = screen.getByRole("link", { name: "Home" });
-    const analyticsLink = screen.getByRole("link", { name: "Analytics" });
+    const dashboardLink = screen.getByRole("link", { name: "Dashboard" });
+    const performanceLink = screen.getByRole("link", { name: "Performance" });
     const copilotLink = screen.getByRole("link", { name: "Copilot" });
     const riskLink = screen.getByRole("link", { name: "Risk" });
 
@@ -209,11 +224,11 @@ describe("PortfolioWorkspaceLayout", () => {
       }
     }
 
-    await tabUntilFocus(homeLink);
-    expect(homeLink).toHaveFocus();
+    await tabUntilFocus(dashboardLink);
+    expect(dashboardLink).toHaveFocus();
 
-    await tabUntilFocus(analyticsLink);
-    expect(analyticsLink).toHaveFocus();
+    await tabUntilFocus(performanceLink);
+    expect(performanceLink).toHaveFocus();
 
     await tabUntilFocus(copilotLink);
     expect(copilotLink).toHaveFocus();
@@ -232,11 +247,29 @@ describe("PortfolioWorkspaceLayout", () => {
   });
 
   it("renders compact trust metadata with dedicated provenance row", () => {
-    renderWorkspaceRoute("/portfolio/home");
+    renderWorkspaceRoute("/portfolio/dashboard");
 
     expect(screen.getAllByText("Scope").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Provenance").length).toBeGreaterThan(0);
     expect(screen.getByLabelText("Data provenance")).toBeInTheDocument();
+  });
+
+  it("applies deterministic shell density mode by route across navigation transitions", async () => {
+    const user = userEvent.setup();
+    renderWorkspaceRoute("/portfolio/dashboard");
+
+    const shellContainer = document.querySelector("[data-shell-density-mode]");
+    expect(shellContainer).toHaveAttribute("data-shell-density-mode", "expanded");
+
+    await user.click(screen.getByRole("link", { name: "Risk" }));
+    expect(screen.getByTestId("workspace-current-path")).toHaveTextContent("/portfolio/risk");
+    expect(shellContainer).toHaveAttribute("data-shell-density-mode", "compact");
+
+    await user.click(screen.getByRole("link", { name: "Performance" }));
+    expect(screen.getByTestId("workspace-current-path")).toHaveTextContent(
+      "/portfolio/performance",
+    );
+    expect(shellContainer).toHaveAttribute("data-shell-density-mode", "balanced");
   });
 
   it("renders top mover percent without double scaling summary percentage values", async () => {
@@ -264,7 +297,7 @@ describe("PortfolioWorkspaceLayout", () => {
       ],
     });
 
-    renderWorkspaceRoute("/portfolio/home");
+    renderWorkspaceRoute("/portfolio/dashboard");
 
     expect(await screen.findByText("PLTR +56.83%")).toBeInTheDocument();
     expect(screen.queryByText("PLTR +5683.00%")).not.toBeInTheDocument();

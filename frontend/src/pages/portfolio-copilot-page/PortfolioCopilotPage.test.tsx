@@ -97,7 +97,7 @@ describe("PortfolioCopilotPage", () => {
     expect(
       screen.getByText("idle: waiting for one bounded read-only request."),
     ).toBeInTheDocument();
-    expect(screen.getByText("Evidence panel")).toBeInTheDocument();
+    expect(screen.getByText("Evidence and handoff panel")).toBeInTheDocument();
   });
 
   it("renders ready state with evidence and limitations after successful chat response", async () => {
@@ -230,13 +230,26 @@ describe("PortfolioCopilotPage", () => {
         opportunity_candidates: [
           {
             symbol: "AAA",
+            currently_held: true,
+            action_state: "double_down_candidate",
+            action_multiplier: "2.000000",
+            action_reason_codes: [
+              "strategy_profile_dca_2x_v1",
+              "double_down_threshold_met",
+            ],
+            fundamentals_proxy_state: "passed",
+            fundamentals_proxy_score: "1.000000",
             opportunity_score: "0.810000",
             discount_score: "0.920000",
             momentum_score: "0.700000",
             stability_score: "0.720000",
             latest_close_price_usd: "95.00",
             rolling_90d_high_price_usd: "120.00",
+            rolling_52w_high_price_usd: "125.00",
+            drawdown_from_52w_high_pct: "0.240000",
             return_30d: "0.040000",
+            return_90d: "0.080000",
+            return_252d: "0.150000",
             volatility_30d: "0.180000",
           },
         ],
@@ -272,7 +285,7 @@ describe("PortfolioCopilotPage", () => {
     ).toBeInTheDocument();
   });
 
-  it("4.5 renders bounded suggestion chips and applies deterministic composer prefill", async () => {
+  it("4.5 renders bounded suggestion chips and sends suggestion directly as a new chat message", async () => {
     const user = userEvent.setup();
     const mutateAsync: CopilotMutationState["mutateAsync"] = vi
       .fn()
@@ -306,37 +319,34 @@ describe("PortfolioCopilotPage", () => {
 
     await waitFor(() =>
       expect(
-        screen.getByRole("button", {
+        screen.getAllByRole("button", {
           name: "Compare risk posture versus last month.",
-        }),
-      ).toBeInTheDocument(),
+        }).length,
+      ).toBeGreaterThan(0),
     );
 
     await user.type(
       screen.getByRole("textbox", { name: "Copilot user message" }),
       "draft to replace",
     );
-    await user.click(
-      screen.getByRole("button", {
-        name: "Compare risk posture versus last month.",
+    const compareRiskButtons = screen.getAllByRole("button", {
+      name: "Compare risk posture versus last month.",
+    });
+    await user.click(compareRiskButtons[0]);
+    await waitFor(() => expect(mutateAsync).toHaveBeenCalledTimes(2));
+    expect(mutateAsync).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        messages: expect.arrayContaining([
+          expect.objectContaining({
+            content: "Compare risk posture versus last month.",
+            role: "user",
+          }),
+        ]),
       }),
     );
-    expect(
-      screen.getByRole("textbox", { name: "Copilot user message" }),
-    ).toHaveValue("Compare risk posture versus last month.");
-
-    fireEvent.keyDown(
-      screen.getByRole("button", {
-        name: "Summarize concentration changes by symbol.",
-      }),
-      { key: "Enter" },
-    );
-    expect(
-      screen.getByRole("textbox", { name: "Copilot user message" }),
-    ).toHaveValue("Summarize concentration changes by symbol.");
   });
 
-  it("4.6 adds/removes document_id references and submits bounded attachment IDs", async () => {
+  it("4.6 uses Shift+Enter for submit and hides document reference controls in expanded chat", async () => {
     const user = userEvent.setup();
     const mutateAsync: CopilotMutationState["mutateAsync"] = vi
       .fn()
@@ -357,31 +367,15 @@ describe("PortfolioCopilotPage", () => {
 
     renderCopilotPage();
 
-    await user.type(
-      screen.getByRole("textbox", { name: "Document ID reference" }),
-      "42",
-    );
-    await user.click(screen.getByRole("button", { name: "Add document reference" }));
-    expect(screen.getByRole("button", { name: "Remove document 42" })).toBeInTheDocument();
-
-    await user.click(screen.getByRole("button", { name: "Remove document 42" }));
-    expect(screen.queryByRole("button", { name: "Remove document 42" })).not.toBeInTheDocument();
-
-    await user.type(
-      screen.getByRole("textbox", { name: "Document ID reference" }),
-      "42",
-    );
-    await user.click(screen.getByRole("button", { name: "Add document reference" }));
-    await user.type(
-      screen.getByRole("textbox", { name: "Copilot user message" }),
-      "Use attached report context.",
-    );
-    await user.click(screen.getByRole("button", { name: "Submit request" }));
+    expect(screen.queryByText("Document references")).not.toBeInTheDocument();
+    const messageBox = screen.getByRole("textbox", { name: "Copilot user message" });
+    await user.type(messageBox, "Use attached report context.");
+    fireEvent.keyDown(messageBox, { key: "Enter", shiftKey: true });
 
     await waitFor(() => expect(mutateAsync).toHaveBeenCalledTimes(1));
     expect(mutateAsync).toHaveBeenCalledWith(
       expect.objectContaining({
-        document_ids: [42],
+        document_ids: [],
       }),
     );
   });

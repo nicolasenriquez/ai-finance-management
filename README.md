@@ -7,41 +7,43 @@
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Data%20Layer-4169E1?logo=postgresql&logoColor=white)
 [![CI](https://github.com/nicolasenriquez/ai-finance-management/actions/workflows/ci.yml/badge.svg)](https://github.com/nicolasenriquez/ai-finance-management/actions/workflows/ci.yml)
 
-Contract-first personal finance analytics platform:
-PDF ingestion + canonical normalization + verification + persistence + portfolio analytics API + React frontend.
+AI-native portfolio intelligence platform with a deterministic system of record:
+PDF ingestion + canonical normalization + verification + persistence + decision-layer analytics + ML diagnostics + read-only copilot.
 
 ![AI Finance Management Screenshot](docs/evidence/frontend/screenshots-2026-03-24/desktop-summary-first-viewport.png)
 
 ## Overview
 
-AI Finance Management is a full-stack monorepo focused on deterministic financial data workflows.
+AI Finance Management is a full-stack monorepo focused on deterministic financial data workflows plus an AI-native decision layer.
 
 Current product direction:
 
-- ingest broker PDFs and source data
-- normalize transactions into canonical JSON and durable records
-- validate extraction against golden contracts
-- expose explainable portfolio analytics APIs to the frontend
+- System of record: ingest broker PDFs and source data, normalize canonical transactions, validate against golden contracts, and persist durable ledger truth
+- Decision layer: expose explainable portfolio APIs for command center, exposure, contribution, risk, rebalancing, and news context
+- Copilot layer: provide read-only "chat with my portfolio" responses grounded on allowlisted analytics tools and evidence metadata
 
 ## Current Platform Status
 
 | Area | Current Status |
 |---|---|
-| Phase | MVP foundation in active delivery |
+| Phase | AI-native portfolio intelligence productization in active delivery |
 | Backend | FastAPI + SQLAlchemy async |
 | Frontend | React 19 + Vite 6 |
 | Database | PostgreSQL |
-| API Surface | 12 routes (root, health, PDF pipeline, portfolio analytics) |
+| API Surface | 37 routes (root/health, PDF pipeline, analytics, ML, rebalancing, news, copilot) |
 | Local CLI | 30 `just` recipes (setup, DB, runtime, data-sync, quality, tests, CI, hooks) |
 | CI | Secret scan + backend gates + frontend gates |
 | API Docs | `/docs` + `/openapi.json` |
 | Version | `0.1.0` |
-| Last Verified | 2026-03-27 |
+| Last Verified | 2026-04-06 |
 
 ## Main Capabilities
 
 - PDF preflight, ingestion, extraction, normalization, verification, and persistence
-- ledger-first portfolio analytics (`summary` and lot-detail drill-down)
+- decision-layer analytics (`command-center`, `exposure`, `contribution-to-risk`, `correlation`, `risk-evolution`, `return-distribution`)
+- portfolio optimization and scenario diagnostics (`MVO`/`HRP`/`Black-Litterman`) via rebalancing endpoints
+- holdings-grounded ML diagnostics (`signals`, `clusters`, `anomalies`, `forecasts`, `registry`)
+- read-only portfolio copilot with structured narrative envelope (`answer`, `evidence`, `assumptions`, `caveats`, `suggested_follow_ups`)
 - local operator data-sync commands with explicit refresh scopes (`core`, `100`, `200`)
 - strict engineering gates: lint, type checks, security scans, and tests
 - structured logs and explicit fail-fast error behavior
@@ -52,12 +54,17 @@ Current product direction:
 flowchart LR
   A[Frontend<br/>React + Vite] --> B[FastAPI API]
   B --> C[PDF Pipeline<br/>preflight -> ingest -> extract -> normalize -> verify -> persist]
-  B --> D[Portfolio Analytics<br/>summary + lot detail]
-  B --> E[Data Sync Service<br/>bootstrap + market refresh]
-  C --> F[(PostgreSQL)]
-  D --> F
-  E --> F
-  G[Golden Set<br/>dataset_1] --> C
+  B --> D[Decision Layer<br/>command center + exposure + risk + attribution]
+  B --> E[ML Layer<br/>signals + clusters + anomalies + forecasts]
+  B --> F[Copilot Layer<br/>read-only grounded chat]
+  B --> G[Rebalancing + News Context]
+  B --> H[Data Sync Service<br/>bootstrap + market refresh]
+  C --> Z[(PostgreSQL)]
+  D --> Z
+  E --> Z
+  G --> Z
+  H --> Z
+  I[Golden Set<br/>dataset_1] --> C
 ```
 
 ## Core Workflow
@@ -70,8 +77,9 @@ flowchart TD
   S4 --> S5[5. Normalize canonical records]
   S5 --> S6[6. Verify against golden set]
   S6 --> S7[7. Persist to PostgreSQL]
-  S7 --> S8[8. Compute portfolio analytics]
-  S8 --> S9[9. Render frontend views]
+  S7 --> S8[8. Build decision-layer + ML payloads]
+  S8 --> S9[9. Render decision-lens frontend]
+  S9 --> S10[10. Answer grounded copilot queries]
 ```
 
 ## Repository Layout
@@ -88,6 +96,10 @@ flowchart TD
 │   ├── pdf_persistence/
 │   ├── portfolio_ledger/
 │   ├── portfolio_analytics/
+│   ├── portfolio_ml/
+│   ├── portfolio_rebalancing/
+│   ├── portfolio_news_context/
+│   ├── portfolio_ai_copilot/
 │   ├── data_sync/
 │   ├── market_data/
 │   ├── shared/
@@ -221,7 +233,37 @@ just ci
   - `POST /api/pdf/persist`
 - Portfolio Analytics:
   - `GET /api/portfolio/summary`
+  - `GET /api/portfolio/command-center`
+  - `GET /api/portfolio/exposure`
+  - `GET /api/portfolio/contribution-to-risk`
+  - `GET /api/portfolio/correlation`
+  - `GET /api/portfolio/time-series`
+  - `GET /api/portfolio/contribution`
+  - `GET /api/portfolio/risk-estimators`
+  - `GET /api/portfolio/risk-evolution`
+  - `GET /api/portfolio/return-distribution`
+  - `GET /api/portfolio/efficient-frontier`
+  - `POST /api/portfolio/monte-carlo`
+  - `GET /api/portfolio/health-synthesis`
+  - `GET /api/portfolio/quant-metrics`
+  - `POST /api/portfolio/quant-reports`
+  - `GET /api/portfolio/quant-reports/{report_id}`
+  - `GET /api/portfolio/hierarchy`
+  - `GET /api/portfolio/transactions`
   - `GET /api/portfolio/lots/{instrument_symbol}`
+- ML:
+  - `GET /api/portfolio/ml/signals`
+  - `GET /api/portfolio/ml/clusters`
+  - `GET /api/portfolio/ml/anomalies`
+  - `GET /api/portfolio/ml/forecasts`
+  - `GET /api/portfolio/ml/registry`
+- Rebalancing:
+  - `GET /api/portfolio/rebalancing/strategies`
+  - `POST /api/portfolio/rebalancing/scenario`
+- News Context:
+  - `GET /api/portfolio/news/context`
+- Copilot:
+  - `POST /api/portfolio/copilot/chat`
 
 ## Documentation Index
 

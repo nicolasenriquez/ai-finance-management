@@ -32,12 +32,17 @@ type BuildWorkspaceNavigationTargetParams = {
 const DEFAULT_SCOPE: PortfolioTimeSeriesScope = "portfolio";
 
 const ROUTE_CONTEXT_SUPPORT: Record<string, RouteContextSupport> = {
-  "/portfolio/home": {
+  "/portfolio/dashboard": {
     supportsPeriod: true,
     supportsScope: false,
     supportsInstrumentSymbol: false,
   },
-  "/portfolio/analytics": {
+  "/portfolio/holdings": {
+    supportsPeriod: false,
+    supportsScope: false,
+    supportsInstrumentSymbol: false,
+  },
+  "/portfolio/performance": {
     supportsPeriod: true,
     supportsScope: false,
     supportsInstrumentSymbol: false,
@@ -47,7 +52,7 @@ const ROUTE_CONTEXT_SUPPORT: Record<string, RouteContextSupport> = {
     supportsScope: true,
     supportsInstrumentSymbol: true,
   },
-  "/portfolio/reports": {
+  "/portfolio/rebalancing": {
     supportsPeriod: true,
     supportsScope: false,
     supportsInstrumentSymbol: false,
@@ -59,6 +64,21 @@ const ROUTE_CONTEXT_SUPPORT: Record<string, RouteContextSupport> = {
   },
   "/portfolio/transactions": {
     supportsPeriod: false,
+    supportsScope: false,
+    supportsInstrumentSymbol: false,
+  },
+  "/portfolio/home": {
+    supportsPeriod: true,
+    supportsScope: false,
+    supportsInstrumentSymbol: false,
+  },
+  "/portfolio/analytics": {
+    supportsPeriod: true,
+    supportsScope: false,
+    supportsInstrumentSymbol: false,
+  },
+  "/portfolio/reports": {
+    supportsPeriod: true,
     supportsScope: false,
     supportsInstrumentSymbol: false,
   },

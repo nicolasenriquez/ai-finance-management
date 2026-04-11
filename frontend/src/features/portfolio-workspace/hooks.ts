@@ -8,6 +8,7 @@ import type {
   PortfolioChartPeriod,
   PortfolioHealthProfilePosture,
   PortfolioHierarchyGroupBy,
+  PortfolioRebalancingScenarioRequest,
   PortfolioMLScope,
   PortfolioMLState,
   PortfolioMonteCarloRequest,
@@ -19,16 +20,25 @@ import type {
   PortfolioTransactionsResponse,
 } from "../../core/api/schemas";
 import {
+  fetchPortfolioCommandCenter,
+  fetchPortfolioContributionToRisk,
   fetchPortfolioContribution,
+  fetchPortfolioCorrelation,
   fetchPortfolioEfficientFrontier,
+  fetchPortfolioExposure,
   fetchPortfolioHealthSynthesis,
   fetchPortfolioHierarchy,
+  fetchPortfolioMLAnomalies,
+  fetchPortfolioMLClusters,
   fetchPortfolioMLForecasts,
   fetchPortfolioMLRegistry,
   fetchPortfolioMLSignals,
+  fetchPortfolioNewsContext,
+  fetchPortfolioRebalancingStrategies,
   fetchPortfolioReturnDistribution,
   fetchPortfolioRiskEvolution,
   fetchPortfolioQuantMetrics,
+  postPortfolioRebalancingScenario,
   fetchPortfolioQuantReportHtml,
   fetchPortfolioRiskEstimators,
   fetchPortfolioTimeSeries,
@@ -60,6 +70,48 @@ export function mapChartPeriodToRiskWindow(
   period: PortfolioChartPeriod,
 ): PortfolioRiskWindowDays {
   return RISK_WINDOW_PERIOD_MAP[period];
+}
+
+export function usePortfolioCommandCenterQuery() {
+  return useQuery({
+    queryKey: ["portfolio", "command-center"],
+    queryFn: () => fetchPortfolioCommandCenter(),
+    staleTime: 30_000,
+    retry: (failureCount, error) =>
+      failureCount < 1 && shouldRetryApiError(error),
+  });
+}
+
+export function usePortfolioExposureQuery(
+  dimension: "asset_class" | "sector" | "currency" | "country" = "sector",
+) {
+  return useQuery({
+    queryKey: ["portfolio", "exposure", dimension],
+    queryFn: () => fetchPortfolioExposure(dimension),
+    staleTime: 30_000,
+    retry: (failureCount, error) =>
+      failureCount < 1 && shouldRetryApiError(error),
+  });
+}
+
+export function usePortfolioContributionToRiskQuery() {
+  return useQuery({
+    queryKey: ["portfolio", "contribution-to-risk"],
+    queryFn: () => fetchPortfolioContributionToRisk(),
+    staleTime: 30_000,
+    retry: (failureCount, error) =>
+      failureCount < 1 && shouldRetryApiError(error),
+  });
+}
+
+export function usePortfolioCorrelationQuery(limitSymbols = 8) {
+  return useQuery({
+    queryKey: ["portfolio", "correlation", limitSymbols],
+    queryFn: () => fetchPortfolioCorrelation(limitSymbols),
+    staleTime: 30_000,
+    retry: (failureCount, error) =>
+      failureCount < 1 && shouldRetryApiError(error),
+  });
 }
 
 export function usePortfolioTimeSeriesQuery(
@@ -320,6 +372,64 @@ export function usePortfolioMLSignalQuery(options: {
   });
 }
 
+export function usePortfolioMLClustersQuery(options: {
+  scope: PortfolioMLScope;
+  instrumentSymbol?: string | null;
+  enabled?: boolean;
+}) {
+  const normalizedInstrumentSymbol =
+    options.instrumentSymbol?.trim().toUpperCase() || null;
+  const isValidScopeRequest =
+    options.scope === "portfolio" || normalizedInstrumentSymbol !== null;
+  return useQuery({
+    queryKey: [
+      "portfolio",
+      "ml",
+      "clusters",
+      options.scope,
+      normalizedInstrumentSymbol,
+    ],
+    queryFn: () =>
+      fetchPortfolioMLClusters({
+        scope: options.scope,
+        instrumentSymbol: normalizedInstrumentSymbol,
+      }),
+    enabled: options.enabled ?? isValidScopeRequest,
+    staleTime: 30_000,
+    retry: (failureCount, error) =>
+      failureCount < 1 && shouldRetryApiError(error),
+  });
+}
+
+export function usePortfolioMLAnomaliesQuery(options: {
+  scope: PortfolioMLScope;
+  instrumentSymbol?: string | null;
+  enabled?: boolean;
+}) {
+  const normalizedInstrumentSymbol =
+    options.instrumentSymbol?.trim().toUpperCase() || null;
+  const isValidScopeRequest =
+    options.scope === "portfolio" || normalizedInstrumentSymbol !== null;
+  return useQuery({
+    queryKey: [
+      "portfolio",
+      "ml",
+      "anomalies",
+      options.scope,
+      normalizedInstrumentSymbol,
+    ],
+    queryFn: () =>
+      fetchPortfolioMLAnomalies({
+        scope: options.scope,
+        instrumentSymbol: normalizedInstrumentSymbol,
+      }),
+    enabled: options.enabled ?? isValidScopeRequest,
+    staleTime: 30_000,
+    retry: (failureCount, error) =>
+      failureCount < 1 && shouldRetryApiError(error),
+  });
+}
+
 export function usePortfolioMLForecastQuery(options: {
   scope: PortfolioMLScope;
   instrumentSymbol?: string | null;
@@ -381,6 +491,33 @@ export function usePortfolioTransactionsQuery() {
   return useQuery({
     queryKey: ["portfolio", "transactions"],
     queryFn: fetchPortfolioTransactions,
+    staleTime: 30_000,
+    retry: (failureCount, error) =>
+      failureCount < 1 && shouldRetryApiError(error),
+  });
+}
+
+export function usePortfolioRebalancingStrategiesQuery() {
+  return useQuery({
+    queryKey: ["portfolio", "rebalancing", "strategies"],
+    queryFn: () => fetchPortfolioRebalancingStrategies(),
+    staleTime: 30_000,
+    retry: (failureCount, error) =>
+      failureCount < 1 && shouldRetryApiError(error),
+  });
+}
+
+export function usePortfolioRebalancingScenarioMutation() {
+  return useMutation({
+    mutationFn: (request: PortfolioRebalancingScenarioRequest) =>
+      postPortfolioRebalancingScenario(request),
+  });
+}
+
+export function usePortfolioNewsContextQuery() {
+  return useQuery({
+    queryKey: ["portfolio", "news-context"],
+    queryFn: () => fetchPortfolioNewsContext(),
     staleTime: 30_000,
     retry: (failureCount, error) =>
       failureCount < 1 && shouldRetryApiError(error),

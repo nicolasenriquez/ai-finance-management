@@ -1,4 +1,5 @@
 import { Link, useSearchParams } from "react-router-dom";
+import { useState } from "react";
 
 import { PortfolioContributionWaterfall } from "../../components/charts/AnalystVisualModules";
 import { PortfolioContributionChart } from "../../components/charts/PortfolioContributionChart";
@@ -107,6 +108,7 @@ function buildContributionInsight(rows: PortfolioContributionRow[]): {
 
 export function PortfolioAnalyticsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const [showAttributionBridge, setShowAttributionBridge] = useState(false);
   const selectedPeriod = resolvePeriodFromSearchParams(searchParams);
   const timeSeriesQuery = usePortfolioTimeSeriesQuery(selectedPeriod);
   const contributionQuery = usePortfolioContributionQuery(selectedPeriod);
@@ -153,8 +155,8 @@ export function PortfolioAnalyticsPage() {
             value={selectedPeriod}
             onChange={handlePeriodChange}
           />
-          <Link className="button-secondary" to="/portfolio/home">
-            Back to home
+          <Link className="button-secondary" to="/portfolio/dashboard">
+            Back to dashboard
           </Link>
         </>
       }
@@ -171,6 +173,8 @@ export function PortfolioAnalyticsPage() {
         jobDescription="Use one attribution-first viewport to identify concentration drivers before navigating to risk or reporting diagnostics."
         decisionTags={["allocation_review", "risk_posture"]}
         coreTenMetrics={analyticsCoreTenMetrics}
+        questionKey="attribution-priority-framing"
+        widgetId="analytics-primary-job"
         supplementary={
           <div className="chart-summary-grid">
             <article className="chart-summary-card">
@@ -228,6 +232,9 @@ export function PortfolioAnalyticsPage() {
               subtitle="Recharts performance view with benchmark overlays sourced from persisted prices."
               shortDescription="Trend context for selected period before attribution deep-dive."
               longDescription="Use this normalized trend view to decide whether performance needs attribution diagnostics or risk interpretation next."
+              questionKey="trend-versus-benchmark"
+              widgetId="analytics-trend"
+              priority="primary"
             >
               <PortfolioTrendChart points={timeSeriesQuery.data.points} />
             </WorkspaceChartPanel>
@@ -237,6 +244,9 @@ export function PortfolioAnalyticsPage() {
               subtitle="Top symbols by absolute contribution to selected-period P&L."
               shortDescription="Diverging bar view with net-share and absolute-share context for attribution clarity."
               longDescription="Use net share to understand directional drag/lift versus period net result, and absolute share to quantify concentration of movers."
+              questionKey="attribution-concentration-interpretation"
+              widgetId="analytics-contribution-leaders"
+              priority="primary"
             >
               {contributionInsight ? (
                 <div className="chart-summary-grid">
@@ -304,14 +314,42 @@ export function PortfolioAnalyticsPage() {
               ) : null}
             </WorkspaceChartPanel>
 
-            <WorkspaceChartPanel
-              title="Contribution waterfall"
-              subtitle="Sequential bridge of top symbol contributions to period impact."
-              shortDescription="Waterfall-style module to separate additive positive and negative drivers."
-              longDescription="Interpret this as an attribution bridge, not a risk estimator; values are absolute contribution deltas from current period payload."
-            >
-              <PortfolioContributionWaterfall rows={contributionRows} />
-            </WorkspaceChartPanel>
+            <section className="panel workspace-advanced-disclosure">
+              <header className="panel__header">
+                <div>
+                  <h2 className="panel__title">Advanced attribution modules</h2>
+                  <p className="panel__subtitle">
+                    Progressive disclosure keeps one canonical contribution view in the first
+                    surface.
+                  </p>
+                </div>
+                <button
+                  aria-expanded={showAttributionBridge}
+                  className="button-secondary"
+                  onClick={() => setShowAttributionBridge((previous) => !previous)}
+                  type="button"
+                >
+                  {showAttributionBridge
+                    ? "Hide attribution bridge"
+                    : "Show attribution bridge"}
+                </button>
+              </header>
+              {showAttributionBridge ? (
+                <div className="panel__body workspace-advanced-disclosure__body">
+                  <WorkspaceChartPanel
+                    title="Contribution waterfall"
+                    subtitle="Sequential bridge of top symbol contributions to period impact."
+                    shortDescription="Waterfall-style module to separate additive positive and negative drivers."
+                    longDescription="Interpret this as an attribution bridge, not a risk estimator; values are absolute contribution deltas from current period payload."
+                    questionKey="attribution-concentration-interpretation"
+                    widgetId="analytics-contribution-waterfall"
+                    priority="advanced"
+                  >
+                    <PortfolioContributionWaterfall rows={contributionRows} />
+                  </WorkspaceChartPanel>
+                </div>
+              ) : null}
+            </section>
           </>
         )
       ) : null}

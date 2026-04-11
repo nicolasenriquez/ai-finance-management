@@ -29,45 +29,52 @@ type ResolveCommandPaletteDestinationsParams = {
 
 const ROUTE_JUMP_DESTINATIONS: CommandPaletteDestination[] = [
   {
-    id: "route-home",
+    id: "route-dashboard",
     kind: "route_jump",
-    label: "Go to Home",
-    hint: "Route jump",
-    destinationPath: "/portfolio/home",
+    label: "Go to Dashboard",
+    hint: "Dashboard lens",
+    destinationPath: "/portfolio/dashboard",
   },
   {
-    id: "route-analytics",
+    id: "route-holdings",
     kind: "route_jump",
-    label: "Go to Analytics",
-    hint: "Route jump",
-    destinationPath: "/portfolio/analytics",
+    label: "Go to Holdings",
+    hint: "Holdings lens",
+    destinationPath: "/portfolio/holdings",
+  },
+  {
+    id: "route-performance",
+    kind: "route_jump",
+    label: "Go to Performance",
+    hint: "Performance lens",
+    destinationPath: "/portfolio/performance",
   },
   {
     id: "route-risk",
     kind: "route_jump",
     label: "Go to Risk",
-    hint: "Route jump",
+    hint: "Risk lens",
     destinationPath: "/portfolio/risk",
   },
   {
-    id: "route-reports",
+    id: "route-rebalancing",
     kind: "route_jump",
-    label: "Go to Quant/Reports",
-    hint: "Route jump",
-    destinationPath: "/portfolio/reports",
+    label: "Go to Rebalancing",
+    hint: "Rebalancing lens",
+    destinationPath: "/portfolio/rebalancing",
   },
   {
     id: "route-copilot",
     kind: "route_jump",
     label: "Go to Copilot",
-    hint: "Route jump",
+    hint: "Copilot lens",
     destinationPath: "/portfolio/copilot",
   },
   {
     id: "route-transactions",
     kind: "route_jump",
     label: "Go to Transactions",
-    hint: "Route jump",
+    hint: "Cash/Transactions lens",
     destinationPath: "/portfolio/transactions",
   },
 ];
@@ -145,7 +152,7 @@ function buildWatchlistActionDestinations(
         ? `Remove ${symbol} from watchlist`
         : `Add ${symbol} to watchlist`,
       hint: "Watchlist",
-      destinationPath: "/portfolio/home",
+      destinationPath: "/portfolio/dashboard",
       watchlistSymbol: symbol,
       watchlistAction: isWatchlisted ? "remove" : "add",
     };
@@ -159,9 +166,9 @@ function buildAnalyticalActionDestinations(
     {
       id: "action-reports-current-period",
       kind: "analytical_action",
-      label: "Open reports for current period",
+      label: "Open rebalancing for current period",
       hint: "Analytical action",
-      destinationPath: "/portfolio/reports",
+      destinationPath: "/portfolio/rebalancing",
       contextOverrides: {
         period: currentContext.period,
       },

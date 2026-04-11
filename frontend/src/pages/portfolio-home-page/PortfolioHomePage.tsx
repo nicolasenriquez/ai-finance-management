@@ -1,5 +1,5 @@
 import { Link, useSearchParams } from "react-router-dom";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 import { PortfolioPeriodChangeWaterfall } from "../../components/charts/AnalystVisualModules";
 import { PortfolioTrendChart } from "../../components/charts/PortfolioTrendChart";
@@ -18,6 +18,8 @@ import type {
   PortfolioHierarchyGroupBy,
 } from "../../core/api/schemas";
 import { formatPricingSnapshotProvenanceLabel } from "../../core/lib/provenance";
+import { formatDateTimeLabel } from "../../core/lib/dates";
+import { formatUsdMoney } from "../../core/lib/formatters";
 import { buildHomeMetricCards } from "../../features/portfolio-workspace/overview";
 import { getCoreTenEntriesForRoute } from "../../features/portfolio-workspace/core-ten-catalog";
 import { PortfolioChartPeriodControl } from "../../features/portfolio-workspace/PortfolioChartPeriodControl";
@@ -25,6 +27,7 @@ import { resolvePortfolioChartPeriod } from "../../features/portfolio-workspace/
 import { resolveWorkspaceError } from "../../features/portfolio-workspace/errors";
 import { usePortfolioSummaryQuery } from "../../features/portfolio-summary/hooks";
 import {
+  usePortfolioCommandCenterQuery,
   usePortfolioHealthSynthesisQuery,
   usePortfolioHierarchyQuery,
   usePortfolioTimeSeriesQuery,
@@ -57,6 +60,7 @@ export function PortfolioHomePage() {
     scope: "portfolio",
     profilePosture: healthProfilePosture,
   });
+  const commandCenterQuery = usePortfolioCommandCenterQuery();
 
   const isCoreLoading =
     summaryQuery.isLoading ||
@@ -105,16 +109,66 @@ export function PortfolioHomePage() {
   const metricCards = isCoreSuccess
     ? buildHomeMetricCards(summaryQuery.data.rows, timeSeriesQuery.data.points)
     : [];
+  const commandCenterAsOfLabel = commandCenterQuery.isSuccess
+    ? formatDateTimeLabel(commandCenterQuery.data.as_of_ledger_at)
+    : "n/a";
+  const whatChangedEntries = commandCenterQuery.isSuccess
+    ? commandCenterQuery.data.insights.slice(0, 5).map((insight) => {
+        const insightText = `${insight.title} ${insight.message}`.toLowerCase();
+        const destination =
+          insightText.includes("volatility") || insight.severity === "elevated_risk"
+            ? `/portfolio/risk?period=${selectedPeriod}`
+            : insightText.includes("concentr")
+              ? `/portfolio/holdings?period=${selectedPeriod}`
+              : insightText.includes("benchmark") || insightText.includes("return")
+                ? `/portfolio/performance?period=${selectedPeriod}`
+                : `/portfolio/rebalancing?period=${selectedPeriod}`;
+        return {
+          id: insight.insight_id,
+          headline: insight.title,
+          message: insight.message,
+          destination,
+          severity: insight.severity,
+        };
+      })
+    : [];
   const homeCoreTenMetrics = getCoreTenEntriesForRoute("home");
   const dividendNetUsd = isCoreSuccess
     ? summaryQuery.data.rows.reduce((accumulator, row) => {
         return accumulator + Number(row.dividend_net_usd);
       }, 0)
     : 0;
+  const homePrimaryKpiValues = useMemo<Record<string, string>>(() => {
+    if (!isCoreSuccess) {
+      return {} as Record<string, string>;
+    }
+    const rows = summaryQuery.data.rows;
+    const marketValueUsd = rows.reduce((accumulator, row) => {
+      return accumulator + Number(row.market_value_usd || "0");
+    }, 0);
+    const unrealizedGainUsd = rows.reduce((accumulator, row) => {
+      return accumulator + Number(row.unrealized_gain_usd || "0");
+    }, 0);
+    const openCostBasisUsd = rows.reduce((accumulator, row) => {
+      return accumulator + Number(row.open_cost_basis_usd || "0");
+    }, 0);
+    const unrealizedGainPct =
+      openCostBasisUsd > 0 ? (unrealizedGainUsd / openCostBasisUsd) * 100 : 0;
+    const realizedGainUsd = rows.reduce((accumulator, row) => {
+      return accumulator + Number(row.realized_gain_usd || "0");
+    }, 0);
+
+    return {
+      market_value_usd: formatUsdMoney(marketValueUsd.toFixed(2)),
+      unrealized_gain_pct: `${unrealizedGainPct.toFixed(2)}%`,
+      realized_gain_usd: formatUsdMoney(realizedGainUsd.toFixed(2)),
+      dividend_net_usd: formatUsdMoney(dividendNetUsd.toFixed(2)),
+    };
+  }, [dividendNetUsd, isCoreSuccess, summaryQuery.data?.rows]);
   const drilldownCards: DrilldownRouteCard[] = [
     {
-      label: "Analytics route",
-      to: `/portfolio/analytics?period=${selectedPeriod}`,
+      label: "Performance lens",
+      to: `/portfolio/performance?period=${selectedPeriod}`,
       routeTag: "Attribution",
       useCase: "When you need to identify concentration and contribution drivers.",
       outcome: "Trend + contribution diagnostics for period interpretation.",
@@ -127,11 +181,11 @@ export function PortfolioHomePage() {
       outcome: "Estimator-led risk context with methodology metadata.",
     },
     {
-      label: "Quant/Reports route",
-      to: `/portfolio/reports?period=${selectedPeriod}`,
-      routeTag: "Reporting",
-      useCase: "When you need reusable report artifacts and scorecards.",
-      outcome: "Quant diagnostics, report lifecycle, and preview artifacts.",
+      label: "Rebalancing lens",
+      to: `/portfolio/rebalancing?period=${selectedPeriod}`,
+      routeTag: "Rebalancing",
+      useCase: "When you need scenario comparison, frontier context, and ML diagnostics.",
+      outcome: "Frontier, scenario comparison, forecast intervals, and governance context.",
     },
     {
       label: "Transactions route",
@@ -145,8 +199,8 @@ export function PortfolioHomePage() {
   return (
     <PortfolioWorkspaceLayout
       eyebrow="Workspace home"
-      title="Portfolio command home"
-      description="Executive snapshot route: KPI health, period bridge, trend context, and deterministic drill-down routes."
+      title="Overview command home"
+      description="Highlights-first overview lens: KPI posture, trend context, hierarchy concentration, and deterministic drill-down routes."
       actions={
         <>
           <PortfolioChartPeriodControl
@@ -154,7 +208,7 @@ export function PortfolioHomePage() {
             onChange={handlePeriodChange}
           />
           <Link className="button-secondary" to="/portfolio">
-            Open grouped summary
+            Open holdings ledger
           </Link>
         </>
       }
@@ -176,6 +230,9 @@ export function PortfolioHomePage() {
         jobDescription="Prioritize a concise operating snapshot before deeper diagnostics: valuation posture, realized outcomes, and income contribution."
         decisionTags={["allocation_review", "income_monitoring", "goal_progress"]}
         coreTenMetrics={homeCoreTenMetrics}
+        metricValuesById={homePrimaryKpiValues}
+        questionKey="portfolio-operating-posture"
+        widgetId="home-primary-job"
         supplementary={
           <div className="chart-summary-grid">
             <article className="chart-summary-card">
@@ -199,6 +256,106 @@ export function PortfolioHomePage() {
           </div>
         }
       />
+
+      <section className="panel">
+        <header className="panel__header">
+          <h2 className="panel__title">Decision command center</h2>
+          <p className="panel__subtitle">
+            First-viewport posture with deterministic insight cards and explicit state metadata.
+          </p>
+        </header>
+        <div className="panel__body">
+          {commandCenterQuery.isLoading ? <LoadingTableSkeleton rows={2} /> : null}
+          {commandCenterQuery.isError ? (
+            <ErrorBanner
+              title="Command center unavailable"
+              message="Command center metrics could not be loaded from decision-layer APIs."
+              variant="warning"
+              actions={
+                <button
+                  className="button-primary"
+                  onClick={() => void commandCenterQuery.refetch()}
+                  type="button"
+                >
+                  Retry command center
+                </button>
+              }
+            />
+          ) : null}
+          {commandCenterQuery.isSuccess && commandCenterQuery.data.state !== "ready" ? (
+            <EmptyState
+              title="Command center not ready"
+              message={commandCenterQuery.data.state_reason_detail}
+            />
+          ) : null}
+          {commandCenterQuery.isSuccess && commandCenterQuery.data.state === "ready" ? (
+            <div className="chart-summary-grid">
+              <article className="chart-summary-card">
+                <span className="chart-summary-card__label">Net worth</span>
+                <strong className="chart-summary-card__headline">
+                  {formatUsdMoney(commandCenterQuery.data.net_worth_usd)}
+                </strong>
+                <p className="chart-summary-card__copy">As of {commandCenterAsOfLabel}.</p>
+              </article>
+              <article className="chart-summary-card">
+                <span className="chart-summary-card__label">Daily P&L</span>
+                <strong className="chart-summary-card__headline">
+                  {formatUsdMoney(commandCenterQuery.data.daily_pnl_usd)}
+                </strong>
+                <p className="chart-summary-card__copy">
+                  Latest portfolio day-over-day movement.
+                </p>
+              </article>
+              <article className="chart-summary-card chart-summary-card--accent">
+                <span className="chart-summary-card__label">Top-5 concentration</span>
+                <strong className="chart-summary-card__headline">
+                  {Number(commandCenterQuery.data.concentration_top5_pct).toFixed(2)}%
+                </strong>
+                <p className="chart-summary-card__copy">
+                  Concentration posture before deeper risk diagnostics.
+                </p>
+              </article>
+            </div>
+          ) : null}
+        </div>
+      </section>
+
+      <section className="panel" id="what-changed-panel">
+        <header className="panel__header">
+          <h2 className="panel__title">What changed</h2>
+          <p className="panel__subtitle">
+            Deterministic highlights linked to the relevant decision lens.
+          </p>
+        </header>
+        <div className="panel__body">
+          {commandCenterQuery.isLoading ? <LoadingTableSkeleton rows={2} /> : null}
+          {commandCenterQuery.isSuccess && whatChangedEntries.length === 0 ? (
+            <EmptyState
+              title="No material changes detected"
+              message="No insight cards were emitted for the selected period."
+            />
+          ) : null}
+          {whatChangedEntries.length > 0 ? (
+            <div className="what-changed-list" role="list" aria-label="What changed list">
+              {whatChangedEntries.map((entry) => (
+                <article className="what-changed-card" key={entry.id} role="listitem">
+                  <div className="what-changed-card__header">
+                    <strong>{entry.headline}</strong>
+                    <span className={`status-pill status-pill--${entry.severity === "elevated_risk" ? "negative" : entry.severity === "caution" ? "neutral" : "positive"}`}>
+                      {entry.severity}
+                    </span>
+                  </div>
+                  <p>{entry.message}</p>
+                  <div className="what-changed-card__footer">
+                    <span>As of {commandCenterAsOfLabel}</span>
+                    <Link to={entry.destination}>Open details</Link>
+                  </div>
+                </article>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      </section>
 
       {isCoreLoading ? (
         <WorkspaceStateBanner state="loading" />
@@ -411,6 +568,9 @@ export function PortfolioHomePage() {
               subtitle="Bridge from start value to current value with explicit contribution components."
               shortDescription="Waterfall-style module for period movement decomposition."
               longDescription="Use this bridge to separate valuation drift from realized/dividend components and reconciliation adjustments."
+              questionKey="period-change-bridge"
+              widgetId="home-period-waterfall"
+              priority="advanced"
             >
               <PortfolioPeriodChangeWaterfall
                 points={timeSeriesQuery.data.points}
@@ -423,6 +583,9 @@ export function PortfolioHomePage() {
               subtitle="Latest points from portfolio time-series with benchmark overlays and spread context."
               shortDescription="Time-trend comparison against rebased benchmark trajectories."
               longDescription="This preview guides drill-down decisions; final report workflows belong to the Quant/Reports route."
+              questionKey="trend-versus-benchmark"
+              widgetId="home-trend-preview"
+              priority="primary"
             >
               <PortfolioTrendChart
                 analysisActions={

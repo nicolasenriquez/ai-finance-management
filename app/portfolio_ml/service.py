@@ -16,7 +16,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.logging import get_logger
 from app.portfolio_ml.models import PortfolioMLModelSnapshot
 from app.portfolio_ml.schemas import (
+    PortfolioMLAnomaliesResponse,
+    PortfolioMLAnomalyRow,
     PortfolioMLCapmMetrics,
+    PortfolioMLClusterRow,
+    PortfolioMLClustersResponse,
     PortfolioMLForecastHorizonRow,
     PortfolioMLForecastResponse,
     PortfolioMLFreshnessPolicy,
@@ -45,11 +49,54 @@ _COVERAGE_CEILING: Final[float] = 0.88
 _CHAMPION_TTL_HOURS: Final[int] = 168
 _DEFAULT_RIDGE_LAG_COUNT: Final[int] = 5
 _SUPPORTED_FORECAST_MODEL_FAMILIES: Final[frozenset[str]] = frozenset(
-    {"naive", "seasonal_naive", "ewma_holt", "arima_baseline", "ridge_lag_regression"}
+    {
+        "naive",
+        "seasonal_naive",
+        "ewma_holt",
+        "arima_baseline",
+        "ridge_lag_regression",
+        "quantile_boosting",
+    }
+)
+_SUPPORTED_SEGMENTATION_MODEL_FAMILIES: Final[frozenset[str]] = frozenset({"kmeans_proxy_v1"})
+_SUPPORTED_ANOMALY_MODEL_FAMILIES: Final[frozenset[str]] = frozenset({"isolation_forest_proxy_v1"})
+_SUPPORTED_MODEL_FAMILIES: Final[frozenset[str]] = frozenset(
+    {
+        *_SUPPORTED_FORECAST_MODEL_FAMILIES,
+        *_SUPPORTED_SEGMENTATION_MODEL_FAMILIES,
+        *_SUPPORTED_ANOMALY_MODEL_FAMILIES,
+    }
 )
 _DEFERRED_MODEL_FAMILIES: Final[frozenset[str]] = frozenset(
     {"lstm", "rnn", "prophet", "segmentation", "customer_segmentation"}
 )
+_FORECAST_POLICY_VERSION: Final[str] = "forecast_policy_v2_quantile_20260406"
+_SEGMENTATION_POLICY_VERSION: Final[str] = "segmentation_policy_v1_20260406"
+_ANOMALY_POLICY_VERSION: Final[str] = "anomaly_policy_v1_20260406"
+_FEATURE_SET_HASH_BY_FAMILY: Final[dict[str, str]] = {
+    "naive": "portfolio_ml_features_v1",
+    "seasonal_naive": "portfolio_ml_features_v1",
+    "ewma_holt": "portfolio_ml_features_v1",
+    "arima_baseline": "portfolio_ml_features_v1",
+    "ridge_lag_regression": "portfolio_ml_features_v1",
+    "quantile_boosting": "portfolio_ml_features_quantile_v1",
+    "kmeans_proxy_v1": "portfolio_ml_features_segmentation_v1",
+    "isolation_forest_proxy_v1": "portfolio_ml_features_anomaly_v1",
+}
+_POLICY_VERSION_BY_FAMILY: Final[dict[str, str]] = {
+    "naive": _FORECAST_POLICY_VERSION,
+    "seasonal_naive": _FORECAST_POLICY_VERSION,
+    "ewma_holt": _FORECAST_POLICY_VERSION,
+    "arima_baseline": _FORECAST_POLICY_VERSION,
+    "ridge_lag_regression": _FORECAST_POLICY_VERSION,
+    "quantile_boosting": _FORECAST_POLICY_VERSION,
+    "kmeans_proxy_v1": _SEGMENTATION_POLICY_VERSION,
+    "isolation_forest_proxy_v1": _ANOMALY_POLICY_VERSION,
+}
+_FORECAST_POLICY_EXCLUDED_BY_SCOPE: dict[str, frozenset[str]] = {
+    "portfolio": frozenset(),
+    "instrument_symbol": frozenset(),
+}
 
 _FORECAST_CHAMPION_BY_SCOPE: dict[tuple[str, str], dict[str, object]] = {}
 
@@ -76,6 +123,12 @@ def _normalize_model_family_token(*, model_family: str) -> str:
         return "ewma_holt"
     if normalized in {"ridge", "ridge_lag"}:
         return "ridge_lag_regression"
+    if normalized in {"quantile", "quantile_regression", "quantile_boost"}:
+        return "quantile_boosting"
+    if normalized in {"kmeans", "segmentation_kmeans"}:
+        return "kmeans_proxy_v1"
+    if normalized in {"isolation_forest", "anomaly_iforest"}:
+        return "isolation_forest_proxy_v1"
     return normalized
 
 
@@ -88,13 +141,38 @@ def enforce_supported_model_policy(*, model_family: str) -> str:
             "unsupported_model_policy: model family " f"'{model_family}' is deferred for v1.",
             status_code=422,
         )
-    if normalized not in _SUPPORTED_FORECAST_MODEL_FAMILIES:
+    if normalized not in _SUPPORTED_MODEL_FAMILIES:
         raise PortfolioMLClientError(
             "unsupported_model_policy: model family "
             f"'{model_family}' is not allowlisted for v1.",
             status_code=422,
         )
     return normalized
+
+
+def _resolve_policy_version_for_family(*, model_family: str) -> str:
+    """Resolve policy version metadata for one normalized model family."""
+
+    return _POLICY_VERSION_BY_FAMILY.get(model_family, _FORECAST_POLICY_VERSION)
+
+
+def _resolve_feature_set_hash_for_family(*, model_family: str) -> str:
+    """Resolve feature-set hash metadata for one normalized model family."""
+
+    return _FEATURE_SET_HASH_BY_FAMILY.get(model_family, "portfolio_ml_features_v1")
+
+
+def _is_forecast_family_policy_allowed_for_scope(
+    *,
+    scope: PortfolioMLScope,
+    model_family: str,
+) -> tuple[bool, str | None]:
+    """Return whether one forecast model family is allowed for one serving scope."""
+
+    excluded_families = _FORECAST_POLICY_EXCLUDED_BY_SCOPE.get(scope.value, frozenset())
+    if model_family in excluded_families:
+        return (False, "policy_disallowed_for_scope")
+    return (True, None)
 
 
 def _coerce_json_mapping(value: object) -> dict[str, object]:
@@ -383,6 +461,127 @@ def build_deterministic_signal_payload(
     }
 
 
+def build_deterministic_cluster_payload(
+    *,
+    snapshot_input: Mapping[str, object],
+) -> Mapping[str, object]:
+    """Build deterministic holding-segmentation payload from snapshot row features."""
+
+    rows_obj = snapshot_input.get("rows")
+    if not isinstance(rows_obj, list):
+        raise PortfolioMLClientError(
+            "Snapshot input must include a 'rows' list for clustering.",
+            status_code=422,
+        )
+    rows = cast(list[object], rows_obj)
+    cluster_rows: list[dict[str, object]] = []
+    for row_obj in rows:
+        if not isinstance(row_obj, Mapping):
+            raise PortfolioMLClientError(
+                "Each clustering row must be a mapping.",
+                status_code=422,
+            )
+        row = cast(Mapping[str, object], row_obj)
+        symbol_obj = row.get("instrument_symbol")
+        if not isinstance(symbol_obj, str) or symbol_obj.strip() == "":
+            raise PortfolioMLClientError(
+                "Field 'instrument_symbol' is required for clustering rows.",
+                status_code=422,
+            )
+        symbol = symbol_obj.strip().upper()
+        return_30d = _parse_decimal(row.get("return_30d"), field_name="return_30d")
+        volatility_30d = _parse_decimal(row.get("volatility_30d"), field_name="volatility_30d")
+        if volatility_30d >= Decimal("0.050000"):
+            cluster_id = "high_beta"
+            cluster_label = "High Beta"
+        elif return_30d >= Decimal("0.030000"):
+            cluster_id = "momentum_core"
+            cluster_label = "Momentum Core"
+        else:
+            cluster_id = "defensive_core"
+            cluster_label = "Defensive Core"
+        cluster_rows.append(
+            {
+                "instrument_symbol": symbol,
+                "cluster_id": cluster_id,
+                "cluster_label": cluster_label,
+                "return_30d": _quantize_decimal(return_30d, scale=_SIGNAL_VALUE_SCALE),
+                "volatility_30d": _quantize_decimal(volatility_30d, scale=_SIGNAL_VALUE_SCALE),
+            }
+        )
+    cluster_rows.sort(key=lambda row: cast(str, row["instrument_symbol"]))
+    return {
+        "scope": snapshot_input.get("scope", PortfolioMLScope.PORTFOLIO.value),
+        "instrument_symbol": snapshot_input.get("instrument_symbol"),
+        "as_of_ledger_at": snapshot_input.get("as_of_ledger_at"),
+        "as_of_market_at": snapshot_input.get("as_of_market_at"),
+        "model_family": "kmeans_proxy_v1",
+        "rows": cluster_rows,
+    }
+
+
+def build_deterministic_anomaly_payload(
+    *,
+    snapshot_input: Mapping[str, object],
+) -> Mapping[str, object]:
+    """Build deterministic anomaly-event payload from snapshot row features."""
+
+    rows_obj = snapshot_input.get("rows")
+    if not isinstance(rows_obj, list):
+        raise PortfolioMLClientError(
+            "Snapshot input must include a 'rows' list for anomaly detection.",
+            status_code=422,
+        )
+    rows = cast(list[object], rows_obj)
+    anomaly_rows: list[dict[str, object]] = []
+    default_event_at = snapshot_input.get("as_of_market_at", snapshot_input.get("as_of_ledger_at"))
+    for row_obj in rows:
+        if not isinstance(row_obj, Mapping):
+            raise PortfolioMLClientError(
+                "Each anomaly row must be a mapping.",
+                status_code=422,
+            )
+        row = cast(Mapping[str, object], row_obj)
+        symbol_obj = row.get("instrument_symbol")
+        if not isinstance(symbol_obj, str) or symbol_obj.strip() == "":
+            raise PortfolioMLClientError(
+                "Field 'instrument_symbol' is required for anomaly rows.",
+                status_code=422,
+            )
+        symbol = symbol_obj.strip().upper()
+        return_30d = _parse_decimal(row.get("return_30d"), field_name="return_30d")
+        volatility_30d = _parse_decimal(row.get("volatility_30d"), field_name="volatility_30d")
+        score = _quantize_decimal(
+            (abs(return_30d) * Decimal("0.70")) + (volatility_30d * Decimal("0.30")),
+            scale=_SIGNAL_VALUE_SCALE,
+        )
+        severity = "high" if score >= Decimal("0.060000") else "moderate"
+        reason_code = "return_and_volatility_outlier" if score >= Decimal("0.030000") else "normal"
+        anomaly_rows.append(
+            {
+                "instrument_symbol": symbol,
+                "event_at": default_event_at,
+                "anomaly_score": score,
+                "severity": severity,
+                "reason_code": reason_code,
+            }
+        )
+    anomaly_rows.sort(
+        key=lambda row: (
+            cast(str, row["instrument_symbol"]),
+            cast(str, row["reason_code"]),
+        )
+    )
+    return {
+        "scope": snapshot_input.get("scope", PortfolioMLScope.PORTFOLIO.value),
+        "instrument_symbol": snapshot_input.get("instrument_symbol"),
+        "as_of_ledger_at": snapshot_input.get("as_of_ledger_at"),
+        "as_of_market_at": snapshot_input.get("as_of_market_at"),
+        "model_family": "isolation_forest_proxy_v1",
+        "rows": anomaly_rows,
+    }
+
+
 def resolve_signal_lifecycle_state(
     *,
     as_of_ledger_at: str | datetime,
@@ -427,6 +626,53 @@ def resolve_signal_lifecycle_state(
         "state": PortfolioMLState.READY.value,
         "state_reason_code": "ready",
         "state_reason_detail": "signals_ready",
+    }
+
+
+def resolve_family_lifecycle_state(
+    *,
+    model_family: str,
+    as_of_ledger_at: datetime,
+    as_of_market_at: datetime,
+    evaluated_at: datetime,
+    freshness_policy_hours: int,
+    missing_history_windows: Sequence[str] | None = None,
+) -> dict[str, str]:
+    """Resolve lifecycle state with family-specific stale/unavailable reason codes."""
+
+    if freshness_policy_hours <= 0:
+        raise PortfolioMLClientError(
+            "Freshness policy hours must be positive.",
+            status_code=422,
+        )
+
+    normalized_model_family = enforce_supported_model_policy(model_family=model_family)
+    missing_windows = list(missing_history_windows) if missing_history_windows is not None else []
+    if len(missing_windows) > 0:
+        return {
+            "state": PortfolioMLState.UNAVAILABLE.value,
+            "state_reason_code": f"{normalized_model_family}_insufficient_history",
+            "state_reason_detail": (
+                "Missing required history windows for family lifecycle policy: "
+                f"{', '.join(sorted(set(missing_windows)))}."
+            ),
+        }
+
+    oldest_source_timestamp = (
+        as_of_ledger_at if as_of_ledger_at <= as_of_market_at else as_of_market_at
+    )
+    age_hours = (evaluated_at - oldest_source_timestamp).total_seconds() / 3600
+    if age_hours > freshness_policy_hours:
+        return {
+            "state": PortfolioMLState.STALE.value,
+            "state_reason_code": f"{normalized_model_family}_source_data_stale",
+            "state_reason_detail": "Source snapshot age exceeds freshness policy threshold.",
+        }
+
+    return {
+        "state": PortfolioMLState.READY.value,
+        "state_reason_code": "ready",
+        "state_reason_detail": f"{normalized_model_family}_ready",
     }
 
 
@@ -536,6 +782,64 @@ def _default_snapshot_points(*, evaluated_at: datetime) -> list[dict[str, object
         {"captured_at": day_1.isoformat(), "value": "100.9"},
         {"captured_at": day_0.isoformat(), "value": "102.1"},
     ]
+
+
+def _build_family_registry_snapshot_payload(
+    *,
+    scope: PortfolioMLScope,
+    instrument_symbol: str | None,
+    model_family: str,
+    evaluated_at: datetime,
+    lifecycle_state: PortfolioMLState,
+    policy_reason_code: str,
+    row_count: int,
+) -> dict[str, object]:
+    """Build one registry payload for segmentation/anomaly family lineage."""
+
+    normalized_model_family = enforce_supported_model_policy(model_family=model_family)
+    normalized_symbol = instrument_symbol.strip().upper() if instrument_symbol is not None else None
+    if normalized_symbol == "":
+        normalized_symbol = None
+    snapshot_ref = (
+        f"{scope.value}_{normalized_symbol or 'portfolio'}_{normalized_model_family}_"
+        f"{evaluated_at:%Y%m%dT%H%M%SZ}"
+    )
+    training_window_end = evaluated_at - timedelta(days=1)
+    training_window_start = training_window_end - timedelta(days=120)
+    policy_version = _resolve_policy_version_for_family(model_family=normalized_model_family)
+    return {
+        "scope": scope.value,
+        "instrument_symbol": normalized_symbol,
+        "model_family": normalized_model_family,
+        "model_snapshot_ref": snapshot_ref,
+        "evaluated_at": evaluated_at,
+        "expires_at": evaluated_at + timedelta(hours=_CHAMPION_TTL_HOURS),
+        "training_window_start": training_window_start,
+        "training_window_end": training_window_end,
+        "policy_result": {
+            "qualified": lifecycle_state is PortfolioMLState.READY,
+            "reason_code": policy_reason_code,
+            "reason_detail": "family_state_resolution",
+        },
+        "metric_vector": {"row_count": row_count},
+        "baseline_comparator_metrics": {},
+        "feature_set_hash": _resolve_feature_set_hash_for_family(
+            model_family=normalized_model_family
+        ),
+        "run_status": (
+            "completed"
+            if lifecycle_state is PortfolioMLState.READY
+            else f"family_{lifecycle_state.value}"
+        ),
+        "snapshot_metadata": {
+            "policy_version": policy_version,
+            "family_type": (
+                "segmentation"
+                if normalized_model_family in _SUPPORTED_SEGMENTATION_MODEL_FAMILIES
+                else "anomaly"
+            ),
+        },
+    }
 
 
 async def get_portfolio_ml_signal_response(
@@ -653,6 +957,194 @@ async def get_portfolio_ml_signal_response(
             "Unexpected portfolio_ml signal generation error.",
             status_code=500,
         ) from None
+
+
+async def get_portfolio_ml_clusters_response(
+    *,
+    scope: PortfolioMLScope,
+    instrument_symbol: str | None = None,
+    db: AsyncSession | None = None,
+) -> PortfolioMLClustersResponse:
+    """Return deterministic cluster assignments for selected scope."""
+
+    normalized_symbol = instrument_symbol.strip().upper() if instrument_symbol is not None else None
+    if normalized_symbol == "":
+        normalized_symbol = None
+    if scope is PortfolioMLScope.INSTRUMENT_SYMBOL and normalized_symbol is None:
+        raise PortfolioMLClientError(
+            "instrument_symbol is required when scope=instrument_symbol.",
+            status_code=422,
+        )
+
+    evaluated_at = utcnow()
+    as_of_ledger_at = evaluated_at - timedelta(hours=1)
+    as_of_market_at = evaluated_at - timedelta(hours=1)
+    base_rows = [
+        {"instrument_symbol": "AAPL", "return_30d": "0.042000", "volatility_30d": "0.021000"},
+        {"instrument_symbol": "MSFT", "return_30d": "0.038000", "volatility_30d": "0.019000"},
+        {"instrument_symbol": "BTC", "return_30d": "0.061000", "volatility_30d": "0.083000"},
+    ]
+    if scope is PortfolioMLScope.INSTRUMENT_SYMBOL and normalized_symbol is not None:
+        base_rows = [row for row in base_rows if row["instrument_symbol"] == normalized_symbol]
+        if len(base_rows) == 0:
+            base_rows = [
+                {
+                    "instrument_symbol": normalized_symbol,
+                    "return_30d": "0.025000",
+                    "volatility_30d": "0.018000",
+                }
+            ]
+
+    model_family = "kmeans_proxy_v1"
+    payload = build_deterministic_cluster_payload(
+        snapshot_input={
+            "scope": scope.value,
+            "instrument_symbol": normalized_symbol,
+            "as_of_ledger_at": as_of_ledger_at,
+            "as_of_market_at": as_of_market_at,
+            "rows": base_rows,
+        }
+    )
+    payload_rows_obj = payload.get("rows")
+    payload_rows: list[PortfolioMLClusterRow] = []
+    if isinstance(payload_rows_obj, list):
+        payload_rows_values = cast(list[object], payload_rows_obj)
+        for row_obj in payload_rows_values:
+            if isinstance(row_obj, Mapping):
+                payload_rows.append(PortfolioMLClusterRow.model_validate(row_obj))
+
+    lifecycle = resolve_family_lifecycle_state(
+        model_family=model_family,
+        as_of_ledger_at=as_of_ledger_at,
+        as_of_market_at=as_of_market_at,
+        evaluated_at=evaluated_at,
+        freshness_policy_hours=_DEFAULT_FRESHNESS_HOURS,
+    )
+    lifecycle_state = PortfolioMLState(lifecycle["state"])
+    if db is not None:
+        await _upsert_model_snapshot(
+            db=db,
+            snapshot_payload=_build_family_registry_snapshot_payload(
+                scope=scope,
+                instrument_symbol=normalized_symbol,
+                model_family=model_family,
+                evaluated_at=evaluated_at,
+                lifecycle_state=lifecycle_state,
+                policy_reason_code=lifecycle["state_reason_code"],
+                row_count=len(payload_rows),
+            ),
+            lifecycle_state=lifecycle_state,
+        )
+
+    return PortfolioMLClustersResponse(
+        state=lifecycle_state,
+        state_reason_code=lifecycle["state_reason_code"],
+        state_reason_detail=lifecycle["state_reason_detail"],
+        scope=scope,
+        instrument_symbol=normalized_symbol,
+        as_of_ledger_at=as_of_ledger_at,
+        as_of_market_at=as_of_market_at,
+        evaluated_at=evaluated_at,
+        freshness_policy=PortfolioMLFreshnessPolicy(max_age_hours=_DEFAULT_FRESHNESS_HOURS),
+        model_family=cast(str, payload.get("model_family", model_family)),
+        feature_set_hash=_resolve_feature_set_hash_for_family(model_family=model_family),
+        policy_version=_resolve_policy_version_for_family(model_family=model_family),
+        rows=payload_rows,
+    )
+
+
+async def get_portfolio_ml_anomalies_response(
+    *,
+    scope: PortfolioMLScope,
+    instrument_symbol: str | None = None,
+    db: AsyncSession | None = None,
+) -> PortfolioMLAnomaliesResponse:
+    """Return deterministic anomaly events for selected scope."""
+
+    normalized_symbol = instrument_symbol.strip().upper() if instrument_symbol is not None else None
+    if normalized_symbol == "":
+        normalized_symbol = None
+    if scope is PortfolioMLScope.INSTRUMENT_SYMBOL and normalized_symbol is None:
+        raise PortfolioMLClientError(
+            "instrument_symbol is required when scope=instrument_symbol.",
+            status_code=422,
+        )
+
+    evaluated_at = utcnow()
+    as_of_ledger_at = evaluated_at - timedelta(hours=1)
+    as_of_market_at = evaluated_at - timedelta(hours=1)
+    base_rows = [
+        {"instrument_symbol": "AAPL", "return_30d": "0.042000", "volatility_30d": "0.021000"},
+        {"instrument_symbol": "MSFT", "return_30d": "-0.012000", "volatility_30d": "0.019000"},
+        {"instrument_symbol": "BTC", "return_30d": "-0.088000", "volatility_30d": "0.092000"},
+    ]
+    if scope is PortfolioMLScope.INSTRUMENT_SYMBOL and normalized_symbol is not None:
+        base_rows = [row for row in base_rows if row["instrument_symbol"] == normalized_symbol]
+        if len(base_rows) == 0:
+            base_rows = [
+                {
+                    "instrument_symbol": normalized_symbol,
+                    "return_30d": "-0.018000",
+                    "volatility_30d": "0.023000",
+                }
+            ]
+
+    model_family = "isolation_forest_proxy_v1"
+    payload = build_deterministic_anomaly_payload(
+        snapshot_input={
+            "scope": scope.value,
+            "instrument_symbol": normalized_symbol,
+            "as_of_ledger_at": as_of_ledger_at,
+            "as_of_market_at": as_of_market_at,
+            "rows": base_rows,
+        }
+    )
+    payload_rows_obj = payload.get("rows")
+    payload_rows: list[PortfolioMLAnomalyRow] = []
+    if isinstance(payload_rows_obj, list):
+        payload_rows_values = cast(list[object], payload_rows_obj)
+        for row_obj in payload_rows_values:
+            if isinstance(row_obj, Mapping):
+                payload_rows.append(PortfolioMLAnomalyRow.model_validate(row_obj))
+
+    lifecycle = resolve_family_lifecycle_state(
+        model_family=model_family,
+        as_of_ledger_at=as_of_ledger_at,
+        as_of_market_at=as_of_market_at,
+        evaluated_at=evaluated_at,
+        freshness_policy_hours=_DEFAULT_FRESHNESS_HOURS,
+    )
+    lifecycle_state = PortfolioMLState(lifecycle["state"])
+    if db is not None:
+        await _upsert_model_snapshot(
+            db=db,
+            snapshot_payload=_build_family_registry_snapshot_payload(
+                scope=scope,
+                instrument_symbol=normalized_symbol,
+                model_family=model_family,
+                evaluated_at=evaluated_at,
+                lifecycle_state=lifecycle_state,
+                policy_reason_code=lifecycle["state_reason_code"],
+                row_count=len(payload_rows),
+            ),
+            lifecycle_state=lifecycle_state,
+        )
+
+    return PortfolioMLAnomaliesResponse(
+        state=lifecycle_state,
+        state_reason_code=lifecycle["state_reason_code"],
+        state_reason_detail=lifecycle["state_reason_detail"],
+        scope=scope,
+        instrument_symbol=normalized_symbol,
+        as_of_ledger_at=as_of_ledger_at,
+        as_of_market_at=as_of_market_at,
+        evaluated_at=evaluated_at,
+        freshness_policy=PortfolioMLFreshnessPolicy(max_age_hours=_DEFAULT_FRESHNESS_HOURS),
+        model_family=cast(str, payload.get("model_family", model_family)),
+        feature_set_hash=_resolve_feature_set_hash_for_family(model_family=model_family),
+        policy_version=_resolve_policy_version_for_family(model_family=model_family),
+        rows=payload_rows,
+    )
 
 
 def build_walk_forward_splits(
@@ -871,6 +1363,24 @@ def _forecast_ridge_lag_regression(
     return np.asarray(forecast_values, dtype="float64")
 
 
+def _forecast_quantile_boosting(
+    series_array: np.ndarray,
+    *,
+    horizon_count: int,
+    lag_count: int,
+) -> np.ndarray:
+    """Generate deterministic quantile-boosting proxy point forecast."""
+
+    ridge_forecast = _forecast_ridge_lag_regression(
+        series_array,
+        horizon_count=horizon_count,
+        lag_count=lag_count,
+    )
+    ewma_forecast = _forecast_ewma_holt(series_array, horizon_count=horizon_count)
+    blend = (ridge_forecast * 0.70) + (ewma_forecast * 0.30)
+    return blend.astype("float64")
+
+
 def run_baseline_candidate_forecasts(
     *,
     series_values: Sequence[float | int | Decimal],
@@ -902,6 +1412,11 @@ def run_baseline_candidate_forecasts(
         "ewma_holt": _forecast_ewma_holt(series_array, horizon_count=horizon_count),
         "arima_baseline": _forecast_arima_baseline(series_array, horizon_count=horizon_count),
         "ridge_lag_regression": _forecast_ridge_lag_regression(
+            series_array,
+            horizon_count=horizon_count,
+            lag_count=_DEFAULT_RIDGE_LAG_COUNT,
+        ),
+        "quantile_boosting": _forecast_quantile_boosting(
             series_array,
             horizon_count=horizon_count,
             lag_count=_DEFAULT_RIDGE_LAG_COUNT,
@@ -1058,6 +1573,18 @@ def select_champion_forecast_snapshot(
                     field_name="confidence_level",
                 ),
                 "model_snapshot_ref": snapshot_ref,
+                "p10": _quantize_decimal(
+                    _parse_decimal(horizon["lower_bound"], field_name="p10"),
+                    scale=_FORECAST_VALUE_SCALE,
+                ),
+                "p50": _quantize_decimal(
+                    _parse_decimal(horizon["point_estimate"], field_name="p50"),
+                    scale=_FORECAST_VALUE_SCALE,
+                ),
+                "p90": _quantize_decimal(
+                    _parse_decimal(horizon["upper_bound"], field_name="p90"),
+                    scale=_FORECAST_VALUE_SCALE,
+                ),
             }
         )
 
@@ -1078,6 +1605,54 @@ def select_champion_forecast_snapshot(
         "feature_set_hash": feature_set_hash,
         "run_status": "completed",
         "horizons": normalized_horizons,
+    }
+
+
+def build_forecast_candidate_audit_snapshot(
+    *,
+    scope: str,
+    instrument_symbol: str | None,
+    model_family: str,
+    evaluated_at: datetime,
+    policy_result: Mapping[str, object],
+    metric_vector: Mapping[str, object],
+    baseline_comparator_metrics: Mapping[str, object],
+) -> dict[str, object]:
+    """Build one registry audit snapshot payload for non-promoted forecast candidates."""
+
+    normalized_symbol = instrument_symbol.strip().upper() if instrument_symbol is not None else None
+    if normalized_symbol == "":
+        normalized_symbol = None
+    normalized_model_family = enforce_supported_model_policy(model_family=model_family)
+    snapshot_ref = (
+        f"{scope}_{normalized_symbol or 'portfolio'}_{normalized_model_family}_"
+        f"{evaluated_at:%Y%m%dT%H%M%SZ}_candidate"
+    )
+    training_window_end = evaluated_at - timedelta(days=1)
+    training_window_start = training_window_end - timedelta(days=120)
+    policy_version = _resolve_policy_version_for_family(model_family=normalized_model_family)
+
+    return {
+        "scope": scope,
+        "instrument_symbol": normalized_symbol,
+        "model_family": normalized_model_family,
+        "model_snapshot_ref": snapshot_ref,
+        "evaluated_at": evaluated_at,
+        "expires_at": evaluated_at + timedelta(hours=_CHAMPION_TTL_HOURS),
+        "training_window_start": training_window_start,
+        "training_window_end": training_window_end,
+        "policy_result": dict(policy_result),
+        "metric_vector": dict(metric_vector),
+        "baseline_comparator_metrics": dict(baseline_comparator_metrics),
+        "feature_set_hash": _resolve_feature_set_hash_for_family(
+            model_family=normalized_model_family
+        ),
+        "run_status": "candidate_rejected",
+        "snapshot_metadata": {
+            "policy_version": policy_version,
+            "candidate_status": "rejected",
+        },
+        "horizons": [],
     }
 
 
@@ -1257,6 +1832,7 @@ async def _upsert_model_snapshot(
     policy_result = _coerce_json_mapping(snapshot_payload.get("policy_result"))
     metric_vector = _coerce_json_mapping(snapshot_payload.get("metric_vector"))
     baseline_metrics = _coerce_json_mapping(snapshot_payload.get("baseline_comparator_metrics"))
+    snapshot_metadata = _coerce_json_mapping(snapshot_payload.get("snapshot_metadata"))
 
     feature_set_hash_value = snapshot_payload.get("feature_set_hash")
     if not isinstance(feature_set_hash_value, str) or feature_set_hash_value.strip() == "":
@@ -1268,6 +1844,28 @@ async def _upsert_model_snapshot(
     run_status = run_status_value.strip() if isinstance(run_status_value, str) else "completed"
     if run_status == "":
         run_status = "completed"
+
+    failure_reason_code = None
+    failure_reason_detail = None
+    if run_status.startswith("family_") or policy_result.get("qualified") is False:
+        reason_code_value = policy_result.get("reason_code")
+        reason_detail_value = policy_result.get("reason_detail")
+        failure_reason_code = (
+            reason_code_value.strip()
+            if isinstance(reason_code_value, str) and reason_code_value.strip()
+            else None
+        )
+        failure_reason_detail = (
+            reason_detail_value.strip()
+            if isinstance(reason_detail_value, str) and reason_detail_value.strip()
+            else None
+        )
+
+    policy_version = _resolve_policy_version_for_family(model_family=normalized_model_family)
+    if "policy_version" not in snapshot_metadata:
+        snapshot_metadata["policy_version"] = policy_version
+    if "feature_set_hash" not in snapshot_metadata:
+        snapshot_metadata["feature_set_hash"] = feature_set_hash
 
     replaced_snapshot_ref_value = snapshot_payload.get("replaced_snapshot_ref")
     replaced_snapshot_ref = (
@@ -1300,16 +1898,17 @@ async def _upsert_model_snapshot(
             policy_result=policy_result,
             metric_vector=metric_vector,
             baseline_comparator_metrics=baseline_metrics,
-            failure_reason_code=None,
-            failure_reason_detail=None,
+            failure_reason_code=failure_reason_code,
+            failure_reason_detail=failure_reason_detail,
             snapshot_metadata={
+                **snapshot_metadata,
                 "policy_thresholds": {
                     "wmape_improvement_min_pct": _PROMOTION_IMPROVEMENT_MIN_PCT,
                     "max_horizon_regression_pct": _MAX_HORIZON_REGRESSION_PCT,
                     "interval_coverage_floor": _COVERAGE_FLOOR,
                     "interval_coverage_ceiling": _COVERAGE_CEILING,
                     "champion_ttl_hours": _CHAMPION_TTL_HOURS,
-                }
+                },
             },
         )
         db.add(snapshot_row)
@@ -1328,8 +1927,19 @@ async def _upsert_model_snapshot(
         snapshot_row.policy_result = policy_result
         snapshot_row.metric_vector = metric_vector
         snapshot_row.baseline_comparator_metrics = baseline_metrics
-        snapshot_row.failure_reason_code = None
-        snapshot_row.failure_reason_detail = None
+        snapshot_row.failure_reason_code = failure_reason_code
+        snapshot_row.failure_reason_detail = failure_reason_detail
+        snapshot_row.snapshot_metadata = {
+            **(_coerce_json_mapping(snapshot_row.snapshot_metadata)),
+            **snapshot_metadata,
+            "policy_thresholds": {
+                "wmape_improvement_min_pct": _PROMOTION_IMPROVEMENT_MIN_PCT,
+                "max_horizon_regression_pct": _MAX_HORIZON_REGRESSION_PCT,
+                "interval_coverage_floor": _COVERAGE_FLOOR,
+                "interval_coverage_ceiling": _COVERAGE_CEILING,
+                "champion_ttl_hours": _CHAMPION_TTL_HOURS,
+            },
+        }
 
     await db.flush()
     await db.commit()
@@ -1348,6 +1958,19 @@ def _to_registry_row(snapshot: PortfolioMLModelSnapshot) -> PortfolioMLRegistryR
         lifecycle_state = PortfolioMLState(snapshot.lifecycle_state)
     except ValueError:
         lifecycle_state = PortfolioMLState.ERROR
+    snapshot_metadata = _coerce_json_mapping(snapshot.snapshot_metadata)
+    policy_version = snapshot_metadata.get("policy_version")
+    feature_set_version = snapshot_metadata.get("feature_set_version")
+    normalized_policy_version = (
+        str(policy_version)
+        if isinstance(policy_version, str) and policy_version.strip() != ""
+        else None
+    )
+    normalized_feature_set_version = (
+        str(feature_set_version)
+        if isinstance(feature_set_version, str) and feature_set_version.strip() != ""
+        else None
+    )
 
     return PortfolioMLRegistryRow(
         snapshot_ref=snapshot.snapshot_ref,
@@ -1356,6 +1979,9 @@ def _to_registry_row(snapshot: PortfolioMLModelSnapshot) -> PortfolioMLRegistryR
         model_family=snapshot.model_family,
         lifecycle_state=lifecycle_state,
         feature_set_hash=snapshot.feature_set_hash,
+        feature_set_version=normalized_feature_set_version,
+        policy_version=normalized_policy_version,
+        family_state_reason_code=snapshot.failure_reason_code,
         data_window_start=snapshot.data_window_start,
         data_window_end=snapshot.data_window_end,
         run_status=snapshot.run_status,
@@ -1365,6 +1991,7 @@ def _to_registry_row(snapshot: PortfolioMLModelSnapshot) -> PortfolioMLRegistryR
         policy_result=snapshot.policy_result,
         metric_vector=snapshot.metric_vector,
         baseline_comparator_metrics=snapshot.baseline_comparator_metrics,
+        snapshot_metadata=snapshot_metadata,
     )
 
 
@@ -1378,6 +2005,7 @@ async def get_portfolio_ml_registry_response(
     """Return one read-only registry response for model snapshot audit queries."""
 
     statement = select(PortfolioMLModelSnapshot)
+    normalized_model_family_filter: str | None = None
 
     if scope is not None and scope.strip() != "":
         try:
@@ -1391,6 +2019,7 @@ async def get_portfolio_ml_registry_response(
 
     if model_family is not None and model_family.strip() != "":
         normalized_model_family = enforce_supported_model_policy(model_family=model_family)
+        normalized_model_family_filter = normalized_model_family
         statement = statement.where(
             PortfolioMLModelSnapshot.model_family == normalized_model_family
         )
@@ -1419,9 +2048,14 @@ async def get_portfolio_ml_registry_response(
     as_of_market_at = evaluated_at - timedelta(hours=1)
 
     if len(snapshot_rows) == 0:
+        unavailable_reason = (
+            f"{normalized_model_family_filter}_no_registry_rows"
+            if normalized_model_family_filter is not None
+            else "no_registry_rows"
+        )
         return PortfolioMLRegistryResponse(
             state=PortfolioMLState.UNAVAILABLE,
-            state_reason_code="no_registry_rows",
+            state_reason_code=unavailable_reason,
             state_reason_detail="No model registry snapshots match the requested filters.",
             as_of_ledger_at=as_of_ledger_at,
             as_of_market_at=as_of_market_at,
@@ -1430,6 +2064,26 @@ async def get_portfolio_ml_registry_response(
         )
 
     registry_rows = [_to_registry_row(snapshot) for snapshot in snapshot_rows]
+    if normalized_model_family_filter is not None:
+        latest_row = next(
+            (row for row in registry_rows if row.model_family == normalized_model_family_filter),
+            None,
+        )
+        if latest_row is not None:
+            latest_expiry = latest_row.expires_at
+            if latest_expiry is not None and evaluated_at > latest_expiry:
+                return PortfolioMLRegistryResponse(
+                    state=PortfolioMLState.STALE,
+                    state_reason_code=f"{normalized_model_family_filter}_source_data_stale",
+                    state_reason_detail=(
+                        "Latest registry snapshot for requested family exceeded freshness policy."
+                    ),
+                    as_of_ledger_at=as_of_ledger_at,
+                    as_of_market_at=as_of_market_at,
+                    evaluated_at=evaluated_at,
+                    rows=registry_rows,
+                )
+
     return PortfolioMLRegistryResponse(
         state=PortfolioMLState.READY,
         state_reason_code="ready",
@@ -1510,10 +2164,35 @@ async def get_portfolio_ml_forecast_response(
 
         best_snapshot: dict[str, object] | None = None
         best_improvement = float("-inf")
+        rejected_candidate_snapshots: list[dict[str, object]] = []
         for model_family, point_forecast in candidate_forecasts.items():
             if model_family == "naive":
                 continue
             normalized_model_family = enforce_supported_model_policy(model_family=model_family)
+            is_allowed, policy_disallow_reason = _is_forecast_family_policy_allowed_for_scope(
+                scope=scope,
+                model_family=normalized_model_family,
+            )
+            if not is_allowed:
+                rejected_candidate_snapshots.append(
+                    build_forecast_candidate_audit_snapshot(
+                        scope=scope.value,
+                        instrument_symbol=normalized_symbol,
+                        model_family=normalized_model_family,
+                        evaluated_at=evaluated_at,
+                        policy_result={
+                            "qualified": False,
+                            "reason_code": policy_disallow_reason or "policy_disallowed",
+                            "reason_detail": "Forecast candidate family is excluded by scope policy.",
+                            "improvement_pct": 0.0,
+                            "max_horizon_regression_pct": 0.0,
+                            "interval_coverage": 0.0,
+                        },
+                        metric_vector={},
+                        baseline_comparator_metrics={},
+                    )
+                )
+                continue
 
             point_forecast_float = [float(value) for value in point_forecast]
             candidate_wmape_by_horizon = [
@@ -1542,7 +2221,31 @@ async def get_portfolio_ml_forecast_response(
                 naive_wmape_by_horizon=naive_wmape_by_horizon,
                 interval_coverage=coverage,
             )
+            candidate_metric_vector = {
+                "candidate_wmape_by_horizon": candidate_wmape_by_horizon,
+                "candidate_wmape_mean": float(
+                    np.mean(np.asarray(candidate_wmape_by_horizon, dtype="float64"))
+                ),
+                "interval_coverage": coverage,
+            }
+            baseline_metric_vector = {
+                "naive_wmape_by_horizon": naive_wmape_by_horizon,
+                "naive_wmape_mean": float(
+                    np.mean(np.asarray(naive_wmape_by_horizon, dtype="float64"))
+                ),
+            }
             if policy_result["qualified"] is not True:
+                rejected_candidate_snapshots.append(
+                    build_forecast_candidate_audit_snapshot(
+                        scope=scope.value,
+                        instrument_symbol=normalized_symbol,
+                        model_family=normalized_model_family,
+                        evaluated_at=evaluated_at,
+                        policy_result=policy_result,
+                        metric_vector=candidate_metric_vector,
+                        baseline_comparator_metrics=baseline_metric_vector,
+                    )
+                )
                 continue
 
             candidate_horizons: list[dict[str, object]] = []
@@ -1564,19 +2267,11 @@ async def get_portfolio_ml_forecast_response(
                 horizons=candidate_horizons,
                 policy_result=policy_result,
                 evaluated_at=evaluated_at,
-                metric_vector={
-                    "candidate_wmape_by_horizon": candidate_wmape_by_horizon,
-                    "candidate_wmape_mean": float(
-                        np.mean(np.asarray(candidate_wmape_by_horizon, dtype="float64"))
-                    ),
-                    "interval_coverage": coverage,
-                },
-                baseline_comparator_metrics={
-                    "naive_wmape_by_horizon": naive_wmape_by_horizon,
-                    "naive_wmape_mean": float(
-                        np.mean(np.asarray(naive_wmape_by_horizon, dtype="float64"))
-                    ),
-                },
+                metric_vector=candidate_metric_vector,
+                baseline_comparator_metrics=baseline_metric_vector,
+                feature_set_hash=_resolve_feature_set_hash_for_family(
+                    model_family=normalized_model_family
+                ),
             )
             candidate_improvement = float(cast(float, policy_result["improvement_pct"]))
             if candidate_improvement > best_improvement:
@@ -1593,12 +2288,19 @@ async def get_portfolio_ml_forecast_response(
             evaluated_at=evaluated_at,
         )
         lifecycle_state = PortfolioMLState(lifecycle["state"])
-        if db is not None and champion_snapshot is not None:
-            await _upsert_model_snapshot(
-                db=db,
-                snapshot_payload=champion_snapshot,
-                lifecycle_state=lifecycle_state,
-            )
+        if db is not None:
+            for rejected_snapshot in rejected_candidate_snapshots:
+                await _upsert_model_snapshot(
+                    db=db,
+                    snapshot_payload=rejected_snapshot,
+                    lifecycle_state=PortfolioMLState.UNAVAILABLE,
+                )
+            if champion_snapshot is not None:
+                await _upsert_model_snapshot(
+                    db=db,
+                    snapshot_payload=champion_snapshot,
+                    lifecycle_state=lifecycle_state,
+                )
 
         horizons: list[PortfolioMLForecastHorizonRow] = []
         model_snapshot_ref: str | None = None

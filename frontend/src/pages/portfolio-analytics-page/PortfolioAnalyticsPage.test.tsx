@@ -6,6 +6,7 @@ import {
   render,
   screen,
 } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import {
   afterEach,
@@ -230,6 +231,26 @@ describe("PortfolioAnalyticsPage", () => {
 
     expect(screen.getByRole("columnheader", { name: "Net share (vs net period)" })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "Absolute share" })).toBeInTheDocument();
+  });
+
+  it("hides duplicate attribution bridge visuals until advanced disclosure is explicitly opened", async () => {
+    const user = userEvent.setup();
+    setTimeSeriesState({ isSuccess: true, data: timeSeriesResponse });
+    setContributionState({ isSuccess: true, data: contributionResponse });
+
+    renderAnalyticsPage();
+
+    expect(
+      screen.queryByRole("heading", { name: "Contribution waterfall" }),
+    ).not.toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole("button", { name: /show attribution bridge/i }),
+    );
+
+    expect(
+      screen.getByRole("heading", { name: "Contribution waterfall" }),
+    ).toBeInTheDocument();
   });
 
   it("limits period selector values to backend-supported enum options", () => {

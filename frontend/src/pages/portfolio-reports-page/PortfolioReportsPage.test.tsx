@@ -23,9 +23,11 @@ import type {
   PortfolioContributionResponse,
   PortfolioEfficientFrontierResponse,
   PortfolioHealthSynthesisResponse,
+  PortfolioMLAnomaliesResponse,
   PortfolioMLForecastResponse,
   PortfolioMLRegistryResponse,
   PortfolioMLSignalResponse,
+  PortfolioNewsContextResponse,
   PortfolioMonteCarloRequest,
   PortfolioMonteCarloResponse,
   PortfolioQuantMetricsResponse,
@@ -39,9 +41,11 @@ import {
   usePortfolioContributionQuery,
   usePortfolioEfficientFrontierQuery,
   usePortfolioHealthSynthesisQuery,
+  usePortfolioMLAnomaliesQuery,
   usePortfolioMLForecastQuery,
   usePortfolioMLRegistryQuery,
   usePortfolioMLSignalQuery,
+  usePortfolioNewsContextQuery,
   usePortfolioMonteCarloMutation,
   usePortfolioQuantMetricsQuery,
   usePortfolioQuantReportGenerateMutation,
@@ -63,9 +67,11 @@ vi.mock("../../features/portfolio-workspace/hooks", async () => {
     usePortfolioContributionQuery: vi.fn(),
     usePortfolioEfficientFrontierQuery: vi.fn(),
     usePortfolioHealthSynthesisQuery: vi.fn(),
+    usePortfolioMLAnomaliesQuery: vi.fn(),
     usePortfolioMLForecastQuery: vi.fn(),
     usePortfolioMLRegistryQuery: vi.fn(),
     usePortfolioMLSignalQuery: vi.fn(),
+    usePortfolioNewsContextQuery: vi.fn(),
     usePortfolioMonteCarloMutation: vi.fn(),
     usePortfolioQuantMetricsQuery: vi.fn(),
     usePortfolioQuantReportGenerateMutation: vi.fn(),
@@ -101,9 +107,13 @@ const mockedUsePortfolioEfficientFrontierQuery = vi.mocked(
 const mockedUsePortfolioHealthSynthesisQuery = vi.mocked(
   usePortfolioHealthSynthesisQuery,
 );
+const mockedUsePortfolioMLAnomaliesQuery = vi.mocked(
+  usePortfolioMLAnomaliesQuery,
+);
 const mockedUsePortfolioMLSignalQuery = vi.mocked(usePortfolioMLSignalQuery);
 const mockedUsePortfolioMLForecastQuery = vi.mocked(usePortfolioMLForecastQuery);
 const mockedUsePortfolioMLRegistryQuery = vi.mocked(usePortfolioMLRegistryQuery);
+const mockedUsePortfolioNewsContextQuery = vi.mocked(usePortfolioNewsContextQuery);
 const mockedUsePortfolioQuantMetricsQuery = vi.mocked(usePortfolioQuantMetricsQuery);
 const mockedUsePortfolioMonteCarloMutation = vi.mocked(usePortfolioMonteCarloMutation);
 const mockedUsePortfolioQuantReportGenerateMutation = vi.mocked(
@@ -512,6 +522,61 @@ const mlRegistryResponse: PortfolioMLRegistryResponse = {
   ],
 };
 
+const mlAnomaliesResponse: PortfolioMLAnomaliesResponse = {
+  state: "ready",
+  state_reason_code: "ready",
+  state_reason_detail: "anomaly_rows_available",
+  scope: "portfolio",
+  instrument_symbol: null,
+  as_of_ledger_at: "2026-03-28T00:00:00Z",
+  as_of_market_at: "2026-03-28T00:00:00Z",
+  evaluated_at: "2026-03-28T00:00:00Z",
+  freshness_policy: {
+    max_age_hours: 24,
+  },
+  model_family: "isolation_forest",
+  feature_set_hash: "iforest-hash-001",
+  policy_version: "anomaly_v1",
+  rows: [
+    {
+      instrument_symbol: "AAPL",
+      event_at: "2026-03-27T00:00:00Z",
+      anomaly_score: "0.830000",
+      severity: "high",
+      reason_code: "volatility_spike",
+    },
+  ],
+};
+
+const newsContextResponse: PortfolioNewsContextResponse = {
+  state: "ready",
+  state_reason_code: "ready",
+  state_reason_detail: "news_rows_available",
+  as_of_ledger_at: "2026-03-28T00:00:00Z",
+  as_of_market_at: "2026-03-28T00:00:00Z",
+  evaluated_at: "2026-03-28T00:00:00Z",
+  freshness_policy: {
+    max_age_hours: 12,
+  },
+  rows: [
+    {
+      instrument_symbol: "AAPL",
+      market_value_weight_pct: "0.380000",
+      summary: "Apple held gains after product launch momentum.",
+      impact_bias: "positive",
+      caveats: ["News context is informational only."],
+      sources: [
+        {
+          source_id: "source-001",
+          source_label: "Reuters",
+          published_at: "2026-03-27T00:00:00Z",
+          url: "https://example.com/news/apple-launch",
+        },
+      ],
+    },
+  ],
+};
+
 function installMatchMediaMock(prefersDark: boolean): void {
   Object.defineProperty(window, "matchMedia", {
     configurable: true,
@@ -693,6 +758,42 @@ function setMLRegistryState(
   );
 }
 
+function setMLAnomaliesState(
+  state: Partial<QueryState<PortfolioMLAnomaliesResponse>>,
+): void {
+  const queryState: QueryState<PortfolioMLAnomaliesResponse> = {
+    isLoading: false,
+    isError: false,
+    isSuccess: false,
+    data: undefined,
+    error: undefined,
+    refetch: vi.fn().mockResolvedValue(undefined),
+    ...state,
+  };
+
+  mockedUsePortfolioMLAnomaliesQuery.mockReturnValue(
+    queryState as ReturnType<typeof usePortfolioMLAnomaliesQuery>,
+  );
+}
+
+function setNewsContextState(
+  state: Partial<QueryState<PortfolioNewsContextResponse>>,
+): void {
+  const queryState: QueryState<PortfolioNewsContextResponse> = {
+    isLoading: false,
+    isError: false,
+    isSuccess: false,
+    data: undefined,
+    error: undefined,
+    refetch: vi.fn().mockResolvedValue(undefined),
+    ...state,
+  };
+
+  mockedUsePortfolioNewsContextQuery.mockReturnValue(
+    queryState as ReturnType<typeof usePortfolioNewsContextQuery>,
+  );
+}
+
 function setQuantReportGenerateState(
   state: Partial<
     MutationState<
@@ -782,6 +883,8 @@ describe("PortfolioReportsPage", () => {
     setMLSignalState({ isSuccess: true, data: mlSignalResponse });
     setMLForecastState({ isSuccess: true, data: mlForecastResponse });
     setMLRegistryState({ isSuccess: true, data: mlRegistryResponse });
+    setMLAnomaliesState({ isSuccess: true, data: mlAnomaliesResponse });
+    setNewsContextState({ isSuccess: true, data: newsContextResponse });
     setQuantMetricsState({ isSuccess: true, data: quantMetricsResponse });
     setQuantReportGenerateState({});
     setQuantReportHtmlState({});
@@ -884,8 +987,24 @@ describe("PortfolioReportsPage", () => {
     expect(container.querySelector(".quant-lifecycle-controls")).toBeInTheDocument();
   });
 
-  it("renders Markowitz efficient frontier module inside advanced risk lab", () => {
+  it("keeps advanced diagnostics hidden until explicit disclosure", () => {
     renderReportsPage();
+
+    expect(
+      screen.queryByRole("heading", { name: "Efficient frontier (Markowitz)" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "ML insights control tower" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("renders Markowitz efficient frontier module inside advanced risk lab", async () => {
+    const user = userEvent.setup();
+    renderReportsPage();
+
+    await user.click(
+      screen.getByRole("button", { name: /show advanced diagnostics/i }),
+    );
 
     expect(
       screen.getByRole("heading", { name: "Efficient frontier (Markowitz)" }),
@@ -894,8 +1013,13 @@ describe("PortfolioReportsPage", () => {
     expect(screen.getByRole("table", { name: /Efficient frontier weight comparison/i })).toBeInTheDocument();
   });
 
-  it("renders ML insights modules with signal, forecast, and registry diagnostics", () => {
+  it("renders ML insights modules with signal, forecast, and registry diagnostics", async () => {
+    const user = userEvent.setup();
     renderReportsPage();
+
+    await user.click(
+      screen.getByRole("button", { name: /show advanced diagnostics/i }),
+    );
 
     expect(
       screen.getByRole("heading", { name: "ML insights control tower" }),
@@ -1051,9 +1175,6 @@ describe("PortfolioReportsPage", () => {
 
     expect(
       screen.getByRole("heading", { name: /Monte Carlo diagnostics/i }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("heading", { name: /Health scenario bridge/i }),
     ).toBeInTheDocument();
     expect(screen.getByText(/Simulation lifecycle: unavailable/i)).toBeInTheDocument();
     expect(

@@ -14,8 +14,12 @@ from app.core.database import get_db
 from app.core.logging import get_logger
 from app.portfolio_analytics.schemas import (
     PortfolioChartPeriod,
+    PortfolioCommandCenterResponse,
     PortfolioContributionResponse,
+    PortfolioContributionToRiskResponse,
+    PortfolioCorrelationResponse,
     PortfolioEfficientFrontierResponse,
+    PortfolioExposureResponse,
     PortfolioHealthProfilePosture,
     PortfolioHealthSynthesisResponse,
     PortfolioHierarchyGroupBy,
@@ -38,8 +42,12 @@ from app.portfolio_analytics.service import (
     PortfolioAnalyticsClientError,
     generate_portfolio_monte_carlo_response,
     generate_portfolio_quant_report_response,
+    get_portfolio_command_center_response,
     get_portfolio_contribution_response,
+    get_portfolio_contribution_to_risk_response,
+    get_portfolio_correlation_response,
     get_portfolio_efficient_frontier_response,
+    get_portfolio_exposure_response,
     get_portfolio_health_synthesis_response,
     get_portfolio_hierarchy_response,
     get_portfolio_lot_detail_response,
@@ -127,6 +135,143 @@ async def get_portfolio_summary(db: DbSession) -> PortfolioSummaryResponse:
         "portfolio_analytics.summary_request_completed",
         row_count=len(response.rows),
         as_of_ledger_at=response.as_of_ledger_at.isoformat(),
+    )
+    return response
+
+
+@router.get(
+    "/command-center",
+    response_model=PortfolioCommandCenterResponse,
+)
+async def get_portfolio_command_center(
+    db: DbSession,
+) -> PortfolioCommandCenterResponse:
+    """Return command-center metrics for first-viewport decision context."""
+
+    logger.info("portfolio_analytics.command_center_request_started")
+    try:
+        response = await get_portfolio_command_center_response(db=db)
+    except PortfolioAnalyticsClientError as exc:
+        logger.info(
+            "portfolio_analytics.command_center_request_rejected",
+            status_code=exc.status_code,
+            error=str(exc),
+        )
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+
+    logger.info(
+        "portfolio_analytics.command_center_request_completed",
+        state=_response_field(response, "state"),
+        as_of_ledger_at=_response_isoformat(response, "as_of_ledger_at"),
+    )
+    return response
+
+
+@router.get(
+    "/exposure",
+    response_model=PortfolioExposureResponse,
+)
+async def get_portfolio_exposure(
+    db: DbSession,
+    dimension: Annotated[
+        str,
+        Query(description="Supported exposure dimensions: asset_class, sector, currency, country."),
+    ] = "sector",
+) -> PortfolioExposureResponse:
+    """Return exposure decomposition rows by requested portfolio dimension."""
+
+    logger.info(
+        "portfolio_analytics.exposure_request_started",
+        dimension=dimension,
+    )
+    try:
+        response = await get_portfolio_exposure_response(
+            db=db,
+            dimension=dimension,
+        )
+    except PortfolioAnalyticsClientError as exc:
+        logger.info(
+            "portfolio_analytics.exposure_request_rejected",
+            dimension=dimension,
+            status_code=exc.status_code,
+            error=str(exc),
+        )
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+
+    logger.info(
+        "portfolio_analytics.exposure_request_completed",
+        dimension=dimension,
+        row_count=_response_list_len(response, "rows"),
+        as_of_ledger_at=_response_isoformat(response, "as_of_ledger_at"),
+    )
+    return response
+
+
+@router.get(
+    "/contribution-to-risk",
+    response_model=PortfolioContributionToRiskResponse,
+)
+async def get_portfolio_contribution_to_risk(
+    db: DbSession,
+) -> PortfolioContributionToRiskResponse:
+    """Return deterministic contribution-to-risk dataset with methodology metadata."""
+
+    logger.info("portfolio_analytics.contribution_to_risk_request_started")
+    try:
+        response = await get_portfolio_contribution_to_risk_response(db=db)
+    except PortfolioAnalyticsClientError as exc:
+        logger.info(
+            "portfolio_analytics.contribution_to_risk_request_rejected",
+            status_code=exc.status_code,
+            error=str(exc),
+        )
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+
+    logger.info(
+        "portfolio_analytics.contribution_to_risk_request_completed",
+        row_count=_response_list_len(response, "rows"),
+        as_of_ledger_at=_response_isoformat(response, "as_of_ledger_at"),
+    )
+    return response
+
+
+@router.get(
+    "/correlation",
+    response_model=PortfolioCorrelationResponse,
+)
+async def get_portfolio_correlation(
+    db: DbSession,
+    limit_symbols: Annotated[
+        int,
+        Query(
+            description="Bounded number of symbols to include in correlation matrix.", ge=2, le=12
+        ),
+    ] = 8,
+) -> PortfolioCorrelationResponse:
+    """Return bounded correlation matrix rows for top portfolio symbols."""
+
+    logger.info(
+        "portfolio_analytics.correlation_request_started",
+        limit_symbols=limit_symbols,
+    )
+    try:
+        response = await get_portfolio_correlation_response(
+            db=db,
+            limit_symbols=limit_symbols,
+        )
+    except PortfolioAnalyticsClientError as exc:
+        logger.info(
+            "portfolio_analytics.correlation_request_rejected",
+            limit_symbols=limit_symbols,
+            status_code=exc.status_code,
+            error=str(exc),
+        )
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+
+    logger.info(
+        "portfolio_analytics.correlation_request_completed",
+        symbol_count=_response_list_len(response, "symbols"),
+        as_of_ledger_at=_response_isoformat(response, "as_of_ledger_at"),
     )
     return response
 

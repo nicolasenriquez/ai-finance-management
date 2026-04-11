@@ -171,6 +171,28 @@ Explicit non-goals for this phase:
 - no template-wide AI platform migration, auth expansion, or RAG/vector infrastructure
 - no financial-advice claims presented as certainty
 
+## Phase 11: AI-Native Decision-Layer Productization
+
+Current status (`2026-04-06`): in active delivery with backend contracts and frontend decision-lens migration implemented; documentation/governance closeout in progress.
+
+- Productization objective:
+  - shift from pipeline-first framing to a decision-first workspace (`Dashboard`, `Holdings`, `Performance`, `Risk`, `Rebalancing`, `Copilot`, `Transactions`)
+  - keep deterministic ledger and provenance guarantees as the foundation for every AI-facing response
+- Delivered capability expansions:
+  - decision-layer analytics contracts (`command-center`, `exposure`, `contribution-to-risk`, `correlation`)
+  - rebalancing APIs (`strategies`, constrained `scenario`) with explicit infeasible-state semantics
+  - holdings-grounded news context API with source provenance and caveats
+  - ML API expansion (`clusters`, `anomalies`) and forecast governance extensions (`p10/p50/p90`, policy lineage)
+  - copilot structured response envelope (`answer`, `evidence`, `assumptions`, `caveats`, `suggested_follow_ups`)
+- Frontend productization scope:
+  - decision-lens route migration with compatibility redirects from legacy workspace routes
+  - dashboard command-center first viewport and what-changed decision handoff panel
+  - risk/rebalancing modules for contribution-to-risk, anomaly timeline, forecast intervals, and news context diagnostics
+  - copilot UI sections aligned to structured envelope + cross-lens handoff affordances
+- Remaining closeout focus:
+  - keep docs and governance contracts synchronized with canonical decision-lens naming
+  - maintain full frontend/backend validation gates as release blockers for this phase
+
 ## Deferred Phases
 
 - authentication and authorization
