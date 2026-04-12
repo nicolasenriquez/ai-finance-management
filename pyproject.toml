@@ -48,6 +48,7 @@ exclude = [
     ".git",
     ".venv",
     ".uv-cache",
+    ".codex/skills",
     "venv",
     "__pycache__",
     ".mypy_cache",
@@ -97,6 +98,7 @@ exclude = '''
     \.git
   | \.venv
   | \.uv-cache
+  | \.codex/skills
   | \.mypy_cache
   | \.pytest_cache
   | \.ruff_cache
