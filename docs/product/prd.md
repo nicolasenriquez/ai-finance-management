@@ -2,17 +2,15 @@
 
 ## Executive Summary
 
-AI Finance Management is a personal finance analytics application for consolidating investment activity across fragmented sources into a single trustworthy view.
+AI Finance Management is an AI-native portfolio intelligence application for consolidating investment activity into one deterministic system of record and one decision-oriented workspace.
 
-The initial MVP focuses on a contract-first data pipeline:
+Current product scope focuses on three layers:
 
-- ingest broker PDFs without official APIs
-- extract multi-page transaction tables into canonical JSON
-- validate the extracted output against golden sets
-- persist normalized records in PostgreSQL
-- expose analytics and KPIs for a React frontend
+- system of record: ingest broker PDFs, normalize canonical transactions, validate against golden sets, and persist durable ledger truth
+- decision layer: publish explainable portfolio APIs for command center, performance, risk, exposure, rebalancing, and news context
+- copilot layer: deliver read-only grounded responses over allowlisted analytics tools with evidence and caveats
 
-This MVP does **not** include authentication or AI features.
+Authentication and multi-user controls remain out of scope in the current phase.
 
 ## Problem
 
@@ -31,15 +29,18 @@ The project also serves a second goal: building senior-level software and data-e
 - Create a canonical transaction model that can support both PDF and API-based sources.
 - Persist normalized portfolio data in PostgreSQL.
 - Compute auditable portfolio KPIs from source transactions.
-- Visualize grouped portfolio analytics by instrument with lot-level drill-down in a frontend.
+- Visualize decision-lens portfolio analytics by instrument with lot-level drill-down in a frontend.
+- Provide explainable risk/rebalancing/ML insight modules with explicit freshness and lifecycle metadata.
+- Provide a read-only portfolio copilot that answers natural-language questions using bounded internal tools.
 - Use golden-set-driven validation so extraction quality is measurable and reproducible.
 
 ## Non-Goals
 
 - No authentication or authorization in MVP.
-- No GenAI or agentic features in MVP.
+- No autonomous trade execution, order routing, or broker-side action automation.
+- No unrestricted LLM access to raw canonical records or direct SQL.
 - No production cloud deployment in MVP.
-- No novelty-driven or exploratory UI/UX expansion in MVP.
+- No novelty-only UI/UX expansion that weakens deterministic interpretation or provenance.
 - No multi-user support in MVP.
 
 ## Target User
@@ -69,7 +70,7 @@ Secondary user profile for design purposes:
 ### Out of Scope
 
 - OCR-heavy workflows as a first-class supported mode
-- AI-based enrichment or anomaly explanation
+- autonomous AI execution or advisory certainty claims
 - account linking across multiple institutions
 - auth, roles, or permissions
 - mobile-first UX

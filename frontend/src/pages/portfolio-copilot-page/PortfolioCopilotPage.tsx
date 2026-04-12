@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import {
@@ -16,6 +16,7 @@ import type {
   PortfolioQuantReportScope,
 } from "../../core/api/schemas";
 import { usePortfolioCopilotWorkspace } from "../../features/portfolio-copilot/workspace-session";
+import { fetchPortfolioSummary } from "../../features/portfolio-summary/api";
 import { PortfolioChartPeriodControl } from "../../features/portfolio-workspace/PortfolioChartPeriodControl";
 import { resolvePortfolioChartPeriod } from "../../features/portfolio-workspace/period";
 
@@ -56,20 +57,60 @@ export function PortfolioCopilotPage() {
   const [searchParams] = useSearchParams();
   const location = useLocation();
   const { state, actions } = usePortfolioCopilotWorkspace();
+  const {
+    applyLaunchContext,
+    setIsLauncherOpen,
+    setIsLauncherCollapsed,
+  } = actions;
+  const [portfolioSymbolSuggestions, setPortfolioSymbolSuggestions] = useState<string[]>(
+    [],
+  );
 
   const syncSignature = useMemo(() => searchParams.toString(), [searchParams]);
   useEffect(() => {
     const nextSearchParams = new URLSearchParams(syncSignature);
-    actions.applyLaunchContext({
+    applyLaunchContext({
       route: location.pathname,
       period: resolvePeriodFromSearchParams(nextSearchParams),
       scope: resolveScopeFromSearchParams(nextSearchParams),
       instrumentSymbol: resolveInstrumentSymbolFromSearchParams(nextSearchParams),
       source: "expanded_route",
     });
-    actions.setIsLauncherOpen(false);
-    actions.setIsLauncherCollapsed(false);
-  }, [actions, location.pathname, syncSignature]);
+    setIsLauncherOpen(false);
+    setIsLauncherCollapsed(false);
+  }, [
+    applyLaunchContext,
+    location.pathname,
+    setIsLauncherCollapsed,
+    setIsLauncherOpen,
+    syncSignature,
+  ]);
+
+  useEffect(() => {
+    let isActive = true;
+    async function hydratePortfolioSymbols(): Promise<void> {
+      try {
+        const summary = await fetchPortfolioSummary();
+        if (!isActive) {
+          return;
+        }
+        const symbols = summary.rows
+          .map((row) => row.instrument_symbol.trim().toUpperCase())
+          .filter((symbol, index, array) => {
+            return symbol.length > 0 && array.indexOf(symbol) === index;
+          });
+        setPortfolioSymbolSuggestions(symbols);
+      } catch {
+        if (isActive) {
+          setPortfolioSymbolSuggestions([]);
+        }
+      }
+    }
+    void hydratePortfolioSymbols();
+    return () => {
+      isActive = false;
+    };
+  }, []);
 
   const activeCandidates = state.latestResponse?.opportunity_candidates || [];
   const activeNarration =
@@ -80,9 +121,13 @@ export function PortfolioCopilotPage() {
 
   return (
     <PortfolioWorkspaceLayout
-      eyebrow="Copilot route"
-      title="Read-only portfolio copilot"
-      description="Guardrailed chat + deterministic opportunity scanner with explicit state handling, evidence traceability, and non-advice limitations."
+      eyebrow="Copilot chat"
+      title="Portfolio copilot"
+      description="Chat-first read-only copilot with evidence traceability, deterministic candidate scanning, and typed state boundaries."
+      layoutVariant="chat"
+      showCommandPaletteTools={false}
+      showMarketPulse={false}
+      showTrustPanel={false}
       actions={
         <>
           <PortfolioChartPeriodControl
@@ -119,88 +164,105 @@ export function PortfolioCopilotPage() {
         />
       ) : null}
 
-      <section className="panel copilot-panel">
+      <section className="panel copilot-panel copilot-panel--chat">
         <header className="panel__header">
-          <h2 className="panel__title">Copilot prompt composer</h2>
+          <h2 className="panel__title">Copilot conversation</h2>
           <p className="panel__subtitle">
-            Submit one scoped portfolio question. Input is bounded to 2000 chars and
-            8 prior turns.
+            Ask one scoped portfolio question per turn. Input remains bounded to 2000
+            characters and 8 prior turns.
           </p>
         </header>
         <div className="panel__body">
-          <WorkspaceCopilotComposer compact={false} />
+          <WorkspaceCopilotComposer
+            compact={false}
+            symbolSuggestions={portfolioSymbolSuggestions}
+          />
         </div>
       </section>
 
-      <section className="panel copilot-opportunity-panel">
-        <header className="panel__header">
-          <h2 className="panel__title">Opportunity candidate scanner</h2>
-          <p className="panel__subtitle">
-            Opportunity candidate ranking is deterministic; AI narration is rendered
-            separately.
-          </p>
-        </header>
-        <div className="panel__body">
-          {activeCandidates.length > 0 ? (
-            <div className="copilot-opportunity-table-wrapper">
-              <table className="copilot-opportunity-table">
-                <caption>Deterministic candidate list</caption>
-                <thead>
-                  <tr>
-                    <th>Candidate</th>
-                    <th>Opportunity score</th>
-                    <th>Discount score</th>
-                    <th>Momentum score</th>
-                    <th>Stability score</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {activeCandidates.map((candidate) => (
-                    <tr key={candidate.symbol}>
-                      <td>{candidate.symbol}</td>
-                      <td>{candidate.opportunity_score}</td>
-                      <td>{candidate.discount_score}</td>
-                      <td>{candidate.momentum_score}</td>
-                      <td>{candidate.stability_score}</td>
+      <section className="copilot-secondary-grid">
+        <section className="panel copilot-opportunity-panel">
+          <header className="panel__header">
+            <h2 className="panel__title">Opportunity candidate scanner</h2>
+            <p className="panel__subtitle">
+              Opportunity candidate ranking is deterministic; AI narration is rendered
+              separately.
+            </p>
+          </header>
+          <div className="panel__body">
+            {activeCandidates.length > 0 ? (
+              <div className="copilot-opportunity-table-wrapper">
+                <table className="copilot-opportunity-table">
+                  <caption>Deterministic candidate list</caption>
+                  <thead>
+                    <tr>
+                      <th>Candidate</th>
+                      <th>Action state</th>
+                      <th>Held</th>
+                      <th>Action multiplier</th>
+                      <th>Drawdown vs 52W high</th>
+                      <th>Opportunity score</th>
+                      <th>Discount score</th>
+                      <th>Momentum score</th>
+                      <th>Stability score</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <p>No opportunity candidate data available yet.</p>
-          )}
+                  </thead>
+                  <tbody>
+                    {activeCandidates.map((candidate) => (
+                      <tr key={candidate.symbol}>
+                        <td>{candidate.symbol}</td>
+                        <td>{candidate.action_state}</td>
+                        <td>{candidate.currently_held ? "yes" : "no"}</td>
+                        <td>{candidate.action_multiplier}</td>
+                        <td>{candidate.drawdown_from_52w_high_pct}</td>
+                        <td>{candidate.opportunity_score}</td>
+                        <td>{candidate.discount_score}</td>
+                        <td>{candidate.momentum_score}</td>
+                        <td>{candidate.stability_score}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p>No opportunity candidate data available yet.</p>
+            )}
 
-          <article className="copilot-opportunity-narration">
-            <h3>AI narration</h3>
-            <div className="copilot-markdown">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                {activeNarration || "Narration pending first successful response."}
-              </ReactMarkdown>
-            </div>
-          </article>
-        </div>
-      </section>
+            <article className="copilot-opportunity-narration">
+              <h3>AI narration</h3>
+              <div className="copilot-markdown">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  {activeNarration || "Narration pending first successful response."}
+                </ReactMarkdown>
+              </div>
+            </article>
+          </div>
+        </section>
 
-      <section className="panel copilot-history-panel">
-        <header className="panel__header">
-          <h2 className="panel__title">Conversation history</h2>
-          <p className="panel__subtitle">Bounded to most recent 8 turns.</p>
-        </header>
-        <div className="panel__body">
-          {historyPreview.length > 0 ? (
-            <ol className="copilot-history-list">
-              {historyPreview.map((turn, index) => (
-                <li key={`${turn.role}-${index}`}>
-                  <strong>{turn.role}</strong>
-                  <span>{turn.content}</span>
-                </li>
-              ))}
-            </ol>
-          ) : (
-            <p>No conversation turns captured yet.</p>
-          )}
-        </div>
+        <section className="panel copilot-history-panel">
+          <header className="panel__header">
+            <h2 className="panel__title">Conversation history</h2>
+            <p className="panel__subtitle">Bounded to most recent 8 turns.</p>
+          </header>
+          <div className="panel__body">
+            {historyPreview.length > 0 ? (
+              <ol className="copilot-history-list">
+                {historyPreview.map((turn, index) => (
+                  <li key={`${turn.role}-${index}`}>
+                    <strong>{turn.role}</strong>
+                    <div className="copilot-history-list__content">
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                        {turn.content}
+                      </ReactMarkdown>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <p>No conversation turns captured yet.</p>
+            )}
+          </div>
+        </section>
       </section>
     </PortfolioWorkspaceLayout>
   );

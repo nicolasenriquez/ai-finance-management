@@ -146,6 +146,13 @@ Container rules:
 - Avoid stacking multiple explainer cards above the core data on summary and lot-detail screens.
 - If extra trust context is needed, use one restrained panel or inline note rather than a second full narrative column.
 
+### Route Budget Rules
+
+- Each analytical route must define one dominant primary job.
+- Keep first-surface primary modules within a bounded budget (`<= 7`).
+- Apply progressive disclosure for advanced diagnostics on high-density routes.
+- Never keep two equal-priority modules for the same analytical question in first surface.
+
 ## Component Primitives
 
 - App shell (header + content frame)

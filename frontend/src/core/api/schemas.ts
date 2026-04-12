@@ -40,6 +40,100 @@ export const portfolioSummaryResponseSchema = z.object({
   rows: z.array(portfolioSummaryRowSchema),
 });
 
+export const portfolioDecisionStateSchema = z.enum([
+  "ready",
+  "unavailable",
+  "stale",
+]);
+
+export const portfolioDecisionFreshnessPolicySchema = z.object({
+  max_age_hours: z.number().int().positive(),
+});
+
+export const portfolioCommandCenterInsightSchema = z.object({
+  insight_id: z.string().min(1),
+  title: z.string().min(1),
+  message: z.string().min(1),
+  severity: z.enum(["info", "caution", "elevated_risk"]),
+});
+
+export const portfolioCommandCenterResponseSchema = z.object({
+  state: portfolioDecisionStateSchema,
+  state_reason_code: z.string().min(1),
+  state_reason_detail: z.string().min(1),
+  as_of_ledger_at: z.string().min(1),
+  as_of_market_at: z.string().min(1).nullable(),
+  evaluated_at: z.string().min(1),
+  freshness_policy: portfolioDecisionFreshnessPolicySchema,
+  net_worth_usd: decimalFieldSchema,
+  total_market_value_usd: decimalFieldSchema,
+  daily_pnl_usd: decimalFieldSchema,
+  concentration_top5_pct: decimalFieldSchema,
+  insights: z.array(portfolioCommandCenterInsightSchema),
+});
+
+export const portfolioExposureRowSchema = z.object({
+  dimension: z.enum(["asset_class", "sector", "currency", "country"]),
+  bucket_id: z.string().min(1),
+  bucket_label: z.string().min(1),
+  weight_pct: decimalFieldSchema,
+  market_value_usd: decimalFieldSchema,
+});
+
+export const portfolioExposureResponseSchema = z.object({
+  state: portfolioDecisionStateSchema,
+  state_reason_code: z.string().min(1),
+  state_reason_detail: z.string().min(1),
+  as_of_ledger_at: z.string().min(1),
+  as_of_market_at: z.string().min(1).nullable(),
+  evaluated_at: z.string().min(1),
+  freshness_policy: portfolioDecisionFreshnessPolicySchema,
+  rows: z.array(portfolioExposureRowSchema),
+});
+
+export const portfolioContributionToRiskMethodologySchema = z.object({
+  methodology_id: z.string().min(1),
+  risk_measure: z.string().min(1),
+  lookback_days: z.number().int().positive(),
+  annualization_basis: z.string().min(1),
+});
+
+export const portfolioContributionToRiskRowSchema = z.object({
+  instrument_symbol: z.string().min(1),
+  contribution_to_risk_pct: decimalFieldSchema,
+  volatility_annualized: nullableDecimalFieldSchema,
+});
+
+export const portfolioContributionToRiskResponseSchema = z.object({
+  state: portfolioDecisionStateSchema,
+  state_reason_code: z.string().min(1),
+  state_reason_detail: z.string().min(1),
+  as_of_ledger_at: z.string().min(1),
+  as_of_market_at: z.string().min(1).nullable(),
+  evaluated_at: z.string().min(1),
+  freshness_policy: portfolioDecisionFreshnessPolicySchema,
+  methodology: portfolioContributionToRiskMethodologySchema,
+  rows: z.array(portfolioContributionToRiskRowSchema),
+});
+
+export const portfolioCorrelationMatrixRowSchema = z.object({
+  instrument_symbol: z.string().min(1),
+  correlations: z.record(z.string(), decimalFieldSchema),
+});
+
+export const portfolioCorrelationResponseSchema = z.object({
+  state: portfolioDecisionStateSchema,
+  state_reason_code: z.string().min(1),
+  state_reason_detail: z.string().min(1),
+  as_of_ledger_at: z.string().min(1),
+  as_of_market_at: z.string().min(1).nullable(),
+  evaluated_at: z.string().min(1),
+  freshness_policy: portfolioDecisionFreshnessPolicySchema,
+  symbols: z.array(z.string().min(1)),
+  guardrail_max_symbols: z.number().int().min(2),
+  rows: z.array(portfolioCorrelationMatrixRowSchema),
+});
+
 export const lotDispositionDetailSchema = z.object({
   sell_transaction_id: z.number().int().positive(),
   disposition_date: z.string().min(1),
@@ -293,6 +387,9 @@ export const portfolioMLForecastHorizonRowSchema = z.object({
   upper_bound: decimalFieldSchema,
   confidence_level: decimalFieldSchema,
   model_snapshot_ref: z.string().min(1),
+  p10: nullableDecimalFieldSchema.optional(),
+  p50: nullableDecimalFieldSchema.optional(),
+  p90: nullableDecimalFieldSchema.optional(),
 });
 export const portfolioMLForecastResponseSchema = z.object({
   state: portfolioMLStateSchema,
@@ -317,6 +414,9 @@ export const portfolioMLRegistryRowSchema = z.object({
   model_family: z.string().min(1),
   lifecycle_state: portfolioMLStateSchema,
   feature_set_hash: z.string().min(1),
+  feature_set_version: z.string().min(1).nullable().optional(),
+  policy_version: z.string().min(1).nullable().optional(),
+  family_state_reason_code: z.string().min(1).nullable().optional(),
   data_window_start: z.string().min(1),
   data_window_end: z.string().min(1),
   run_status: z.string().min(1),
@@ -326,6 +426,7 @@ export const portfolioMLRegistryRowSchema = z.object({
   policy_result: z.record(z.string(), z.unknown()),
   metric_vector: z.record(z.string(), z.unknown()),
   baseline_comparator_metrics: z.record(z.string(), z.unknown()),
+  snapshot_metadata: z.record(z.string(), z.unknown()).optional(),
 });
 export const portfolioMLRegistryResponseSchema = z.object({
   state: portfolioMLStateSchema,
@@ -335,6 +436,54 @@ export const portfolioMLRegistryResponseSchema = z.object({
   as_of_market_at: z.string().min(1),
   evaluated_at: z.string().min(1),
   rows: z.array(portfolioMLRegistryRowSchema),
+});
+
+export const portfolioMLClusterRowSchema = z.object({
+  instrument_symbol: z.string().min(1),
+  cluster_id: z.string().min(1),
+  cluster_label: z.string().min(1),
+  return_30d: decimalFieldSchema,
+  volatility_30d: decimalFieldSchema,
+});
+
+export const portfolioMLClustersResponseSchema = z.object({
+  state: portfolioMLStateSchema,
+  state_reason_code: z.string().min(1),
+  state_reason_detail: z.string().min(1),
+  scope: portfolioMLScopeSchema,
+  instrument_symbol: z.string().min(1).nullable(),
+  as_of_ledger_at: z.string().min(1),
+  as_of_market_at: z.string().min(1),
+  evaluated_at: z.string().min(1),
+  freshness_policy: portfolioMLFreshnessPolicySchema,
+  model_family: z.string().min(1),
+  feature_set_hash: z.string().min(1).nullable().optional(),
+  policy_version: z.string().min(1).nullable().optional(),
+  rows: z.array(portfolioMLClusterRowSchema),
+});
+
+export const portfolioMLAnomalyRowSchema = z.object({
+  instrument_symbol: z.string().min(1),
+  event_at: z.string().min(1),
+  anomaly_score: decimalFieldSchema,
+  severity: z.string().min(1),
+  reason_code: z.string().min(1),
+});
+
+export const portfolioMLAnomaliesResponseSchema = z.object({
+  state: portfolioMLStateSchema,
+  state_reason_code: z.string().min(1),
+  state_reason_detail: z.string().min(1),
+  scope: portfolioMLScopeSchema,
+  instrument_symbol: z.string().min(1).nullable(),
+  as_of_ledger_at: z.string().min(1),
+  as_of_market_at: z.string().min(1),
+  evaluated_at: z.string().min(1),
+  freshness_policy: portfolioMLFreshnessPolicySchema,
+  model_family: z.string().min(1),
+  feature_set_hash: z.string().min(1).nullable().optional(),
+  policy_version: z.string().min(1).nullable().optional(),
+  rows: z.array(portfolioMLAnomalyRowSchema),
 });
 
 export const portfolioQuantReportScopeSchema = z.enum([
@@ -575,6 +724,118 @@ export const portfolioHierarchyResponseSchema = z.object({
   groups: z.array(portfolioHierarchyGroupRowSchema),
 });
 
+export const portfolioRebalancingStateSchema = z.enum([
+  "ready",
+  "unavailable",
+  "infeasible",
+]);
+
+export const portfolioRebalancingFreshnessPolicySchema = z.object({
+  max_age_hours: z.number().int().positive(),
+});
+
+export const portfolioRebalancingStrategyIdSchema = z.enum([
+  "mvo",
+  "hrp",
+  "black_litterman",
+]);
+
+export const portfolioRebalancingWeightRowSchema = z.object({
+  instrument_symbol: z.string().min(1),
+  current_weight_pct: decimalFieldSchema,
+  suggested_weight_pct: decimalFieldSchema,
+  delta_weight_pct: decimalFieldSchema,
+});
+
+export const portfolioRebalancingStrategyRowSchema = z.object({
+  strategy_id: portfolioRebalancingStrategyIdSchema,
+  strategy_label: z.string().min(1),
+  expected_return_annualized: decimalFieldSchema,
+  expected_volatility_annualized: decimalFieldSchema,
+  expected_sharpe: decimalFieldSchema,
+  weights: z.array(portfolioRebalancingWeightRowSchema),
+});
+
+export const portfolioRebalancingStrategiesResponseSchema = z.object({
+  state: portfolioRebalancingStateSchema,
+  state_reason_code: z.string().min(1),
+  state_reason_detail: z.string().min(1),
+  as_of_ledger_at: z.string().min(1),
+  as_of_market_at: z.string().min(1).nullable(),
+  evaluated_at: z.string().min(1),
+  freshness_policy: portfolioRebalancingFreshnessPolicySchema,
+  strategies: z.array(portfolioRebalancingStrategyRowSchema),
+  caveats: z.array(z.string().min(1)),
+});
+
+export const portfolioRebalancingScenarioConstraintsSchema = z.object({
+  max_position_weight_pct: nullableDecimalFieldSchema,
+  max_turnover_pct: nullableDecimalFieldSchema,
+  excluded_symbols: z.array(z.string().min(1)).max(25),
+});
+
+export const portfolioRebalancingScenarioRequestConstraintsSchema = z.object({
+  max_position_weight_pct: nullableDecimalFieldSchema.optional(),
+  max_turnover_pct: nullableDecimalFieldSchema.optional(),
+  excluded_symbols: z.array(z.string().min(1)).max(25).default([]),
+});
+
+export const portfolioRebalancingScenarioRequestSchema = z.object({
+  constraints: portfolioRebalancingScenarioRequestConstraintsSchema.default({}),
+});
+
+export const portfolioRebalancingScenarioResponseSchema = z.object({
+  state: portfolioRebalancingStateSchema,
+  state_reason_code: z.string().min(1),
+  state_reason_detail: z.string().min(1),
+  as_of_ledger_at: z.string().min(1),
+  as_of_market_at: z.string().min(1).nullable(),
+  evaluated_at: z.string().min(1),
+  freshness_policy: portfolioRebalancingFreshnessPolicySchema,
+  applied_constraints: portfolioRebalancingScenarioConstraintsSchema,
+  binding_constraints: z.array(z.string().min(1)),
+  baseline_strategies: z.array(portfolioRebalancingStrategyRowSchema),
+  constrained_strategies: z.array(portfolioRebalancingStrategyRowSchema),
+  infeasible_cause: z.string().min(1).nullable(),
+  caveats: z.array(z.string().min(1)),
+});
+
+export const portfolioNewsContextStateSchema = z.enum([
+  "ready",
+  "unavailable",
+]);
+
+export const portfolioNewsFreshnessPolicySchema = z.object({
+  max_age_hours: z.number().int().positive(),
+});
+
+export const portfolioNewsSourceRowSchema = z.object({
+  source_id: z.string().min(1),
+  source_label: z.string().min(1),
+  published_at: z.string().min(1),
+  url: z.string().min(1),
+});
+
+export const portfolioNewsContextRowSchema = z.object({
+  instrument_symbol: z.string().min(1),
+  market_value_weight_pct: decimalFieldSchema,
+  summary: z.string().min(1),
+  impact_bias: z.string().min(1),
+  caveats: z.array(z.string().min(1)),
+  sources: z.array(portfolioNewsSourceRowSchema),
+});
+
+export const portfolioNewsContextResponseSchema = z.object({
+  state: portfolioNewsContextStateSchema,
+  state_reason_code: z.string().min(1),
+  state_reason_detail: z.string().min(1),
+  as_of_ledger_at: z.string().min(1),
+  as_of_market_at: z.string().min(1).nullable(),
+  evaluated_at: z.string().min(1),
+  freshness_policy: portfolioNewsFreshnessPolicySchema,
+  rows: z.array(portfolioNewsContextRowSchema),
+});
+
 export const portfolioCopilotOperationSchema = z.enum([
   "chat",
   "opportunity_scan",
@@ -587,6 +848,20 @@ export const portfolioCopilotResponseStateSchema = z.enum([
   "ready",
   "blocked",
   "error",
+]);
+export const portfolioCopilotOpportunityActionStateSchema = z.enum([
+  "baseline_dca",
+  "double_down_candidate",
+  "watchlist",
+  "hold_off",
+]);
+export const portfolioCopilotFundamentalsProxyStateSchema = z.enum([
+  "passed",
+  "failed",
+  "inconclusive",
+]);
+export const portfolioCopilotOpportunityStrategyProfileSchema = z.enum([
+  "dca_2x_v1",
 ]);
 export const portfolioCopilotReasonCodeSchema = z.enum([
   "boundary_restricted",
@@ -610,13 +885,23 @@ export const portfolioCopilotEvidenceReferenceSchema = z.object({
 
 export const portfolioCopilotOpportunityCandidateSchema = z.object({
   symbol: z.string().min(1),
+  currently_held: z.boolean(),
+  action_state: portfolioCopilotOpportunityActionStateSchema,
+  action_multiplier: decimalFieldSchema,
+  action_reason_codes: z.array(z.string().min(1)).max(8).default([]),
+  fundamentals_proxy_state: portfolioCopilotFundamentalsProxyStateSchema,
+  fundamentals_proxy_score: decimalFieldSchema,
   opportunity_score: decimalFieldSchema,
   discount_score: decimalFieldSchema,
   momentum_score: decimalFieldSchema,
   stability_score: decimalFieldSchema,
   latest_close_price_usd: decimalFieldSchema,
   rolling_90d_high_price_usd: decimalFieldSchema,
+  rolling_52w_high_price_usd: decimalFieldSchema,
+  drawdown_from_52w_high_pct: decimalFieldSchema,
   return_30d: decimalFieldSchema,
+  return_90d: decimalFieldSchema,
+  return_252d: decimalFieldSchema,
   volatility_30d: decimalFieldSchema,
 });
 
@@ -627,22 +912,81 @@ export const portfolioCopilotChatRequestSchema = z.object({
   scope: portfolioQuantReportScopeSchema.default("portfolio"),
   instrument_symbol: z.string().min(1).nullable().optional(),
   max_tool_calls: z.number().int().min(1).max(6).default(6),
+  opportunity_strategy_profile:
+    portfolioCopilotOpportunityStrategyProfileSchema.default("dca_2x_v1"),
+  double_down_threshold_pct: decimalFieldSchema.default("0.20"),
+  double_down_multiplier: decimalFieldSchema.default("2.0"),
   document_ids: z.array(z.number().int().positive()).max(8).default([]),
 });
 
 export const portfolioCopilotChatResponseSchema = z.object({
   state: portfolioCopilotResponseStateSchema,
-  answer_text: z.string(),
+  answer: z.string().optional().default(""),
+  answer_text: z.string().optional().default(""),
   evidence: z.array(portfolioCopilotEvidenceReferenceSchema),
-  limitations: z.array(z.string().min(1)),
+  assumptions: z.array(z.string().min(1)).max(8).default([]),
+  caveats: z.array(z.string().min(1)).max(12).default([]),
+  suggested_follow_ups: z.array(z.string().min(1)).max(6).default([]),
+  limitations: z.array(z.string().min(1)).default([]),
   reason_code: portfolioCopilotReasonCodeSchema.nullable(),
   opportunity_candidates: z.array(portfolioCopilotOpportunityCandidateSchema),
   opportunity_narration: z.string().nullable(),
   prompt_suggestions: z.array(z.string().min(1)).max(4).default([]),
+}).transform((payload) => {
+  const answer =
+    payload.answer.trim().length > 0
+      ? payload.answer.trim()
+      : payload.answer_text.trim();
+  const caveats =
+    payload.caveats.length > 0 ? payload.caveats : payload.limitations;
+  const suggestedFollowUps =
+    payload.suggested_follow_ups.length > 0
+      ? payload.suggested_follow_ups
+      : payload.prompt_suggestions.slice(0, 6);
+  const promptSuggestions =
+    payload.prompt_suggestions.length > 0
+      ? payload.prompt_suggestions.slice(0, 4)
+      : suggestedFollowUps.slice(0, 4);
+  return {
+    ...payload,
+    answer,
+    answer_text: answer,
+    caveats,
+    limitations: caveats,
+    suggested_follow_ups: suggestedFollowUps.slice(0, 6),
+    prompt_suggestions: promptSuggestions,
+  };
 });
 
 export type PortfolioSummaryRow = z.infer<typeof portfolioSummaryRowSchema>;
 export type PortfolioSummaryResponse = z.infer<typeof portfolioSummaryResponseSchema>;
+export type PortfolioDecisionState = z.infer<typeof portfolioDecisionStateSchema>;
+export type PortfolioDecisionFreshnessPolicy = z.infer<
+  typeof portfolioDecisionFreshnessPolicySchema
+>;
+export type PortfolioCommandCenterInsight = z.infer<
+  typeof portfolioCommandCenterInsightSchema
+>;
+export type PortfolioCommandCenterResponse = z.infer<
+  typeof portfolioCommandCenterResponseSchema
+>;
+export type PortfolioExposureRow = z.infer<typeof portfolioExposureRowSchema>;
+export type PortfolioExposureResponse = z.infer<typeof portfolioExposureResponseSchema>;
+export type PortfolioContributionToRiskMethodology = z.infer<
+  typeof portfolioContributionToRiskMethodologySchema
+>;
+export type PortfolioContributionToRiskRow = z.infer<
+  typeof portfolioContributionToRiskRowSchema
+>;
+export type PortfolioContributionToRiskResponse = z.infer<
+  typeof portfolioContributionToRiskResponseSchema
+>;
+export type PortfolioCorrelationMatrixRow = z.infer<
+  typeof portfolioCorrelationMatrixRowSchema
+>;
+export type PortfolioCorrelationResponse = z.infer<
+  typeof portfolioCorrelationResponseSchema
+>;
 export type LotDispositionDetail = z.infer<typeof lotDispositionDetailSchema>;
 export type PortfolioLotDetailRow = z.infer<typeof portfolioLotDetailRowSchema>;
 export type PortfolioLotDetailResponse = z.infer<typeof portfolioLotDetailResponseSchema>;
@@ -729,6 +1073,14 @@ export type PortfolioMLRegistryRow = z.infer<typeof portfolioMLRegistryRowSchema
 export type PortfolioMLRegistryResponse = z.infer<
   typeof portfolioMLRegistryResponseSchema
 >;
+export type PortfolioMLClusterRow = z.infer<typeof portfolioMLClusterRowSchema>;
+export type PortfolioMLClustersResponse = z.infer<
+  typeof portfolioMLClustersResponseSchema
+>;
+export type PortfolioMLAnomalyRow = z.infer<typeof portfolioMLAnomalyRowSchema>;
+export type PortfolioMLAnomaliesResponse = z.infer<
+  typeof portfolioMLAnomaliesResponseSchema
+>;
 export type PortfolioQuantReportScope = z.infer<
   typeof portfolioQuantReportScopeSchema
 >;
@@ -801,6 +1153,44 @@ export type PortfolioHierarchyGroupRow = z.infer<
 export type PortfolioHierarchyResponse = z.infer<
   typeof portfolioHierarchyResponseSchema
 >;
+export type PortfolioRebalancingState = z.infer<
+  typeof portfolioRebalancingStateSchema
+>;
+export type PortfolioRebalancingFreshnessPolicy = z.infer<
+  typeof portfolioRebalancingFreshnessPolicySchema
+>;
+export type PortfolioRebalancingStrategyId = z.infer<
+  typeof portfolioRebalancingStrategyIdSchema
+>;
+export type PortfolioRebalancingWeightRow = z.infer<
+  typeof portfolioRebalancingWeightRowSchema
+>;
+export type PortfolioRebalancingStrategyRow = z.infer<
+  typeof portfolioRebalancingStrategyRowSchema
+>;
+export type PortfolioRebalancingStrategiesResponse = z.infer<
+  typeof portfolioRebalancingStrategiesResponseSchema
+>;
+export type PortfolioRebalancingScenarioConstraints = z.infer<
+  typeof portfolioRebalancingScenarioConstraintsSchema
+>;
+export type PortfolioRebalancingScenarioRequest = z.infer<
+  typeof portfolioRebalancingScenarioRequestSchema
+>;
+export type PortfolioRebalancingScenarioResponse = z.infer<
+  typeof portfolioRebalancingScenarioResponseSchema
+>;
+export type PortfolioNewsContextState = z.infer<
+  typeof portfolioNewsContextStateSchema
+>;
+export type PortfolioNewsFreshnessPolicy = z.infer<
+  typeof portfolioNewsFreshnessPolicySchema
+>;
+export type PortfolioNewsSourceRow = z.infer<typeof portfolioNewsSourceRowSchema>;
+export type PortfolioNewsContextRow = z.infer<typeof portfolioNewsContextRowSchema>;
+export type PortfolioNewsContextResponse = z.infer<
+  typeof portfolioNewsContextResponseSchema
+>;
 export type PortfolioCopilotOperation = z.infer<
   typeof portfolioCopilotOperationSchema
 >;
@@ -809,6 +1199,15 @@ export type PortfolioCopilotConversationRole = z.infer<
 >;
 export type PortfolioCopilotResponseState = z.infer<
   typeof portfolioCopilotResponseStateSchema
+>;
+export type PortfolioCopilotOpportunityActionState = z.infer<
+  typeof portfolioCopilotOpportunityActionStateSchema
+>;
+export type PortfolioCopilotFundamentalsProxyState = z.infer<
+  typeof portfolioCopilotFundamentalsProxyStateSchema
+>;
+export type PortfolioCopilotOpportunityStrategyProfile = z.infer<
+  typeof portfolioCopilotOpportunityStrategyProfileSchema
 >;
 export type PortfolioCopilotReasonCode = z.infer<
   typeof portfolioCopilotReasonCodeSchema

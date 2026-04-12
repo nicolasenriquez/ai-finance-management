@@ -154,8 +154,8 @@ describe("workspace copilot launcher fail-first contract", () => {
       screen.getByRole("button", { name: "Collapse copilot panel" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("link", { name: "Open expanded copilot surface" }),
-    ).toBeInTheDocument();
+      screen.queryByRole("link", { name: "Open expanded copilot surface" }),
+    ).not.toBeInTheDocument();
   });
 
   it("4.1 preserves answer continuity across collapse and re-expand on desktop", async () => {
@@ -170,13 +170,17 @@ describe("workspace copilot launcher fail-first contract", () => {
     await user.click(screen.getByRole("button", { name: "Submit request" }));
 
     await waitFor(() =>
-      expect(screen.getByText("Continuity answer from docked panel.")).toBeInTheDocument(),
+      expect(
+        screen.getAllByText("Continuity answer from docked panel.").length,
+      ).toBeGreaterThan(0),
     );
 
     await user.click(screen.getByRole("button", { name: "Collapse copilot panel" }));
     await user.click(screen.getByRole("button", { name: "Expand copilot panel" }));
 
-    expect(screen.getByText("Continuity answer from docked panel.")).toBeInTheDocument();
+    expect(
+      screen.getAllByText("Continuity answer from docked panel.").length,
+    ).toBeGreaterThan(0);
   });
 
   it("4.1 uses full-screen copilot presentation on mobile viewport", async () => {
@@ -203,7 +207,7 @@ describe("workspace copilot launcher fail-first contract", () => {
     expect(screen.getByText(/Period 252D/i)).toBeInTheDocument();
     expect(screen.getByText(/Scope instrument AAPL/i)).toBeInTheDocument();
     expect(
-      screen.getByRole("textbox", { name: "Copilot instrument symbol" }),
+      screen.getByLabelText("Copilot instrument symbol"),
     ).toHaveValue("AAPL");
   });
 
@@ -280,7 +284,7 @@ describe("workspace copilot launcher fail-first contract", () => {
         screen.getAllByText("Continuity across presentation modes.").length,
       ).toBeGreaterThan(0),
     );
-    await user.click(screen.getByRole("link", { name: "Open expanded copilot surface" }));
+    await user.click(screen.getByRole("link", { name: "Copilot" }));
 
     await waitFor(() =>
       expect(

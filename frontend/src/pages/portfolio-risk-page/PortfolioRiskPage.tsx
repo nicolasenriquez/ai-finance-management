@@ -33,6 +33,7 @@ import { fetchPortfolioSummary } from "../../features/portfolio-summary/api";
 import { resolveWorkspaceError } from "../../features/portfolio-workspace/errors";
 import {
   mapChartPeriodToRiskWindow,
+  usePortfolioContributionToRiskQuery,
   usePortfolioHealthSynthesisQuery,
   usePortfolioReturnDistributionQuery,
   usePortfolioRiskEstimatorsScopedQuery,
@@ -376,6 +377,7 @@ export function PortfolioRiskPage() {
     profilePosture: "balanced",
     enabled: isScopeReady,
   });
+  const contributionToRiskQuery = usePortfolioContributionToRiskQuery();
   const [correlationSymbols, setCorrelationSymbols] = useState<string[]>([]);
   const [correlationSeriesEntries, setCorrelationSeriesEntries] = useState<
     Array<{ symbol: string; points: PortfolioTimeSeriesPoint[] }>
@@ -384,6 +386,7 @@ export function PortfolioRiskPage() {
     "idle" | "loading" | "ready" | "error"
   >("idle");
   const [correlationReloadToken, setCorrelationReloadToken] = useState(0);
+  const [showAdvancedDiagnostics, setShowAdvancedDiagnostics] = useState(false);
   const [showDrawdownSeries, setShowDrawdownSeries] = useState(true);
   const [showRollingVolatilitySeries, setShowRollingVolatilitySeries] = useState(true);
   const [showRollingBetaSeries, setShowRollingBetaSeries] = useState(true);
@@ -517,6 +520,9 @@ export function PortfolioRiskPage() {
   }
 
   const orderedMetrics = isSuccess ? sortRiskMetrics(riskQuery.data.metrics) : [];
+  const contributionToRiskRows = contributionToRiskQuery.isSuccess
+    ? contributionToRiskQuery.data.rows.slice(0, 8)
+    : [];
   const riskCoreTenMetrics = getCoreTenEntriesForRoute("risk");
   const unitSet = new Set(orderedMetrics.map((metric) => resolveRiskMetricUnit(metric.estimator_id)));
   const hasMixedRiskUnits = unitSet.size > 1;
@@ -618,8 +624,8 @@ export function PortfolioRiskPage() {
             value={selectedPeriod}
             onChange={handlePeriodChange}
           />
-          <Link className="button-secondary" to="/portfolio/home">
-            Back to home
+          <Link className="button-secondary" to="/portfolio/dashboard">
+            Back to dashboard
           </Link>
         </>
       }
@@ -634,6 +640,8 @@ export function PortfolioRiskPage() {
         jobDescription="Use one bounded risk interpretation layer before deep chart drill-down so unit semantics remain explicit."
         decisionTags={["risk_posture"]}
         coreTenMetrics={riskCoreTenMetrics}
+        questionKey="risk-posture-summary"
+        widgetId="risk-primary-job"
       />
 
       {!isScopeReady ? (
@@ -690,6 +698,9 @@ export function PortfolioRiskPage() {
             subtitle={`Window: ${riskQuery.data.window_days} days, return basis and annualization metadata shown per metric.`}
             shortDescription="Risk estimators rendered with mixed-unit guardrails and one compact metadata ledger."
             longDescription="Charts are split by unit type when needed so comparisons stay valid; row-level ledger keeps formula context without duplicating large cards."
+            questionKey="risk-estimator-ledger"
+            widgetId="risk-estimator-ledger"
+            priority="primary"
           >
             {hasMixedRiskUnits ? (
               <>
@@ -767,12 +778,72 @@ export function PortfolioRiskPage() {
         )
       ) : null}
 
+      <WorkspaceChartPanel
+        title="Contribution-to-risk concentration"
+        subtitle="Deterministic contribution-to-risk rows with explicit lifecycle state."
+        shortDescription="Identifies which holdings explain the largest share of current portfolio risk budget."
+        longDescription="Use contribution-to-risk to separate value concentration from volatility concentration before rebalancing decisions."
+        questionKey="contribution-to-risk-concentration"
+        widgetId="risk-contribution-to-risk"
+        priority="primary"
+      >
+        {contributionToRiskQuery.isLoading ? <LoadingTableSkeleton rows={2} /> : null}
+        {contributionToRiskQuery.isError ? (
+          <ErrorBanner
+            title="Contribution-to-risk unavailable"
+            message="Risk contribution dataset could not be loaded."
+            variant="warning"
+            actions={
+              <button
+                className="button-primary"
+                onClick={() => void contributionToRiskQuery.refetch()}
+                type="button"
+              >
+                Retry contribution-to-risk
+              </button>
+            }
+          />
+        ) : null}
+        {contributionToRiskQuery.isSuccess &&
+        contributionToRiskQuery.data.state !== "ready" ? (
+          <EmptyState
+            title="Contribution-to-risk not ready"
+            message={contributionToRiskQuery.data.state_reason_detail}
+          />
+        ) : null}
+        {contributionToRiskQuery.isSuccess &&
+        contributionToRiskQuery.data.state === "ready" &&
+        contributionToRiskRows.length > 0 ? (
+          <div className="risk-metrics-ledger" role="table" aria-label="Contribution to risk table">
+            <div className="risk-metrics-ledger__header" role="row">
+              <span role="columnheader">Symbol</span>
+              <span role="columnheader">Contribution to risk</span>
+              <span role="columnheader">Volatility (annualized)</span>
+            </div>
+            {contributionToRiskRows.map((row) => (
+              <div className="risk-metrics-ledger__row" key={row.instrument_symbol} role="row">
+                <span role="cell">{row.instrument_symbol}</span>
+                <strong role="cell">{Number(row.contribution_to_risk_pct).toFixed(2)}%</strong>
+                <span role="cell">
+                  {row.volatility_annualized === null
+                    ? "n/a"
+                    : `${(Number(row.volatility_annualized) * 100).toFixed(2)}%`}
+                </span>
+              </div>
+            ))}
+          </div>
+        ) : null}
+      </WorkspaceChartPanel>
+
       {isScopeReady ? (
         <WorkspaceChartPanel
           title="Health context bridge"
           subtitle="Risk pillar contribution linked to aggregate portfolio-health interpretation."
           shortDescription="Shows how current estimator posture affects overall health label and score."
           longDescription="Use this bridge to connect estimator readings with executive health interpretation before moving to timeline diagnostics."
+          questionKey="risk-to-health-link"
+          widgetId="risk-health-bridge"
+          priority="primary"
         >
           {healthQuery.isLoading ? <LoadingTableSkeleton rows={2} /> : null}
           {healthQuery.isError ? (
@@ -834,6 +905,9 @@ export function PortfolioRiskPage() {
           subtitle="Peak-to-trough path across selected scope and period."
           shortDescription="Use drawdown trajectory to understand depth and recovery rhythm, not only endpoint severity."
           longDescription="Drawdown values are expressed as relative decline from the running peak in the selected scope. Persistent deep drawdowns indicate slower capital recovery dynamics."
+          questionKey="drawdown-depth-persistence"
+          widgetId="risk-drawdown"
+          priority="primary"
           actions={
             <button
               aria-label="Toggle drawdown series"
@@ -874,11 +948,38 @@ export function PortfolioRiskPage() {
       ) : null}
 
       {isScopeReady ? (
+        <section className="panel workspace-advanced-disclosure">
+          <header className="panel__header">
+            <div>
+              <h2 className="panel__title">Advanced risk diagnostics</h2>
+              <p className="panel__subtitle">
+                Progressive disclosure keeps first-surface focus on estimator posture and
+                downside path interpretation.
+              </p>
+            </div>
+            <button
+              aria-expanded={showAdvancedDiagnostics}
+              className="button-secondary"
+              onClick={() => setShowAdvancedDiagnostics((previous) => !previous)}
+              type="button"
+            >
+              {showAdvancedDiagnostics
+                ? "Hide advanced diagnostics"
+                : "Show advanced diagnostics"}
+            </button>
+          </header>
+        </section>
+      ) : null}
+
+      {isScopeReady && showAdvancedDiagnostics ? (
         <WorkspaceChartPanel
           title="Rolling estimator timeline"
           subtitle="Time-evolution context for rolling volatility and rolling beta."
           shortDescription="Rolling metrics provide trend context to support current snapshot interpretation."
           longDescription="Rolling estimators are computed over a bounded trailing window. Use these paths to detect regime shifts rather than relying on one-point values."
+          questionKey="rolling-risk-regime-shifts"
+          widgetId="risk-rolling-estimator"
+          priority="advanced"
           actions={
             <div className="chart-controls">
               <button
@@ -929,12 +1030,15 @@ export function PortfolioRiskPage() {
         </WorkspaceChartPanel>
       ) : null}
 
-      {isScopeReady ? (
+      {isScopeReady && showAdvancedDiagnostics ? (
         <WorkspaceChartPanel
           title="Correlation cluster network"
           subtitle="Cross-symbol co-movement map for the largest tracked holdings."
           shortDescription="Pairwise correlation matrix plus high-link clusters to spot concentration-through-correlation."
           longDescription="Correlations are computed from aligned daily return series on the selected period. Use this map to find hidden concentration where symbols move together even if position weights differ."
+          questionKey="co-movement-concentration"
+          widgetId="risk-correlation-network"
+          priority="advanced"
         >
           {selectedScope !== "portfolio" ? (
             <ErrorBanner
@@ -1036,6 +1140,9 @@ export function PortfolioRiskPage() {
           subtitle="Deterministic equal-width buckets over aligned return history."
           shortDescription="Distribution shape complements drawdown and rolling metrics for risk storytelling."
           longDescription="Histogram buckets are deterministic for equivalent input state and policy. Evaluate skew, tail concentration, and central tendency together with volatility and drawdown modules."
+          questionKey="return-distribution-shape"
+          widgetId="risk-return-distribution"
+          priority="primary"
         >
           {returnDistributionQuery.isLoading ? <LoadingTableSkeleton rows={2} /> : null}
           {returnDistributionQuery.isError ? (
@@ -1067,12 +1174,15 @@ export function PortfolioRiskPage() {
         </WorkspaceChartPanel>
       ) : null}
 
-      {isScopeReady ? (
+      {isScopeReady && showAdvancedDiagnostics ? (
         <WorkspaceChartPanel
           title="Tail risk diagnostics"
           subtitle="Left-tail concentration, stress-gap, and downside bucket severity."
           shortDescription="Diagnoses asymmetry between downside and upside tails using return-distribution and VaR/ES estimators."
           longDescription="Tail diagnostics should be interpreted with drawdown and rolling modules. A larger ES-vs-VaR gap and heavier left-tail bucket mass imply more severe downside paths when losses occur."
+          questionKey="tail-loss-severity"
+          widgetId="risk-tail-diagnostics"
+          priority="advanced"
         >
           {!tailRiskSnapshot ? (
             <EmptyState

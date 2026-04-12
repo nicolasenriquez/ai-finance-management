@@ -21,12 +21,14 @@ import {
 import { ThemeProvider } from "../../app/theme";
 import { AppApiError } from "../../core/api/errors";
 import type {
+  PortfolioContributionToRiskResponse,
   PortfolioHealthSynthesisResponse,
   PortfolioReturnDistributionResponse,
   PortfolioRiskEstimatorsResponse,
   PortfolioRiskEvolutionResponse,
 } from "../../core/api/schemas";
 import {
+  usePortfolioContributionToRiskQuery,
   usePortfolioHealthSynthesisQuery,
   usePortfolioReturnDistributionQuery,
   usePortfolioRiskEstimatorsScopedQuery,
@@ -40,6 +42,7 @@ vi.mock("../../features/portfolio-workspace/hooks", async () => {
   >("../../features/portfolio-workspace/hooks");
   return {
     ...actual,
+    usePortfolioContributionToRiskQuery: vi.fn(),
     usePortfolioHealthSynthesisQuery: vi.fn(),
     usePortfolioRiskEstimatorsScopedQuery: vi.fn(),
     usePortfolioRiskEvolutionQuery: vi.fn(),
@@ -58,6 +61,9 @@ type QueryState<TData> = {
 
 const mockedUsePortfolioRiskEstimatorsScopedQuery = vi.mocked(
   usePortfolioRiskEstimatorsScopedQuery,
+);
+const mockedUsePortfolioContributionToRiskQuery = vi.mocked(
+  usePortfolioContributionToRiskQuery,
 );
 const mockedUsePortfolioHealthSynthesisQuery = vi.mocked(
   usePortfolioHealthSynthesisQuery,
@@ -162,6 +168,31 @@ const returnDistributionResponse: PortfolioReturnDistributionResponse = {
       upper_bound: "-0.025000",
       count: 5,
       frequency: "0.055556",
+    },
+  ],
+};
+
+const contributionToRiskResponse: PortfolioContributionToRiskResponse = {
+  state: "ready",
+  state_reason_code: "ready",
+  state_reason_detail: "contribution_to_risk_rows_available",
+  as_of_ledger_at: "2026-03-28T00:00:00Z",
+  as_of_market_at: "2026-03-28T00:00:00Z",
+  evaluated_at: "2026-03-28T00:00:00Z",
+  freshness_policy: {
+    max_age_hours: 24,
+  },
+  methodology: {
+    methodology_id: "ctr_v1",
+    risk_measure: "volatility_annualized",
+    lookback_days: 90,
+    annualization_basis: "trading_days_252",
+  },
+  rows: [
+    {
+      instrument_symbol: "AAPL",
+      contribution_to_risk_pct: "0.220000",
+      volatility_annualized: "0.180000",
     },
   ],
 };
@@ -293,6 +324,23 @@ function setHealthState(
   );
 }
 
+function setContributionToRiskState(
+  state: Partial<QueryState<PortfolioContributionToRiskResponse>>,
+): void {
+  const queryState: QueryState<PortfolioContributionToRiskResponse> = {
+    isLoading: false,
+    isError: false,
+    isSuccess: false,
+    data: undefined,
+    error: undefined,
+    refetch: vi.fn().mockResolvedValue(undefined),
+    ...state,
+  };
+  mockedUsePortfolioContributionToRiskQuery.mockReturnValue(
+    queryState as ReturnType<typeof usePortfolioContributionToRiskQuery>,
+  );
+}
+
 function setReturnDistributionState(
   state: Partial<QueryState<PortfolioReturnDistributionResponse>>,
 ): void {
@@ -343,6 +391,10 @@ describe("PortfolioRiskPage", () => {
     setHealthState({
       isSuccess: true,
       data: healthResponse,
+    });
+    setContributionToRiskState({
+      isSuccess: true,
+      data: contributionToRiskResponse,
     });
   });
 
@@ -499,7 +551,7 @@ describe("PortfolioRiskPage", () => {
     ).toBeInTheDocument();
   });
 
-  it("renders drawdown, rolling-estimator, and return-distribution modules for interpretation depth", () => {
+  it("renders drawdown and return-distribution modules in first surface", () => {
     setRiskState({
       isSuccess: true,
       data: riskResponse,
@@ -511,20 +563,53 @@ describe("PortfolioRiskPage", () => {
       screen.getByRole("heading", { name: /drawdown path timeline/i }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("heading", { name: /rolling estimator timeline/i }),
-    ).toBeInTheDocument();
-    expect(
       screen.getByRole("heading", { name: /return distribution/i }),
     ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: /rolling estimator timeline/i }),
+    ).not.toBeInTheDocument();
   });
 
-  it("renders deterministic, keyboard-reachable timeline visibility toggles", () => {
+  it("reveals advanced risk diagnostics only after explicit disclosure action", async () => {
+    const user = userEvent.setup();
     setRiskState({
       isSuccess: true,
       data: riskResponse,
     });
 
     renderRiskPage();
+
+    expect(
+      screen.queryByRole("heading", { name: /rolling estimator timeline/i }),
+    ).not.toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole("button", { name: /show advanced diagnostics/i }),
+    );
+
+    expect(
+      screen.getByRole("heading", { name: /rolling estimator timeline/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /correlation cluster network/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /tail risk diagnostics/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("renders deterministic, keyboard-reachable timeline visibility toggles", async () => {
+    const user = userEvent.setup();
+    setRiskState({
+      isSuccess: true,
+      data: riskResponse,
+    });
+
+    renderRiskPage();
+
+    await user.click(
+      screen.getByRole("button", { name: /show advanced diagnostics/i }),
+    );
 
     const drawdownToggle = screen.getByRole("button", { name: /toggle drawdown series/i });
     const volatilityToggle = screen.getByRole("button", {

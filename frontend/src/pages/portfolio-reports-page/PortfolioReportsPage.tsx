@@ -41,8 +41,10 @@ import {
   usePortfolioEfficientFrontierQuery,
   usePortfolioHealthSynthesisQuery,
   usePortfolioMLForecastQuery,
+  usePortfolioMLAnomaliesQuery,
   usePortfolioMLRegistryQuery,
   usePortfolioMLSignalQuery,
+  usePortfolioNewsContextQuery,
   usePortfolioQuantMetricsQuery,
   usePortfolioMonteCarloMutation,
   usePortfolioQuantReportGenerateMutation,
@@ -585,6 +587,7 @@ export function PortfolioReportsPage() {
     useState<MonteCarloCalibrationBasis>("monthly");
   const [monteCarloValidationError, setMonteCarloValidationError] = useState<string | null>(null);
   const [lastExportedAt, setLastExportedAt] = useState<string | null>(null);
+  const [showAdvancedDiagnostics, setShowAdvancedDiagnostics] = useState(false);
 
   const summaryQuery = usePortfolioSummaryQuery();
   const normalizedReportInstrumentSymbol = reportInstrumentSymbol.trim().toUpperCase();
@@ -630,9 +633,15 @@ export function PortfolioReportsPage() {
     instrumentSymbol: isReportInstrumentScope ? normalizedReportInstrumentSymbol : null,
     enabled: isHealthScopeReady,
   });
+  const mlAnomaliesQuery = usePortfolioMLAnomaliesQuery({
+    scope: reportScope,
+    instrumentSymbol: isReportInstrumentScope ? normalizedReportInstrumentSymbol : null,
+    enabled: isHealthScopeReady,
+  });
   const mlRegistryQuery = usePortfolioMLRegistryQuery({
     scope: reportScope,
   });
+  const newsContextQuery = usePortfolioNewsContextQuery();
 
   const quantErrorCopy = resolveWorkspaceError(
     quantMetricsQuery.error,
@@ -905,6 +914,27 @@ export function PortfolioReportsPage() {
       };
     });
   }, [mlSignalQuery.data, mlSignalQuery.isSuccess]);
+  const mlAnomalyRows = useMemo(() => {
+    if (!mlAnomaliesQuery.isSuccess) {
+      return [] as Array<{
+        instrumentSymbol: string;
+        eventAt: string;
+        anomalyScore: string;
+        severity: string;
+        reasonCode: string;
+      }>;
+    }
+    return [...mlAnomaliesQuery.data.rows]
+      .sort((left, right) => right.event_at.localeCompare(left.event_at))
+      .slice(0, 10)
+      .map((row) => ({
+        instrumentSymbol: row.instrument_symbol,
+        eventAt: row.event_at,
+        anomalyScore: Number(row.anomaly_score).toFixed(4),
+        severity: row.severity,
+        reasonCode: row.reason_code,
+      }));
+  }, [mlAnomaliesQuery.data, mlAnomaliesQuery.isSuccess]);
   const mlRegistryRows = mlRegistryQuery.isSuccess ? mlRegistryQuery.data.rows.slice(0, 6) : [];
   const forecastConfidenceHeadline =
     mlForecastQuery.isLoading
@@ -1333,8 +1363,8 @@ export function PortfolioReportsPage() {
             value={selectedPeriod}
             onChange={handlePeriodChange}
           />
-          <Link className="button-secondary" to="/portfolio/home">
-            Back to home
+          <Link className="button-secondary" to="/portfolio/dashboard">
+            Back to dashboard
           </Link>
         </>
       }
@@ -1355,6 +1385,8 @@ export function PortfolioReportsPage() {
         jobDescription="Prioritize goal-progress and confidence framing before artifact and simulation deep dives."
         decisionTags={["goal_progress", "forecast_interpretation"]}
         coreTenMetrics={reportsCoreTenMetrics}
+        questionKey="goal-progress-confidence"
+        widgetId="reports-primary-job"
         supplementary={
           <div className="chart-summary-grid">
             <article className="chart-summary-card chart-summary-card--accent">
@@ -1396,6 +1428,9 @@ export function PortfolioReportsPage() {
         subtitle="Analyst diagnostics with explicit benchmark-context omission handling."
         shortDescription="Primary diagnostics for risk-adjusted performance interpretation."
         longDescription="Interpret these metrics together; isolated values can be misleading when period coverage or benchmark context is incomplete."
+        questionKey="quant-scorecard-overview"
+        widgetId="reports-quant-scorecards"
+        priority="primary"
       >
         {quantMetricsQuery.isLoading ? <LoadingTableSkeleton rows={2} /> : null}
 
@@ -1497,6 +1532,9 @@ export function PortfolioReportsPage() {
         subtitle="Loading, error, unavailable, and ready states are explicit and keyboard reachable."
         shortDescription="Generate and preview report artifacts from one stable action surface."
         longDescription="Report actions are persistent here; no workflow actions are hidden inside transient chart tooltips."
+        questionKey="report-lifecycle-readiness"
+        widgetId="reports-lifecycle"
+        priority="primary"
       >
         <div className="quant-lifecycle-controls">
           <div className="quant-lifecycle-controls__row">
@@ -1698,6 +1736,9 @@ export function PortfolioReportsPage() {
         subtitle="Bounded QuantStats simulation controls with explicit workflow states."
         shortDescription="Scenario module for probability context under deterministic seed and bounded simulation envelope."
         longDescription="Monte Carlo diagnostics shuffle historical returns and do not forecast markets. Use these outputs for scenario awareness, not prediction certainty."
+        questionKey="scenario-probability-bounds"
+        widgetId="reports-monte-carlo"
+        priority="primary"
       >
         <div className="monte-carlo-form">
           <div className="monte-carlo-form__control-row">
@@ -2156,11 +2197,37 @@ export function PortfolioReportsPage() {
         ) : null}
       </WorkspaceChartPanel>
 
+      <section className="panel workspace-advanced-disclosure">
+        <header className="panel__header">
+          <div>
+            <h2 className="panel__title">Advanced diagnostics</h2>
+            <p className="panel__subtitle">
+              Progressive disclosure keeps first-surface reporting focused on scorecards,
+              lifecycle readiness, and scenario envelopes.
+            </p>
+          </div>
+          <button
+            aria-expanded={showAdvancedDiagnostics}
+            className="button-secondary"
+            onClick={() => setShowAdvancedDiagnostics((previous) => !previous)}
+            type="button"
+          >
+            {showAdvancedDiagnostics
+              ? "Hide advanced diagnostics"
+              : "Show advanced diagnostics"}
+          </button>
+        </header>
+      </section>
+
+      {showAdvancedDiagnostics ? (
       <WorkspaceChartPanel
         title="Advanced risk lab"
         subtitle="Frontier and contribution risk budget diagnostics in one view."
         shortDescription="Compares Monte Carlo profile trade-offs and current contribution concentration to expose where risk is paid and where it is concentrated."
         longDescription="Frontier view maps bust probability versus goal probability for profile scenarios. Contribution diagnostics complement this with symbol-level concentration so profile settings can be interpreted in portfolio context."
+        questionKey="frontier-vs-contribution-tradeoff"
+        widgetId="reports-advanced-risk-lab"
+        priority="advanced"
       >
         <div className="advanced-risk-lab">
           <section className="advanced-risk-lab__module">
@@ -2314,12 +2381,17 @@ export function PortfolioReportsPage() {
           </section>
         ) : null}
       </WorkspaceChartPanel>
+      ) : null}
 
+      {showAdvancedDiagnostics ? (
       <WorkspaceChartPanel
         title="ML insights control tower"
         subtitle="Signal contracts, CAPM diagnostics, probabilistic forecast fan, and registry governance."
         shortDescription="Operational view to inspect time-series signal state, CAPM interpretation, forecast interval shape, and promoted model lineage."
         longDescription="Use this panel to validate that ML contracts are ready, interpretable, and governed before relying on generated narratives."
+        questionKey="ml-readiness-governance"
+        widgetId="reports-ml-insights"
+        priority="advanced"
       >
         {!isHealthScopeReady ? (
           <ErrorBanner
@@ -2531,6 +2603,77 @@ export function PortfolioReportsPage() {
 
           <section className="ml-insights-module">
             <header className="ml-insights-module__header">
+              <h3>Anomaly timeline</h3>
+              {mlAnomaliesQuery.isSuccess ? (
+                <span
+                  className={`status-pill ${resolvePortfolioMLStateToneClass(mlAnomaliesQuery.data.state)}`}
+                >
+                  State: {formatPortfolioMLStateLabel(mlAnomaliesQuery.data.state)}
+                </span>
+              ) : mlAnomaliesQuery.isError ? (
+                <span className="status-pill status-pill--negative">State: error</span>
+              ) : mlAnomaliesQuery.isLoading ? (
+                <span className="status-pill status-pill--neutral">State: loading</span>
+              ) : (
+                <span className="status-pill status-pill--neutral">State: unavailable</span>
+              )}
+            </header>
+            <p className="ml-insights-module__meta">
+              Latest anomaly events with deterministic severity and reason codes.
+            </p>
+            {mlAnomaliesQuery.isLoading ? <LoadingTableSkeleton rows={2} /> : null}
+            {mlAnomaliesQuery.isError ? (
+              <ErrorBanner
+                title="Anomaly timeline unavailable"
+                message="Portfolio ML anomalies request failed."
+                variant="warning"
+                actions={
+                  <button
+                    className="button-primary"
+                    onClick={() => void mlAnomaliesQuery.refetch()}
+                    type="button"
+                  >
+                    Retry anomalies
+                  </button>
+                }
+              />
+            ) : null}
+            {mlAnomaliesQuery.isSuccess && mlAnomalyRows.length > 0 ? (
+              <div className="ml-registry-table" role="table" aria-label="ML anomaly timeline table">
+                <div className="ml-registry-table__row ml-registry-table__row--header" role="row">
+                  <span role="columnheader">Event at</span>
+                  <span role="columnheader">Symbol</span>
+                  <span role="columnheader">Severity</span>
+                  <span role="columnheader">Score</span>
+                  <span role="columnheader">Reason</span>
+                </div>
+                {mlAnomalyRows.map((anomalyRow) => (
+                  <div
+                    className="ml-registry-table__row"
+                    key={`${anomalyRow.instrumentSymbol}-${anomalyRow.eventAt}-${anomalyRow.reasonCode}`}
+                    role="row"
+                  >
+                    <span role="cell">{formatDateTimeLabel(anomalyRow.eventAt)}</span>
+                    <span role="cell">{anomalyRow.instrumentSymbol}</span>
+                    <span role="cell">{anomalyRow.severity}</span>
+                    <span role="cell">{anomalyRow.anomalyScore}</span>
+                    <span role="cell">{anomalyRow.reasonCode}</span>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+            {mlAnomaliesQuery.isSuccess &&
+            mlAnomaliesQuery.data.state !== "ready" &&
+            mlAnomalyRows.length === 0 ? (
+              <EmptyState
+                title="Anomaly timeline not ready"
+                message={mlAnomaliesQuery.data.state_reason_detail}
+              />
+            ) : null}
+          </section>
+
+          <section className="ml-insights-module">
+            <header className="ml-insights-module__header">
               <h3>Model registry</h3>
               {mlRegistryQuery.isSuccess ? (
                 <span
@@ -2605,12 +2748,85 @@ export function PortfolioReportsPage() {
           </section>
         </div>
       </WorkspaceChartPanel>
+      ) : null}
+
+      {showAdvancedDiagnostics ? (
+      <WorkspaceChartPanel
+        title="News context layer"
+        subtitle="Holdings-grounded news summaries with provenance and caveats."
+        shortDescription="Use symbol-level news context to validate whether recent market narratives align with portfolio exposures."
+        longDescription="News summaries are bounded and include source provenance. Treat as context, not financial advice."
+        questionKey="holdings-news-context"
+        widgetId="reports-news-context"
+        priority="advanced"
+      >
+        {newsContextQuery.isLoading ? <LoadingTableSkeleton rows={2} /> : null}
+        {newsContextQuery.isError ? (
+          <ErrorBanner
+            title="News context unavailable"
+            message="Holdings-linked news context request failed."
+            variant="warning"
+            actions={
+              <button
+                className="button-primary"
+                onClick={() => void newsContextQuery.refetch()}
+                type="button"
+              >
+                Retry news context
+              </button>
+            }
+          />
+        ) : null}
+        {newsContextQuery.isSuccess && newsContextQuery.data.state !== "ready" ? (
+          <EmptyState
+            title="News context not ready"
+            message={newsContextQuery.data.state_reason_detail}
+          />
+        ) : null}
+        {newsContextQuery.isSuccess &&
+        newsContextQuery.data.state === "ready" &&
+        newsContextQuery.data.rows.length > 0 ? (
+          <div className="ml-registry-table" role="table" aria-label="News context table">
+            <div className="ml-registry-table__row ml-registry-table__row--header" role="row">
+              <span role="columnheader">Symbol</span>
+              <span role="columnheader">Impact</span>
+              <span role="columnheader">Summary</span>
+              <span role="columnheader">Source</span>
+            </div>
+            {newsContextQuery.data.rows.slice(0, 8).map((newsRow) => (
+              <div className="ml-registry-table__row" key={newsRow.instrument_symbol} role="row">
+                <span role="cell">{newsRow.instrument_symbol}</span>
+                <span role="cell">{newsRow.impact_bias}</span>
+                <span role="cell">{newsRow.summary}</span>
+                <span role="cell">
+                  {newsRow.sources.length > 0 ? (
+                    <a
+                      className="table-link"
+                      href={newsRow.sources[0].url}
+                      rel="noreferrer"
+                      target="_blank"
+                    >
+                      {newsRow.sources[0].source_label}
+                    </a>
+                  ) : (
+                    "n/a"
+                  )}
+                </span>
+              </div>
+            ))}
+          </div>
+        ) : null}
+      </WorkspaceChartPanel>
+      ) : null}
 
       <WorkspaceChartPanel
         title="Monthly return heatmap"
         subtitle="Calendar-heatmap style rhythm view for period returns."
         shortDescription="Pattern-first module to spot recurring positive/negative months quickly."
         longDescription="Heatmap values are derived from available period points and should be paired with precise metric cards for decisions."
+        questionKey="monthly-return-rhythm"
+        widgetId="reports-monthly-heatmap"
+        priority="primary"
       >
         <div className="transactions-filters">
           <label className="transactions-filters__field">
@@ -2682,11 +2898,15 @@ export function PortfolioReportsPage() {
         ) : null}
       </WorkspaceChartPanel>
 
+      {showAdvancedDiagnostics ? (
       <WorkspaceChartPanel
         title="Health scenario bridge"
         subtitle="Profile-weighted health synthesis linked with Monte Carlo sensitivity context."
         shortDescription="Connect executive health interpretation with scenario probability diagnostics."
         longDescription="Use this bridge to verify whether scenario outcomes reinforce or challenge the current health posture."
+        questionKey="health-vs-scenario-alignment"
+        widgetId="reports-health-bridge"
+        priority="advanced"
       >
         <div className="transactions-filters">
           <label className="transactions-filters__field">
@@ -2770,12 +2990,16 @@ export function PortfolioReportsPage() {
           </>
         ) : null}
       </WorkspaceChartPanel>
+      ) : null}
 
       <WorkspaceChartPanel
         title="Symbol contribution focus"
         subtitle="Top movers to contextualize report scope decisions."
         shortDescription="Contribution endpoint highlights largest period drivers and draggers with directional weighting."
         longDescription="Use this module to decide whether a portfolio report is sufficient or whether one instrument deserves deeper report scope."
+        questionKey="symbol-contribution-priority"
+        widgetId="reports-symbol-focus"
+        priority="primary"
       >
         {contributionQuery.isLoading ? <LoadingTableSkeleton rows={2} /> : null}
 

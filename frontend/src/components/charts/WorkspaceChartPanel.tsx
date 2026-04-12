@@ -11,6 +11,9 @@ type WorkspaceChartPanelProps = PropsWithChildren<{
   longDescription: string;
   actions?: ReactNode;
   className?: string;
+  widgetId?: string;
+  questionKey?: string;
+  priority?: "primary" | "advanced";
 }>;
 
 export function WorkspaceChartPanel({
@@ -20,6 +23,9 @@ export function WorkspaceChartPanel({
   longDescription,
   actions,
   className,
+  widgetId,
+  questionKey,
+  priority = "primary",
   children,
 }: WorkspaceChartPanelProps) {
   const headingId = useId();
@@ -29,7 +35,14 @@ export function WorkspaceChartPanel({
     : "panel workspace-chart-panel";
 
   return (
-    <section aria-labelledby={headingId} aria-describedby={summaryId} className={panelClassName}>
+    <section
+      aria-labelledby={headingId}
+      aria-describedby={summaryId}
+      className={panelClassName}
+      data-module-priority={priority}
+      data-question-key={questionKey}
+      data-widget-id={widgetId}
+    >
       <header className="panel__header workspace-chart-panel__header">
         <div>
           <h2 className="panel__title" id={headingId}>

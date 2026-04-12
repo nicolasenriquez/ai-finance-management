@@ -221,3 +221,67 @@ The hierarchy table SHALL reduce first-load noise by defaulting sector groups to
 - **WHEN** the hierarchy module first loads in sector grouping
 - **THEN** sector groups are collapsed by default until expanded by the user
 - **THEN** sortable columns expose visible arrow-state affordances and deterministic ordering behavior
+
+### Requirement: Each primary workspace route SHALL own one first-viewport analytical job
+The frontend SHALL compose `Home`, `Analytics`, `Risk`, and `Quant/Reports` so each route communicates one dominant analytical purpose in the first viewport instead of presenting multiple competing primary modules.
+
+#### Scenario: User can identify route purpose from first-viewport structure
+- **WHEN** a user opens one primary workspace route
+- **THEN** the route presents one dominant analytical surface and supporting utility copy that makes the route purpose immediately scannable
+- **THEN** the first viewport does not depend on multiple equal-priority hero panels to explain the route
+
+### Requirement: Workspace routes SHALL prioritize a `Core 10` interpretation layer before advanced diagnostics
+The frontend SHALL promote a bounded `Core 10` metric layer ahead of advanced tables, distributions, or secondary diagnostics so users can interpret portfolio condition without scanning the entire route.
+
+#### Scenario: Core metrics are visually and semantically distinct from advanced diagnostics
+- **WHEN** a route renders promoted portfolio metrics
+- **THEN** the UI distinguishes `Core 10` metrics from advanced diagnostics through stable sectioning and ordering
+- **THEN** advanced modules remain available without displacing the primary interpretation layer
+
+### Requirement: Workspace SHALL surface personal-finance operating insights explicitly
+The frontend SHALL surface personal-finance operating insights such as allocation drift, dividend income, goal progress, forecast confidence, and freshness or trust context where approved typed data is available.
+
+#### Scenario: Personal-finance insight module renders or fails explicitly
+- **WHEN** a route has approved data for one personal-finance operating insight
+- **THEN** the UI renders that insight with scope, freshness, and interpretation context
+- **THEN** if the required data is unavailable, the route shows an explicit unavailable state instead of omitting the insight silently
+
+### Requirement: Workspace routes SHALL use one shared trust-state and utility-copy system
+The frontend SHALL present `loading`, `ready`, `stale`, `unavailable`, `blocked`, and `error` states with shared utility-copy semantics across analytical routes.
+
+#### Scenario: Equivalent lifecycle states map to consistent route behavior
+- **WHEN** two workspace routes receive the same lifecycle condition such as `stale` or `unavailable`
+- **THEN** each route presents the condition using the same state vocabulary and trust-oriented copy pattern
+- **THEN** users do not need route-specific tribal knowledge to interpret whether the data is current, missing, or blocked
+
+### Requirement: Frontend workspace SHALL expose decision-lens navigation for AI-native portfolio workflows
+The frontend SHALL provide explicit decision-lens navigation that includes `Dashboard`, `Holdings`, `Performance`, `Risk`, `Rebalancing`, `Copilot`, and `Transactions` surfaces without breaking existing deep links.
+
+#### Scenario: Decision-lens navigation is available
+- **WHEN** a user opens portfolio workspace navigation
+- **THEN** the decision-lens route set is visible with stable route identifiers
+- **THEN** existing compatible links resolve through migration-safe redirects or alias routing
+
+### Requirement: Dashboard lens SHALL prioritize command-center first-viewport decisions
+The Dashboard lens SHALL render command-center metrics and insight cards in the first viewport and SHALL avoid advanced-module overload before users make first-pass decisions.
+
+#### Scenario: Dashboard first viewport is decision-first
+- **WHEN** dashboard data loads successfully
+- **THEN** first viewport contains net worth posture, return context, drawdown/concentration highlights, and top insights
+- **THEN** advanced diagnostics are moved to secondary sections or dedicated lenses
+
+### Requirement: Risk and rebalancing lenses SHALL surface chart modules for explainable decision support
+The workspace SHALL render bounded chart modules for correlation, contribution-to-risk, frontier comparison, and scenario deltas with explicit unavailable states.
+
+#### Scenario: Risk and rebalancing modules show explicit lifecycle states
+- **WHEN** required backend datasets are ready, stale, unavailable, or errored
+- **THEN** each module displays one explicit trust state with actionable context
+- **THEN** modules do not present placeholder values as valid analysis
+
+### Requirement: Dashboard lens SHALL include what-changed insight panel
+The Dashboard lens SHALL include a deterministic "what changed" panel summarizing material shifts in exposures, risk posture, or contribution drivers across the selected period.
+
+#### Scenario: What-changed panel links to underlying lenses
+- **WHEN** material changes are detected for selected period/scope
+- **THEN** panel entries include concise summary text and links to relevant risk/performance/rebalancing details
+- **THEN** each entry references as-of metadata so users can validate recency

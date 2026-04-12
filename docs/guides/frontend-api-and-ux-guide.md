@@ -40,6 +40,29 @@ It documents the current workspace-first IA, state mapping rules, and methodolog
 - `/portfolio/transactions`
   - ledger-event-only table and filters (v1 scope)
 
+## Dashboard Audit Framework (Phase L)
+
+Every dashboard refactor must keep an auditable registry row per promoted widget:
+
+- route and lens ownership (`Overview`, `Holdings`, `Performance`, `Cash/Transactions`)
+- widget type and source contracts
+- question answered and decision enabled
+- comparison framing (`benchmark`, `prior period`, `target band`, `concentration baseline`)
+- disposition decision (`KEEP`, `MERGE`, `MOVE`, `REMOVE`) with rationale and destination
+
+Primary IA budget rules:
+
+- one dominant primary analytical job per route
+- bounded primary module count (`<= 7`) before advanced disclosure
+- no duplicate equal-priority visuals for the same question key
+- high-density routes (`Risk`, `Reports`) must hide advanced diagnostics behind explicit progressive-disclosure controls
+
+Shell-density rules:
+
+- route-aware density policy is deterministic by path (`expanded`, `balanced`, `compact`)
+- compact mode reduces non-critical shell chrome on dense analytical routes
+- density behavior must remain stable across route transitions
+
 ## Chart Composition and Storytelling Contract
 
 - Home, Analytics, and Risk chart surfaces must use shared composition primitives for:
@@ -237,7 +260,7 @@ Behavior notes:
 - `evidence: [{ tool_id, metric_id, as_of_ledger_at }]`
 - `limitations: string[]`
 - `reason_code: boundary_restricted | insufficient_context | provider_blocked_policy | rate_limited | provider_misconfigured | provider_unavailable | null`
-- `opportunity_candidates: [{ symbol, opportunity_score, discount_score, momentum_score, stability_score, latest_close_price_usd, rolling_90d_high_price_usd, return_30d, volatility_30d }]`
+- `opportunity_candidates: [{ symbol, currently_held, action_state, action_multiplier, action_reason_codes[], fundamentals_proxy_state, fundamentals_proxy_score, opportunity_score, discount_score, momentum_score, stability_score, latest_close_price_usd, rolling_90d_high_price_usd, rolling_52w_high_price_usd, drawdown_from_52w_high_pct, return_30d, return_90d, return_252d, volatility_30d }]`
 - `opportunity_narration: string | null`
 
 Behavior notes:
@@ -245,6 +268,7 @@ Behavior notes:
 - Frontend must render deterministic route states explicitly: `idle`, `loading`, `blocked`, `error`, `ready`.
 - `blocked` and `error` renders must use `reason_code` mapping, not raw provider strings.
 - Opportunity candidate data must stay visually separated from AI narration.
+- Opportunity candidate table should expose deterministic DCA action semantics (`double_down_candidate`, `baseline_dca`, `watchlist`, `hold_off`) instead of score-only presentation.
 - Evidence and limitations must remain visible in ready/blocked/error workflows.
 
 ## Normalization And Validation Rules

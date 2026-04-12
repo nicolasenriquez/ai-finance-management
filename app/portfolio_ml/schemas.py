@@ -6,7 +6,7 @@ from datetime import datetime
 from decimal import Decimal
 from enum import StrEnum
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class PortfolioMLScope(StrEnum):
@@ -78,6 +78,21 @@ class PortfolioMLForecastHorizonRow(BaseModel):
     upper_bound: Decimal
     confidence_level: Decimal
     model_snapshot_ref: str = Field(min_length=1)
+    p10: Decimal | None = None
+    p50: Decimal | None = None
+    p90: Decimal | None = None
+
+    @model_validator(mode="after")
+    def normalize_percentile_compatibility(self) -> PortfolioMLForecastHorizonRow:
+        """Backfill percentile fields from legacy interval payloads when omitted."""
+
+        if self.p10 is None:
+            self.p10 = self.lower_bound
+        if self.p50 is None:
+            self.p50 = self.point_estimate
+        if self.p90 is None:
+            self.p90 = self.upper_bound
+        return self
 
 
 class PortfolioMLForecastResponse(BaseModel):
@@ -108,6 +123,9 @@ class PortfolioMLRegistryRow(BaseModel):
     model_family: str = Field(min_length=1)
     lifecycle_state: PortfolioMLState
     feature_set_hash: str = Field(min_length=1)
+    feature_set_version: str | None = None
+    policy_version: str | None = None
+    family_state_reason_code: str | None = None
     data_window_start: datetime
     data_window_end: datetime
     run_status: str = Field(min_length=1)
@@ -117,6 +135,7 @@ class PortfolioMLRegistryRow(BaseModel):
     policy_result: dict[str, object]
     metric_vector: dict[str, object]
     baseline_comparator_metrics: dict[str, object]
+    snapshot_metadata: dict[str, object] = Field(default_factory=dict[str, object])
 
 
 class PortfolioMLRegistryResponse(BaseModel):
@@ -129,3 +148,59 @@ class PortfolioMLRegistryResponse(BaseModel):
     as_of_market_at: datetime
     evaluated_at: datetime
     rows: list[PortfolioMLRegistryRow]
+
+
+class PortfolioMLClusterRow(BaseModel):
+    """One deterministic cluster assignment row for one instrument symbol."""
+
+    instrument_symbol: str = Field(min_length=1)
+    cluster_id: str = Field(min_length=1)
+    cluster_label: str = Field(min_length=1)
+    return_30d: Decimal
+    volatility_30d: Decimal
+
+
+class PortfolioMLClustersResponse(BaseModel):
+    """Read-only deterministic clustering payload for phase-m portfolio ML."""
+
+    state: PortfolioMLState
+    state_reason_code: str = Field(min_length=1)
+    state_reason_detail: str = Field(min_length=1)
+    scope: PortfolioMLScope
+    instrument_symbol: str | None = None
+    as_of_ledger_at: datetime
+    as_of_market_at: datetime
+    evaluated_at: datetime
+    freshness_policy: PortfolioMLFreshnessPolicy
+    model_family: str = Field(min_length=1)
+    feature_set_hash: str | None = None
+    policy_version: str | None = None
+    rows: list[PortfolioMLClusterRow]
+
+
+class PortfolioMLAnomalyRow(BaseModel):
+    """One deterministic anomaly event row."""
+
+    instrument_symbol: str = Field(min_length=1)
+    event_at: datetime
+    anomaly_score: Decimal
+    severity: str = Field(min_length=1)
+    reason_code: str = Field(min_length=1)
+
+
+class PortfolioMLAnomaliesResponse(BaseModel):
+    """Read-only deterministic anomaly payload for phase-m portfolio ML."""
+
+    state: PortfolioMLState
+    state_reason_code: str = Field(min_length=1)
+    state_reason_detail: str = Field(min_length=1)
+    scope: PortfolioMLScope
+    instrument_symbol: str | None = None
+    as_of_ledger_at: datetime
+    as_of_market_at: datetime
+    evaluated_at: datetime
+    freshness_policy: PortfolioMLFreshnessPolicy
+    model_family: str = Field(min_length=1)
+    feature_set_hash: str | None = None
+    policy_version: str | None = None
+    rows: list[PortfolioMLAnomalyRow]

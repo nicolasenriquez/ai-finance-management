@@ -663,3 +663,119 @@ class PortfolioQuantReportGenerateResponse(BaseModel):
     )
     simulation_context_reason: str | None = None
     health_summary: PortfolioHealthSynthesisResponse | None = None
+
+
+class PortfolioDecisionState(StrEnum):
+    """Lifecycle state values for decision-layer read-only responses."""
+
+    READY = "ready"
+    UNAVAILABLE = "unavailable"
+    STALE = "stale"
+
+
+class PortfolioDecisionFreshnessPolicy(BaseModel):
+    """Freshness policy metadata for decision-layer responses."""
+
+    max_age_hours: int = Field(ge=1)
+
+
+class PortfolioCommandCenterInsight(BaseModel):
+    """One deterministic command-center insight card."""
+
+    insight_id: str = Field(min_length=1)
+    title: str = Field(min_length=1)
+    message: str = Field(min_length=1)
+    severity: Literal["info", "caution", "elevated_risk"] = "info"
+
+
+class PortfolioCommandCenterResponse(BaseModel):
+    """Decision-layer command-center payload for first-viewport summary cards."""
+
+    state: PortfolioDecisionState
+    state_reason_code: str = Field(min_length=1)
+    state_reason_detail: str = Field(min_length=1)
+    as_of_ledger_at: datetime
+    as_of_market_at: datetime | None = None
+    evaluated_at: datetime
+    freshness_policy: PortfolioDecisionFreshnessPolicy
+    net_worth_usd: Decimal
+    total_market_value_usd: Decimal
+    daily_pnl_usd: Decimal
+    concentration_top5_pct: Decimal
+    insights: list[PortfolioCommandCenterInsight]
+
+
+class PortfolioExposureRow(BaseModel):
+    """One exposure decomposition row."""
+
+    dimension: Literal["asset_class", "sector", "currency", "country"]
+    bucket_id: str = Field(min_length=1)
+    bucket_label: str = Field(min_length=1)
+    weight_pct: Decimal
+    market_value_usd: Decimal
+
+
+class PortfolioExposureResponse(BaseModel):
+    """Decision-layer exposure decomposition response."""
+
+    state: PortfolioDecisionState
+    state_reason_code: str = Field(min_length=1)
+    state_reason_detail: str = Field(min_length=1)
+    as_of_ledger_at: datetime
+    as_of_market_at: datetime | None = None
+    evaluated_at: datetime
+    freshness_policy: PortfolioDecisionFreshnessPolicy
+    rows: list[PortfolioExposureRow]
+
+
+class PortfolioContributionToRiskMethodology(BaseModel):
+    """Methodology metadata for contribution-to-risk responses."""
+
+    methodology_id: str = Field(min_length=1)
+    risk_measure: str = Field(min_length=1)
+    lookback_days: int = Field(ge=1)
+    annualization_basis: str = Field(min_length=1)
+
+
+class PortfolioContributionToRiskRow(BaseModel):
+    """One contribution-to-risk row for one symbol."""
+
+    instrument_symbol: str = Field(min_length=1)
+    contribution_to_risk_pct: Decimal
+    volatility_annualized: Decimal | None = None
+
+
+class PortfolioContributionToRiskResponse(BaseModel):
+    """Decision-layer contribution-to-risk response."""
+
+    state: PortfolioDecisionState
+    state_reason_code: str = Field(min_length=1)
+    state_reason_detail: str = Field(min_length=1)
+    as_of_ledger_at: datetime
+    as_of_market_at: datetime | None = None
+    evaluated_at: datetime
+    freshness_policy: PortfolioDecisionFreshnessPolicy
+    methodology: PortfolioContributionToRiskMethodology
+    rows: list[PortfolioContributionToRiskRow]
+
+
+class PortfolioCorrelationMatrixRow(BaseModel):
+    """One bounded correlation-matrix row keyed by symbol."""
+
+    instrument_symbol: str = Field(min_length=1)
+    correlations: dict[str, Decimal]
+
+
+class PortfolioCorrelationResponse(BaseModel):
+    """Decision-layer bounded correlation-matrix response."""
+
+    state: PortfolioDecisionState
+    state_reason_code: str = Field(min_length=1)
+    state_reason_detail: str = Field(min_length=1)
+    as_of_ledger_at: datetime
+    as_of_market_at: datetime | None = None
+    evaluated_at: datetime
+    freshness_policy: PortfolioDecisionFreshnessPolicy
+    symbols: list[str]
+    guardrail_max_symbols: int = Field(ge=2)
+    rows: list[PortfolioCorrelationMatrixRow]

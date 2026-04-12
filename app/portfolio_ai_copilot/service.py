@@ -31,8 +31,11 @@ from app.portfolio_ai_copilot.provider_groq import (
 )
 from app.portfolio_ai_copilot.schemas import (
     CopilotEvidenceReference,
+    CopilotFundamentalsProxyState,
     CopilotOperation,
+    CopilotOpportunityActionState,
     CopilotOpportunityCandidate,
+    CopilotOpportunityStrategyProfile,
     CopilotReasonCode,
     CopilotResponseState,
     PortfolioCopilotChatRequest,
@@ -84,6 +87,13 @@ MODEL_CONTEXT_EXCLUDED_FIELDS: frozenset[str] = frozenset(
 _MAX_TOOL_CALLS = 6
 _MIN_OPPORTUNITY_ELIGIBLE_COUNT = 20
 _MIN_OPPORTUNITY_HISTORY_POINTS = 90
+_OPPORTUNITY_52W_WINDOW_POINTS = 252
+_DOUBLE_DOWN_THRESHOLD_PCT_DEFAULT = Decimal("0.20")
+_DOUBLE_DOWN_MULTIPLIER_DEFAULT = Decimal("2.0")
+_FUNDAMENTALS_PROXY_MIN_PASS_COUNT = 2
+_FUNDAMENTALS_PROXY_MAX_30D_DRAWDOWN = Decimal("-0.25")
+_FUNDAMENTALS_PROXY_MAX_90D_DRAWDOWN = Decimal("-0.35")
+_FUNDAMENTALS_PROXY_MAX_30D_VOLATILITY = Decimal("0.060000")
 _BOUNDARY_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(r"\b(buy|sell|short|rebalance|auto(?:matically)?|execute)\b", re.IGNORECASE),
     re.compile(r"\b(place|submit)\s+(a\s+)?(trade|order)\b", re.IGNORECASE),
@@ -174,7 +184,11 @@ class _OpportunityCandidateInput:
     symbol: str
     latest_close_price_usd: Decimal
     rolling_90d_high_price_usd: Decimal
+    rolling_52w_high_price_usd: Decimal
+    drawdown_from_52w_high_pct: Decimal
     return_30d: Decimal
+    return_90d: Decimal
+    return_252d: Decimal
     volatility_30d: Decimal
     history_points_count: int
     currently_held: bool
@@ -307,8 +321,32 @@ def compute_deterministic_opportunity_candidates(
     *,
     candidate_inputs: list[dict[str, object]],
     minimum_eligible_count: int = _MIN_OPPORTUNITY_ELIGIBLE_COUNT,
+    strategy_profile: CopilotOpportunityStrategyProfile = (
+        CopilotOpportunityStrategyProfile.DCA_2X_V1
+    ),
+    double_down_threshold_pct: Decimal = _DOUBLE_DOWN_THRESHOLD_PCT_DEFAULT,
+    double_down_multiplier: Decimal = _DOUBLE_DOWN_MULTIPLIER_DEFAULT,
 ) -> list[dict[str, object]]:
-    """Return deterministic opportunity ranking rows from normalized candidate inputs."""
+    """Return deterministic DCA-oriented opportunity ranking rows from normalized inputs."""
+
+    if strategy_profile is not CopilotOpportunityStrategyProfile.DCA_2X_V1:
+        raise PortfolioAiCopilotClientError(
+            "Unsupported opportunity strategy profile.",
+            status_code=422,
+            reason_code=CopilotReasonCode.BOUNDARY_RESTRICTED,
+        )
+    if double_down_threshold_pct <= Decimal("0") or double_down_threshold_pct >= Decimal("1"):
+        raise PortfolioAiCopilotClientError(
+            "double_down_threshold_pct must be in (0, 1).",
+            status_code=422,
+            reason_code=CopilotReasonCode.INSUFFICIENT_CONTEXT,
+        )
+    if double_down_multiplier < Decimal("1") or double_down_multiplier > Decimal("3"):
+        raise PortfolioAiCopilotClientError(
+            "double_down_multiplier must be in [1, 3].",
+            status_code=422,
+            reason_code=CopilotReasonCode.INSUFFICIENT_CONTEXT,
+        )
 
     normalized_rows: list[_OpportunityCandidateInput] = []
     for input_row in candidate_inputs:
@@ -321,10 +359,10 @@ def compute_deterministic_opportunity_candidates(
         row
         for row in normalized_rows
         if (
-            not row.currently_held
-            and row.history_points_count >= _MIN_OPPORTUNITY_HISTORY_POINTS
+            row.history_points_count >= _MIN_OPPORTUNITY_HISTORY_POINTS
             and row.latest_close_price_usd > Decimal("0")
             and row.rolling_90d_high_price_usd > Decimal("0")
+            and row.rolling_52w_high_price_usd > Decimal("0")
         )
     ]
     if len(eligible_rows) < minimum_eligible_count:
@@ -360,25 +398,52 @@ def compute_deterministic_opportunity_candidates(
         discount_score = discount_scores[row.symbol]
         momentum_score = momentum_scores[row.symbol]
         stability_score = stability_scores[row.symbol]
+        (
+            fundamentals_proxy_state,
+            fundamentals_proxy_score,
+            fundamentals_proxy_reason_codes,
+        ) = _resolve_fundamentals_proxy_assessment(candidate_row=row)
+        action_state, action_multiplier, action_reason_codes = _resolve_dca_action_state(
+            candidate_row=row,
+            strategy_profile=strategy_profile,
+            double_down_threshold_pct=double_down_threshold_pct,
+            double_down_multiplier=double_down_multiplier,
+            fundamentals_proxy_state=fundamentals_proxy_state,
+        )
         opportunity_score = (
             (0.45 * discount_score) + (0.35 * momentum_score) + (0.20 * stability_score)
         )
+        deduplicated_action_reasons: list[str] = []
+        for reason_code in [*action_reason_codes, *fundamentals_proxy_reason_codes]:
+            if reason_code not in deduplicated_action_reasons:
+                deduplicated_action_reasons.append(reason_code)
         ranked_rows.append(
             {
                 "symbol": row.symbol,
+                "currently_held": row.currently_held,
+                "action_state": action_state.value,
+                "action_multiplier": _quantize_score(float(action_multiplier)),
+                "action_reason_codes": deduplicated_action_reasons,
+                "fundamentals_proxy_state": fundamentals_proxy_state.value,
+                "fundamentals_proxy_score": _quantize_score(float(fundamentals_proxy_score)),
                 "opportunity_score": _quantize_score(opportunity_score),
                 "discount_score": _quantize_score(discount_score),
                 "momentum_score": _quantize_score(momentum_score),
                 "stability_score": _quantize_score(stability_score),
                 "latest_close_price_usd": row.latest_close_price_usd,
                 "rolling_90d_high_price_usd": row.rolling_90d_high_price_usd,
+                "rolling_52w_high_price_usd": row.rolling_52w_high_price_usd,
+                "drawdown_from_52w_high_pct": row.drawdown_from_52w_high_pct,
                 "return_30d": row.return_30d,
+                "return_90d": row.return_90d,
+                "return_252d": row.return_252d,
                 "volatility_30d": row.volatility_30d,
             }
         )
 
     ranked_rows.sort(
         key=lambda row: (
+            _action_priority_for_row(row=row),
             -_row_float_value(row=row, field="opportunity_score"),
             -_row_float_value(row=row, field="discount_score"),
             str(row["symbol"]),
@@ -396,6 +461,19 @@ def _row_float_value(*, row: dict[str, object], field: str) -> float:
     if isinstance(raw_value, (int, float)):
         return float(raw_value)
     return 0.0
+
+
+def _action_priority_for_row(*, row: dict[str, object]) -> int:
+    """Resolve deterministic action-priority ordering for one opportunity row."""
+
+    action_state_value = str(row.get("action_state", "")).strip().lower()
+    if action_state_value == CopilotOpportunityActionState.DOUBLE_DOWN_CANDIDATE.value:
+        return 0
+    if action_state_value == CopilotOpportunityActionState.WATCHLIST.value:
+        return 1
+    if action_state_value == CopilotOpportunityActionState.BASELINE_DCA.value:
+        return 2
+    return 3
 
 
 def _normalize_scores(*, raw_scores: Mapping[str, float]) -> dict[str, float]:
@@ -444,7 +522,22 @@ def _normalize_candidate_input_row(
     rolling_90d_high_price_usd = _decimal_from_object(
         value=candidate_input.get("rolling_90d_high_price_usd"),
     )
+    rolling_52w_high_price_usd = _decimal_from_object(
+        value=candidate_input.get("rolling_52w_high_price_usd"),
+    )
+    if rolling_52w_high_price_usd <= Decimal("0"):
+        rolling_52w_high_price_usd = rolling_90d_high_price_usd
+    drawdown_from_52w_high_pct = _decimal_from_object(
+        value=candidate_input.get("drawdown_from_52w_high_pct"),
+    )
+    if drawdown_from_52w_high_pct <= Decimal("0"):
+        drawdown_from_52w_high_pct = _safe_price_drawdown_pct(
+            latest_close_price_usd=latest_close_price_usd,
+            reference_high_price_usd=rolling_52w_high_price_usd,
+        )
     return_30d = _decimal_from_object(value=candidate_input.get("return_30d"))
+    return_90d = _decimal_from_object(value=candidate_input.get("return_90d"))
+    return_252d = _decimal_from_object(value=candidate_input.get("return_252d"))
     volatility_30d = _decimal_from_object(value=candidate_input.get("volatility_30d"))
 
     history_points_count_candidate = candidate_input.get("history_points_count")
@@ -455,11 +548,121 @@ def _normalize_candidate_input_row(
         symbol=symbol,
         latest_close_price_usd=latest_close_price_usd,
         rolling_90d_high_price_usd=rolling_90d_high_price_usd,
+        rolling_52w_high_price_usd=rolling_52w_high_price_usd,
+        drawdown_from_52w_high_pct=drawdown_from_52w_high_pct,
         return_30d=return_30d,
+        return_90d=return_90d,
+        return_252d=return_252d,
         volatility_30d=volatility_30d,
         history_points_count=history_points_count_candidate,
         currently_held=currently_held,
     )
+
+
+def _safe_price_drawdown_pct(
+    *,
+    latest_close_price_usd: Decimal,
+    reference_high_price_usd: Decimal,
+) -> Decimal:
+    """Compute bounded drawdown percentage from one reference high price."""
+
+    if reference_high_price_usd <= Decimal("0"):
+        return Decimal("0")
+    if latest_close_price_usd <= Decimal("0"):
+        return Decimal("0")
+    raw_drawdown = (reference_high_price_usd - latest_close_price_usd) / reference_high_price_usd
+    if raw_drawdown <= Decimal("0"):
+        return Decimal("0")
+    return raw_drawdown
+
+
+def _resolve_fundamentals_proxy_assessment(
+    *,
+    candidate_row: _OpportunityCandidateInput,
+) -> tuple[CopilotFundamentalsProxyState, Decimal, list[str]]:
+    """Resolve one deterministic fundamentals proxy assessment from available price context."""
+
+    pass_count = 0
+    reason_codes: list[str] = []
+
+    if candidate_row.return_30d >= _FUNDAMENTALS_PROXY_MAX_30D_DRAWDOWN:
+        pass_count += 1
+        reason_codes.append("proxy_return_30d_within_floor")
+    else:
+        reason_codes.append("proxy_return_30d_below_floor")
+
+    if candidate_row.return_90d >= _FUNDAMENTALS_PROXY_MAX_90D_DRAWDOWN:
+        pass_count += 1
+        reason_codes.append("proxy_return_90d_within_floor")
+    else:
+        reason_codes.append("proxy_return_90d_below_floor")
+
+    if candidate_row.volatility_30d <= _FUNDAMENTALS_PROXY_MAX_30D_VOLATILITY:
+        pass_count += 1
+        reason_codes.append("proxy_volatility_30d_within_ceiling")
+    else:
+        reason_codes.append("proxy_volatility_30d_above_ceiling")
+
+    proxy_score = Decimal(str(pass_count / 3.0))
+    if pass_count >= _FUNDAMENTALS_PROXY_MIN_PASS_COUNT:
+        return (CopilotFundamentalsProxyState.PASSED, proxy_score, reason_codes)
+    if pass_count == 1:
+        return (CopilotFundamentalsProxyState.INCONCLUSIVE, proxy_score, reason_codes)
+    return (CopilotFundamentalsProxyState.FAILED, proxy_score, reason_codes)
+
+
+def _resolve_dca_action_state(
+    *,
+    candidate_row: _OpportunityCandidateInput,
+    strategy_profile: CopilotOpportunityStrategyProfile,
+    double_down_threshold_pct: Decimal,
+    double_down_multiplier: Decimal,
+    fundamentals_proxy_state: CopilotFundamentalsProxyState,
+) -> tuple[CopilotOpportunityActionState, Decimal, list[str]]:
+    """Resolve deterministic DCA action state, multiplier, and reason codes."""
+
+    reasons: list[str] = [f"strategy_profile_{strategy_profile.value}"]
+    has_full_52w_history = candidate_row.history_points_count >= _OPPORTUNITY_52W_WINDOW_POINTS
+    if has_full_52w_history:
+        reasons.append("full_52w_history")
+    else:
+        reasons.append("insufficient_52w_history")
+    threshold_met = (
+        has_full_52w_history
+        and candidate_row.drawdown_from_52w_high_pct >= double_down_threshold_pct
+    )
+    if threshold_met:
+        reasons.append("double_down_threshold_met")
+    elif has_full_52w_history:
+        reasons.append("double_down_threshold_not_met")
+    else:
+        reasons.append("double_down_threshold_not_evaluable")
+
+    if candidate_row.currently_held:
+        reasons.append("currently_held")
+        if threshold_met and fundamentals_proxy_state is CopilotFundamentalsProxyState.PASSED:
+            reasons.append("fundamentals_proxy_passed")
+            return (
+                CopilotOpportunityActionState.DOUBLE_DOWN_CANDIDATE,
+                double_down_multiplier,
+                reasons,
+            )
+        if fundamentals_proxy_state is CopilotFundamentalsProxyState.FAILED:
+            reasons.append("fundamentals_proxy_failed")
+            return (CopilotOpportunityActionState.HOLD_OFF, Decimal("0"), reasons)
+        if fundamentals_proxy_state is CopilotFundamentalsProxyState.INCONCLUSIVE:
+            reasons.append("fundamentals_proxy_inconclusive")
+        return (CopilotOpportunityActionState.BASELINE_DCA, Decimal("1"), reasons)
+
+    reasons.append("not_currently_held")
+    if fundamentals_proxy_state is CopilotFundamentalsProxyState.FAILED:
+        reasons.append("fundamentals_proxy_failed")
+        return (CopilotOpportunityActionState.HOLD_OFF, Decimal("0"), reasons)
+    if fundamentals_proxy_state is CopilotFundamentalsProxyState.PASSED:
+        reasons.append("fundamentals_proxy_passed")
+    else:
+        reasons.append("fundamentals_proxy_inconclusive")
+    return (CopilotOpportunityActionState.WATCHLIST, Decimal("1"), reasons)
 
 
 def _decimal_from_object(*, value: object) -> Decimal:
@@ -779,6 +982,47 @@ def _safe_prompt_suggestions(
         return []
 
 
+def resolve_phase_m_question_pack(
+    *,
+    request: PortfolioCopilotChatRequest,
+    decision_lens: str | None = None,
+) -> list[str]:
+    """Resolve one guided question pack for phase-m decision lenses and scope."""
+
+    normalized_lens = (decision_lens or "").strip().lower()
+    if normalized_lens == "":
+        normalized_lens = "dashboard"
+
+    base_by_lens: dict[str, list[str]] = {
+        "dashboard": [
+            "Why did my portfolio move the most today?",
+            "Which holdings explain most of current concentration?",
+        ],
+        "risk": [
+            "Which symbols contribute the most to portfolio risk?",
+            "How has drawdown risk changed versus last month?",
+        ],
+        "rebalancing": [
+            "Compare MVO, HRP, and Black-Litterman weights for my top holdings.",
+            "What constraints reduce concentration without increasing volatility too much?",
+        ],
+        "copilot": [
+            "Summarize current portfolio posture with assumptions and caveats.",
+            "Show what changed since the last evaluation snapshot.",
+        ],
+    }
+    suggestions = base_by_lens.get(normalized_lens, base_by_lens["dashboard"]).copy()
+    if request.scope == PortfolioQuantReportScope.INSTRUMENT_SYMBOL:
+        suggestions.append(
+            "What instrument-specific risk signals diverge from portfolio-level context?"
+        )
+    if request.operation == CopilotOperation.OPPORTUNITY_SCAN:
+        suggestions.append(
+            "Which symbols qualify for deterministic double-down candidates right now?"
+        )
+    return suggestions[:_MAX_PROMPT_SUGGESTIONS]
+
+
 def _build_prompt_suggestions(
     *,
     request: PortfolioCopilotChatRequest,
@@ -789,7 +1033,7 @@ def _build_prompt_suggestions(
 ) -> list[str]:
     """Build bounded prompt suggestion metadata from active context and lifecycle state."""
 
-    suggestions: list[str] = []
+    suggestions = resolve_phase_m_question_pack(request=request)
 
     if "portfolio_ml_forecasts" in selected_tool_ids:
         suggestions.append("Show the current forecast champion lifecycle state and expiry window.")
@@ -799,6 +1043,13 @@ def _build_prompt_suggestions(
         suggestions.append("List the latest registry promotion decisions and replacement lineage.")
     if "portfolio_sql_template" in selected_tool_ids:
         suggestions.append("Inspect governed SQL template output metadata and row bounds.")
+    if "opportunity_scanner" in selected_tool_ids:
+        suggestions.append(
+            "Which currently held symbols meet the 20% drawdown double-down threshold today?"
+        )
+        suggestions.append(
+            "Show baseline DCA vs. hold-off candidates with the deterministic reason codes."
+        )
     if has_document_references:
         suggestions.append(
             "Summarize key findings from the referenced documents before forecasting."
@@ -914,7 +1165,7 @@ async def get_portfolio_copilot_chat_response(
 
         response = PortfolioCopilotChatResponse(
             state=CopilotResponseState.READY,
-            answer_text=answer_text,
+            answer=answer_text,
             evidence=evidence_rows,
             limitations=_default_limitations(),
             reason_code=None,
@@ -966,7 +1217,7 @@ async def get_portfolio_copilot_chat_response(
         )
         return PortfolioCopilotChatResponse(
             state=CopilotResponseState.BLOCKED,
-            answer_text="",
+            answer="",
             evidence=[],
             limitations=[
                 *_default_limitations(),
@@ -1023,7 +1274,7 @@ async def get_portfolio_copilot_chat_response(
         )
         return PortfolioCopilotChatResponse(
             state=CopilotResponseState.ERROR,
-            answer_text="",
+            answer="",
             evidence=[],
             limitations=[
                 *_default_limitations(),
@@ -1052,14 +1303,14 @@ def _response_for_client_error(
     }:
         return PortfolioCopilotChatResponse(
             state=CopilotResponseState.BLOCKED,
-            answer_text="",
+            answer="",
             evidence=[],
             limitations=[*_default_limitations(), str(error)],
             reason_code=error.reason_code,
         )
     return PortfolioCopilotChatResponse(
         state=CopilotResponseState.ERROR,
-        answer_text="",
+        answer="",
         evidence=[],
         limitations=[*_default_limitations(), str(error)],
         reason_code=error.reason_code,
@@ -1086,7 +1337,7 @@ def _response_for_provider_failure(
     )
     return PortfolioCopilotChatResponse(
         state=state,
-        answer_text="",
+        answer="",
         evidence=[],
         limitations=[*_default_limitations(), error_message],
         reason_code=reason_code,
@@ -1113,22 +1364,47 @@ async def _request_provider_narration(
 
     config = build_groq_chat_completions_adapter_config()
     context_json = json.dumps(prompt_context, default=str, sort_keys=True)
-    system_prompt = (
-        "You are a read-only portfolio analytics copilot. "
-        "Use only provided context and do not invent unavailable facts. "
-        "Never provide trade execution instructions or guaranteed return claims. "
-        "Always include uncertainty when evidence is limited."
-    )
-    user_prompt = (
-        f"Operation: {request.operation.value}\n"
-        f"Period: {request.period.value}\n"
-        f"Scope: {request.scope.value}\n"
-        f"Instrument: {request.instrument_symbol or 'N/A'}\n"
-        f"User question: {latest_user_message}\n"
-        "Context JSON:\n"
-        f"{context_json}\n"
-        "Respond with concise portfolio analysis grounded in the context."
-    )
+    if request.operation is CopilotOperation.OPPORTUNITY_SCAN:
+        system_prompt = (
+            "You are a read-only portfolio analytics copilot specialized in deterministic "
+            "DCA opportunity scans. Use only provided context and do not invent unavailable facts. "
+            "Never provide trade execution instructions or guaranteed return claims. "
+            "Treat deterministic candidate action_state and reason codes as the source of truth. "
+            "When fundamentals proxy is limited, explicitly call it a proxy and recommend manual "
+            "fundamental verification."
+        )
+        user_prompt = (
+            f"Operation: {request.operation.value}\n"
+            f"Strategy profile: {request.opportunity_strategy_profile.value}\n"
+            f"Double-down threshold pct: {request.double_down_threshold_pct}\n"
+            f"Double-down multiplier: {request.double_down_multiplier}\n"
+            f"Period: {request.period.value}\n"
+            f"Scope: {request.scope.value}\n"
+            f"Instrument: {request.instrument_symbol or 'N/A'}\n"
+            f"User question: {latest_user_message}\n"
+            "Context JSON:\n"
+            f"{context_json}\n"
+            "Respond in markdown with these sections: "
+            "1) Double-Down Candidates, 2) Baseline DCA, 3) Watchlist, 4) Hold-Off Risks, "
+            "5) Limits and Next Checks."
+        )
+    else:
+        system_prompt = (
+            "You are a read-only portfolio analytics copilot. "
+            "Use only provided context and do not invent unavailable facts. "
+            "Never provide trade execution instructions or guaranteed return claims. "
+            "Always include uncertainty when evidence is limited."
+        )
+        user_prompt = (
+            f"Operation: {request.operation.value}\n"
+            f"Period: {request.period.value}\n"
+            f"Scope: {request.scope.value}\n"
+            f"Instrument: {request.instrument_symbol or 'N/A'}\n"
+            f"User question: {latest_user_message}\n"
+            "Context JSON:\n"
+            f"{context_json}\n"
+            "Respond with concise portfolio analysis grounded in the context."
+        )
     return await request_groq_chat_completion(
         config=config,
         messages=[
@@ -1170,6 +1446,9 @@ async def _build_opportunity_scan_response(
     ranked_candidates_raw = compute_deterministic_opportunity_candidates(
         candidate_inputs=candidate_inputs,
         minimum_eligible_count=_MIN_OPPORTUNITY_ELIGIBLE_COUNT,
+        strategy_profile=request.opportunity_strategy_profile,
+        double_down_threshold_pct=request.double_down_threshold_pct,
+        double_down_multiplier=request.double_down_multiplier,
     )
     top_candidates_raw = ranked_candidates_raw[:10]
     top_candidates = [
@@ -1180,6 +1459,9 @@ async def _build_opportunity_scan_response(
         "period": request.period.value,
         "scope": request.scope.value,
         "instrument_symbol": request.instrument_symbol,
+        "opportunity_strategy_profile": request.opportunity_strategy_profile.value,
+        "double_down_threshold_pct": request.double_down_threshold_pct,
+        "double_down_multiplier": request.double_down_multiplier,
         "candidate_count": len(top_candidates_raw),
         "candidates": top_candidates_raw,
         "document_references": list(document_reference_context),
@@ -1192,7 +1474,7 @@ async def _build_opportunity_scan_response(
     evidence_rows = [
         CopilotEvidenceReference(
             tool_id="opportunity_scanner",
-            metric_id="opportunity_score",
+            metric_id="dca_action_state",
             as_of_ledger_at=datetime.now(UTC).isoformat(),
         )
     ]
@@ -1206,11 +1488,12 @@ async def _build_opportunity_scan_response(
         )
     return PortfolioCopilotChatResponse(
         state=CopilotResponseState.READY,
-        answer_text=answer_text,
+        answer=answer_text,
         evidence=evidence_rows,
         limitations=[
             *_default_limitations(),
-            "Deterministic candidate ranking precedes AI narration in this workflow.",
+            "Deterministic DCA candidate classification precedes AI narration in this workflow.",
+            "Fundamentals are represented by a deterministic proxy and still require manual verification.",
         ],
         reason_code=None,
         prompt_suggestions=_safe_prompt_suggestions(
@@ -1240,9 +1523,15 @@ async def _load_opportunity_candidate_inputs(*, db: AsyncSession) -> list[dict[s
             continue
 
         latest_close = normalized_closes[0]
-        rolling_window = normalized_closes[:_MIN_OPPORTUNITY_HISTORY_POINTS]
-        rolling_90d_high = max(rolling_window) if rolling_window else Decimal("0")
-        return_30d, volatility_30d = _compute_30d_return_and_volatility(
+        rolling_90d_window = normalized_closes[:_MIN_OPPORTUNITY_HISTORY_POINTS]
+        rolling_52w_window = normalized_closes[:_OPPORTUNITY_52W_WINDOW_POINTS]
+        rolling_90d_high = max(rolling_90d_window) if rolling_90d_window else Decimal("0")
+        rolling_52w_high = max(rolling_52w_window) if rolling_52w_window else Decimal("0")
+        drawdown_from_52w_high_pct = _safe_price_drawdown_pct(
+            latest_close_price_usd=latest_close,
+            reference_high_price_usd=rolling_52w_high,
+        )
+        return_30d, return_90d, return_252d, volatility_30d = _compute_return_metrics(
             descending_close_values=normalized_closes
         )
         candidate_inputs.append(
@@ -1250,7 +1539,11 @@ async def _load_opportunity_candidate_inputs(*, db: AsyncSession) -> list[dict[s
                 "symbol": symbol,
                 "latest_close_price_usd": latest_close,
                 "rolling_90d_high_price_usd": rolling_90d_high,
+                "rolling_52w_high_price_usd": rolling_52w_high,
+                "drawdown_from_52w_high_pct": drawdown_from_52w_high_pct,
                 "return_30d": return_30d,
+                "return_90d": return_90d,
+                "return_252d": return_252d,
                 "volatility_30d": volatility_30d,
                 "history_points_count": len(normalized_closes),
                 "currently_held": symbol in held_symbols,
@@ -1300,21 +1593,53 @@ def _resolve_calendar_key(*, trading_date: object, market_timestamp: object) -> 
     return None
 
 
-def _compute_30d_return_and_volatility(
+def _compute_return_metrics(
     *,
     descending_close_values: Sequence[Decimal],
-) -> tuple[Decimal, Decimal]:
-    """Compute 30-day return and return volatility from descending close sequence."""
+) -> tuple[Decimal, Decimal, Decimal, Decimal]:
+    """Compute return metrics and 30-day volatility from descending close sequence."""
 
-    if len(descending_close_values) < 31:
-        return Decimal("0"), Decimal("0")
+    return_30d = _compute_period_return(
+        descending_close_values=descending_close_values,
+        period_days=30,
+    )
+    return_90d = _compute_period_return(
+        descending_close_values=descending_close_values,
+        period_days=90,
+    )
+    return_252d = _compute_period_return(
+        descending_close_values=descending_close_values,
+        period_days=252,
+    )
+
+    volatility_30d = _compute_30d_volatility(descending_close_values=descending_close_values)
+    return return_30d, return_90d, return_252d, volatility_30d
+
+
+def _compute_period_return(
+    *,
+    descending_close_values: Sequence[Decimal],
+    period_days: int,
+) -> Decimal:
+    """Compute one period return from descending closes."""
+
+    if period_days <= 0:
+        return Decimal("0")
+    if len(descending_close_values) < period_days + 1:
+        return Decimal("0")
 
     latest_close = descending_close_values[0]
-    baseline_close = descending_close_values[30]
+    baseline_close = descending_close_values[period_days]
     if baseline_close <= Decimal("0"):
-        return Decimal("0"), Decimal("0")
+        return Decimal("0")
+    return (latest_close / baseline_close) - Decimal("1")
 
-    return_30d = (latest_close / baseline_close) - Decimal("1")
+
+def _compute_30d_volatility(*, descending_close_values: Sequence[Decimal]) -> Decimal:
+    """Compute rolling 30-day return volatility from descending closes."""
+
+    if len(descending_close_values) < 31:
+        return Decimal("0")
 
     daily_returns: list[float] = []
     for index in range(30):
@@ -1324,10 +1649,8 @@ def _compute_30d_return_and_volatility(
             continue
         daily_returns.append(float((newer / older) - Decimal("1")))
     if len(daily_returns) >= 2:
-        volatility_30d = Decimal(str(statistics.stdev(daily_returns)))
-    else:
-        volatility_30d = Decimal("0")
-    return return_30d, volatility_30d
+        return Decimal(str(statistics.stdev(daily_returns)))
+    return Decimal("0")
 
 
 async def _execute_allowlisted_tools(

@@ -8,6 +8,7 @@ type AppShellProps = PropsWithChildren<{
   title: string;
   description: string;
   actions?: ReactNode;
+  headerVariant?: "default" | "chat";
 }>;
 
 export function AppShell({
@@ -15,6 +16,7 @@ export function AppShell({
   title,
   description,
   actions,
+  headerVariant = "default",
   children,
 }: AppShellProps) {
   return (
@@ -32,7 +34,13 @@ export function AppShell({
           </Link>
           <ThemeToggle />
         </header>
-        <header className="panel route-frame">
+        <header
+          className={
+            headerVariant === "chat"
+              ? "panel route-frame route-frame--chat"
+              : "panel route-frame"
+          }
+        >
           <div className="route-frame__body">
             <div className="route-frame__meta">
               <span className="eyebrow">{eyebrow}</span>

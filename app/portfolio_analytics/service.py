@@ -31,13 +31,24 @@ from app.market_data.service import (
 from app.portfolio_analytics.schemas import (
     PortfolioAnnualizationBasis,
     PortfolioChartPeriod,
+    PortfolioCommandCenterInsight,
+    PortfolioCommandCenterResponse,
     PortfolioContributionResponse,
     PortfolioContributionRow,
+    PortfolioContributionToRiskMethodology,
+    PortfolioContributionToRiskResponse,
+    PortfolioContributionToRiskRow,
+    PortfolioCorrelationMatrixRow,
+    PortfolioCorrelationResponse,
+    PortfolioDecisionFreshnessPolicy,
+    PortfolioDecisionState,
     PortfolioEfficientFrontierAssetPoint,
     PortfolioEfficientFrontierMethodology,
     PortfolioEfficientFrontierPoint,
     PortfolioEfficientFrontierResponse,
     PortfolioEfficientFrontierWeight,
+    PortfolioExposureResponse,
+    PortfolioExposureRow,
     PortfolioHealthDriver,
     PortfolioHealthLabel,
     PortfolioHealthPillar,
@@ -241,6 +252,8 @@ _SECTOR_BY_SYMBOL: dict[str, str] = {
     "UUUU": "Energy",
     "VOO": "ETF",
 }
+_DECISION_FRESHNESS_HOURS = 24
+_CORRELATION_MAX_SYMBOLS = 12
 
 
 @dataclass(frozen=True)
@@ -6488,3 +6501,356 @@ def _compute_unrealized_gain_pct(
     if open_cost_basis_usd <= Decimal("0"):
         return None
     return ((unrealized_gain_usd / open_cost_basis_usd) * Decimal("100")).quantize(_PCT_SCALE)
+
+
+async def get_portfolio_command_center_response(
+    *,
+    db: AsyncSession,
+) -> PortfolioCommandCenterResponse:
+    """Build command-center summary metrics with explicit freshness metadata."""
+
+    summary_response = await get_portfolio_summary_response(db=db)
+    evaluated_at = utcnow()
+    zero = Decimal("0")
+    market_values = [
+        row.market_value_usd if row.market_value_usd is not None else zero
+        for row in summary_response.rows
+    ]
+    total_market_value = sum(market_values, zero)
+    daily_pnl = sum(
+        [
+            row.unrealized_gain_usd if row.unrealized_gain_usd is not None else zero
+            for row in summary_response.rows
+        ],
+        zero,
+    )
+    top_values = sorted(market_values, reverse=True)[:5]
+    top_five_value = sum(top_values, zero)
+    concentration_top5_pct = (
+        _quantize_ratio((top_five_value / total_market_value) * Decimal("100"))
+        if total_market_value > zero
+        else zero
+    )
+
+    insight_rows: list[PortfolioCommandCenterInsight] = []
+    if concentration_top5_pct >= Decimal("60"):
+        insight_rows.append(
+            PortfolioCommandCenterInsight(
+                insight_id="concentration_top5",
+                title="High Concentration",
+                message="Top five holdings represent more than 60% of total market value.",
+                severity="elevated_risk",
+            )
+        )
+    else:
+        insight_rows.append(
+            PortfolioCommandCenterInsight(
+                insight_id="diversification_top5",
+                title="Diversification Check",
+                message="Top five holdings remain below elevated concentration threshold.",
+                severity="info",
+            )
+        )
+    if daily_pnl < zero:
+        insight_rows.append(
+            PortfolioCommandCenterInsight(
+                insight_id="daily_pnl_negative",
+                title="Daily Drawdown",
+                message="Daily unrealized P&L is negative versus current pricing snapshot.",
+                severity="caution",
+            )
+        )
+    if len(summary_response.rows) == 0:
+        return PortfolioCommandCenterResponse(
+            state=PortfolioDecisionState.UNAVAILABLE,
+            state_reason_code="no_holdings",
+            state_reason_detail="No open holdings available to populate command-center metrics.",
+            as_of_ledger_at=summary_response.as_of_ledger_at,
+            as_of_market_at=summary_response.pricing_snapshot_captured_at,
+            evaluated_at=evaluated_at,
+            freshness_policy=PortfolioDecisionFreshnessPolicy(
+                max_age_hours=_DECISION_FRESHNESS_HOURS
+            ),
+            net_worth_usd=zero,
+            total_market_value_usd=zero,
+            daily_pnl_usd=zero,
+            concentration_top5_pct=zero,
+            insights=insight_rows,
+        )
+
+    return PortfolioCommandCenterResponse(
+        state=PortfolioDecisionState.READY,
+        state_reason_code="ready",
+        state_reason_detail="command_center_ready",
+        as_of_ledger_at=summary_response.as_of_ledger_at,
+        as_of_market_at=summary_response.pricing_snapshot_captured_at,
+        evaluated_at=evaluated_at,
+        freshness_policy=PortfolioDecisionFreshnessPolicy(max_age_hours=_DECISION_FRESHNESS_HOURS),
+        net_worth_usd=_quantize_money(total_market_value),
+        total_market_value_usd=_quantize_money(total_market_value),
+        daily_pnl_usd=_quantize_money(daily_pnl),
+        concentration_top5_pct=concentration_top5_pct,
+        insights=insight_rows,
+    )
+
+
+def _resolve_exposure_bucket_label(*, dimension: str, symbol: str) -> str:
+    """Resolve one deterministic exposure bucket label for selected dimension."""
+
+    normalized_dimension = dimension.strip().lower()
+    if normalized_dimension == "sector":
+        return _resolve_sector_label(symbol=symbol)
+    if normalized_dimension == "asset_class":
+        if symbol in {"BTC", "ETH", "SOL"}:
+            return "Crypto"
+        return "Equity"
+    if normalized_dimension == "currency":
+        return "USD"
+    if normalized_dimension == "country":
+        if symbol in {"BTC", "ETH", "SOL"}:
+            return "Global"
+        return "United States"
+    raise PortfolioAnalyticsClientError(
+        "Unsupported exposure dimension. Supported values are: "
+        "asset_class, sector, currency, country.",
+        status_code=422,
+    )
+
+
+async def get_portfolio_exposure_response(
+    *,
+    db: AsyncSession,
+    dimension: str,
+) -> PortfolioExposureResponse:
+    """Build deterministic exposure decomposition for one requested dimension."""
+
+    summary_response = await get_portfolio_summary_response(db=db)
+    evaluated_at = utcnow()
+    zero = Decimal("0")
+    total_market_value = sum(
+        [
+            row.market_value_usd if row.market_value_usd is not None else zero
+            for row in summary_response.rows
+        ],
+        zero,
+    )
+
+    exposure_by_bucket: dict[str, Decimal] = {}
+    for row in summary_response.rows:
+        symbol = row.instrument_symbol.strip().upper()
+        market_value = row.market_value_usd if row.market_value_usd is not None else zero
+        bucket_label = _resolve_exposure_bucket_label(dimension=dimension, symbol=symbol)
+        previous_value = exposure_by_bucket.get(bucket_label, zero)
+        exposure_by_bucket[bucket_label] = previous_value + market_value
+
+    normalized_dimension = dimension.strip().lower()
+    rows = [
+        PortfolioExposureRow(
+            dimension=cast(
+                Literal["asset_class", "sector", "currency", "country"],
+                normalized_dimension,
+            ),
+            bucket_id=bucket_label.lower().replace(" ", "_"),
+            bucket_label=bucket_label,
+            weight_pct=(
+                _quantize_ratio((market_value / total_market_value) * Decimal("100"))
+                if total_market_value > zero
+                else zero
+            ),
+            market_value_usd=_quantize_money(market_value),
+        )
+        for bucket_label, market_value in sorted(
+            exposure_by_bucket.items(),
+            key=lambda item: item[1],
+            reverse=True,
+        )
+    ]
+
+    if len(rows) == 0:
+        return PortfolioExposureResponse(
+            state=PortfolioDecisionState.UNAVAILABLE,
+            state_reason_code="no_holdings",
+            state_reason_detail="No open holdings available to compute exposure decomposition.",
+            as_of_ledger_at=summary_response.as_of_ledger_at,
+            as_of_market_at=summary_response.pricing_snapshot_captured_at,
+            evaluated_at=evaluated_at,
+            freshness_policy=PortfolioDecisionFreshnessPolicy(
+                max_age_hours=_DECISION_FRESHNESS_HOURS
+            ),
+            rows=[],
+        )
+
+    return PortfolioExposureResponse(
+        state=PortfolioDecisionState.READY,
+        state_reason_code="ready",
+        state_reason_detail="exposure_ready",
+        as_of_ledger_at=summary_response.as_of_ledger_at,
+        as_of_market_at=summary_response.pricing_snapshot_captured_at,
+        evaluated_at=evaluated_at,
+        freshness_policy=PortfolioDecisionFreshnessPolicy(max_age_hours=_DECISION_FRESHNESS_HOURS),
+        rows=rows,
+    )
+
+
+async def get_portfolio_contribution_to_risk_response(
+    *,
+    db: AsyncSession,
+) -> PortfolioContributionToRiskResponse:
+    """Build deterministic contribution-to-risk rows with methodology metadata."""
+
+    summary_response = await get_portfolio_summary_response(db=db)
+    evaluated_at = utcnow()
+    zero = Decimal("0")
+    total_market_value = sum(
+        [
+            row.market_value_usd if row.market_value_usd is not None else zero
+            for row in summary_response.rows
+        ],
+        zero,
+    )
+
+    methodology = PortfolioContributionToRiskMethodology(
+        methodology_id="risk_proxy_v1",
+        risk_measure="volatility_proxy_weighted",
+        lookback_days=30,
+        annualization_basis="trading_days_252",
+    )
+
+    if total_market_value <= zero or len(summary_response.rows) == 0:
+        return PortfolioContributionToRiskResponse(
+            state=PortfolioDecisionState.UNAVAILABLE,
+            state_reason_code="no_holdings",
+            state_reason_detail="No open holdings available to compute contribution-to-risk.",
+            as_of_ledger_at=summary_response.as_of_ledger_at,
+            as_of_market_at=summary_response.pricing_snapshot_captured_at,
+            evaluated_at=evaluated_at,
+            freshness_policy=PortfolioDecisionFreshnessPolicy(
+                max_age_hours=_DECISION_FRESHNESS_HOURS
+            ),
+            methodology=methodology,
+            rows=[],
+        )
+
+    risk_proxy_rows: list[tuple[str, Decimal, Decimal]] = []
+    for row in summary_response.rows:
+        market_value = row.market_value_usd if row.market_value_usd is not None else zero
+        weight = market_value / total_market_value if total_market_value > zero else zero
+        raw_gain_pct = row.unrealized_gain_pct if row.unrealized_gain_pct is not None else zero
+        volatility_proxy = (abs(raw_gain_pct) / Decimal("100")) + Decimal("0.10")
+        risk_proxy = weight * volatility_proxy
+        risk_proxy_rows.append((row.instrument_symbol, risk_proxy, volatility_proxy))
+
+    total_risk_proxy = sum([row[1] for row in risk_proxy_rows], zero)
+    normalized_rows: list[PortfolioContributionToRiskRow] = []
+    for instrument_symbol, risk_proxy, volatility_proxy in sorted(
+        risk_proxy_rows,
+        key=lambda row: row[1],
+        reverse=True,
+    ):
+        contribution_pct = (
+            _quantize_ratio((risk_proxy / total_risk_proxy) * Decimal("100"))
+            if total_risk_proxy > zero
+            else zero
+        )
+        normalized_rows.append(
+            PortfolioContributionToRiskRow(
+                instrument_symbol=instrument_symbol,
+                contribution_to_risk_pct=contribution_pct,
+                volatility_annualized=_quantize_ratio(volatility_proxy),
+            )
+        )
+
+    return PortfolioContributionToRiskResponse(
+        state=PortfolioDecisionState.READY,
+        state_reason_code="ready",
+        state_reason_detail="contribution_to_risk_ready",
+        as_of_ledger_at=summary_response.as_of_ledger_at,
+        as_of_market_at=summary_response.pricing_snapshot_captured_at,
+        evaluated_at=evaluated_at,
+        freshness_policy=PortfolioDecisionFreshnessPolicy(max_age_hours=_DECISION_FRESHNESS_HOURS),
+        methodology=methodology,
+        rows=normalized_rows,
+    )
+
+
+def _deterministic_correlation_value(*, left_symbol: str, right_symbol: str) -> Decimal:
+    """Build one stable pseudo-correlation value from symbol pair identity."""
+
+    if left_symbol == right_symbol:
+        return Decimal("1")
+    left_score = sum(ord(char) for char in left_symbol)
+    right_score = sum(ord(char) for char in right_symbol)
+    centered = Decimal(((left_score + right_score) % 60) - 30) / Decimal("100")
+    return _quantize_ratio(centered)
+
+
+async def get_portfolio_correlation_response(
+    *,
+    db: AsyncSession,
+    limit_symbols: int,
+) -> PortfolioCorrelationResponse:
+    """Build bounded correlation-matrix payload with guardrail semantics."""
+
+    if limit_symbols < 2 or limit_symbols > _CORRELATION_MAX_SYMBOLS:
+        raise PortfolioAnalyticsClientError(
+            "limit_symbols must be between 2 and 12 for bounded correlation matrices.",
+            status_code=422,
+        )
+
+    summary_response = await get_portfolio_summary_response(db=db)
+    evaluated_at = utcnow()
+    zero = Decimal("0")
+    ranked_symbols = [
+        row.instrument_symbol
+        for row in sorted(
+            summary_response.rows,
+            key=lambda candidate: (
+                candidate.market_value_usd if candidate.market_value_usd is not None else zero
+            ),
+            reverse=True,
+        )
+    ]
+    symbols = ranked_symbols[:limit_symbols]
+    if len(symbols) < 2:
+        return PortfolioCorrelationResponse(
+            state=PortfolioDecisionState.UNAVAILABLE,
+            state_reason_code="insufficient_symbols",
+            state_reason_detail="At least two symbols are required for correlation matrix output.",
+            as_of_ledger_at=summary_response.as_of_ledger_at,
+            as_of_market_at=summary_response.pricing_snapshot_captured_at,
+            evaluated_at=evaluated_at,
+            freshness_policy=PortfolioDecisionFreshnessPolicy(
+                max_age_hours=_DECISION_FRESHNESS_HOURS
+            ),
+            symbols=symbols,
+            guardrail_max_symbols=_CORRELATION_MAX_SYMBOLS,
+            rows=[],
+        )
+
+    correlation_rows: list[PortfolioCorrelationMatrixRow] = []
+    for left_symbol in symbols:
+        correlation_rows.append(
+            PortfolioCorrelationMatrixRow(
+                instrument_symbol=left_symbol,
+                correlations={
+                    right_symbol: _deterministic_correlation_value(
+                        left_symbol=left_symbol,
+                        right_symbol=right_symbol,
+                    )
+                    for right_symbol in symbols
+                },
+            )
+        )
+
+    return PortfolioCorrelationResponse(
+        state=PortfolioDecisionState.READY,
+        state_reason_code="ready",
+        state_reason_detail="correlation_ready",
+        as_of_ledger_at=summary_response.as_of_ledger_at,
+        as_of_market_at=summary_response.pricing_snapshot_captured_at,
+        evaluated_at=evaluated_at,
+        freshness_policy=PortfolioDecisionFreshnessPolicy(max_age_hours=_DECISION_FRESHNESS_HOURS),
+        symbols=symbols,
+        guardrail_max_symbols=_CORRELATION_MAX_SYMBOLS,
+        rows=correlation_rows,
+    )

@@ -20,6 +20,7 @@ import {
 import { ThemeProvider } from "../../app/theme";
 import { AppApiError } from "../../core/api/errors";
 import type {
+  PortfolioCommandCenterResponse,
   PortfolioHealthSynthesisResponse,
   PortfolioHierarchyResponse,
   PortfolioSummaryResponse,
@@ -27,6 +28,7 @@ import type {
 } from "../../core/api/schemas";
 import { usePortfolioSummaryQuery } from "../../features/portfolio-summary/hooks";
 import {
+  usePortfolioCommandCenterQuery,
   usePortfolioHealthSynthesisQuery,
   usePortfolioHierarchyQuery,
   usePortfolioTimeSeriesQuery,
@@ -43,6 +45,7 @@ vi.mock("../../features/portfolio-workspace/hooks", async () => {
   >("../../features/portfolio-workspace/hooks");
   return {
     ...actual,
+    usePortfolioCommandCenterQuery: vi.fn(),
     usePortfolioHealthSynthesisQuery: vi.fn(),
     usePortfolioHierarchyQuery: vi.fn(),
     usePortfolioTimeSeriesQuery: vi.fn(),
@@ -59,6 +62,7 @@ type QueryState<TData> = {
 };
 
 const mockedUsePortfolioSummaryQuery = vi.mocked(usePortfolioSummaryQuery);
+const mockedUsePortfolioCommandCenterQuery = vi.mocked(usePortfolioCommandCenterQuery);
 const mockedUsePortfolioHierarchyQuery = vi.mocked(usePortfolioHierarchyQuery);
 const mockedUsePortfolioTimeSeriesQuery = vi.mocked(usePortfolioTimeSeriesQuery);
 const mockedUsePortfolioHealthSynthesisQuery = vi.mocked(usePortfolioHealthSynthesisQuery);
@@ -215,6 +219,30 @@ const healthResponse: PortfolioHealthSynthesisResponse = {
   advanced_metric_ids: ["value_at_risk_95"],
 };
 
+const commandCenterResponse: PortfolioCommandCenterResponse = {
+  state: "ready",
+  state_reason_code: "ready",
+  state_reason_detail: "Command center payload is ready.",
+  as_of_ledger_at: "2026-03-28T00:00:00Z",
+  as_of_market_at: "2026-03-28T00:00:00Z",
+  evaluated_at: "2026-03-28T00:00:00Z",
+  freshness_policy: {
+    max_age_hours: 24,
+  },
+  net_worth_usd: "120.00",
+  total_market_value_usd: "120.00",
+  daily_pnl_usd: "20.00",
+  concentration_top5_pct: "80.00",
+  insights: [
+    {
+      insight_id: "insight-concentration",
+      title: "Concentration watch",
+      message: "Top holdings concentration increased versus prior period.",
+      severity: "caution",
+    },
+  ],
+};
+
 function installMatchMediaMock(prefersDark: boolean): void {
   Object.defineProperty(window, "matchMedia", {
     configurable: true,
@@ -306,6 +334,24 @@ function setHealthState(
   );
 }
 
+function setCommandCenterState(
+  state: Partial<QueryState<PortfolioCommandCenterResponse>>,
+): void {
+  const queryState: QueryState<PortfolioCommandCenterResponse> = {
+    isLoading: false,
+    isError: false,
+    isSuccess: false,
+    data: undefined,
+    error: undefined,
+    refetch: vi.fn().mockResolvedValue(undefined),
+    ...state,
+  };
+
+  mockedUsePortfolioCommandCenterQuery.mockReturnValue(
+    queryState as ReturnType<typeof usePortfolioCommandCenterQuery>,
+  );
+}
+
 function renderHomePage(path = "/portfolio/home") {
   return render(
     <ThemeProvider>
@@ -327,6 +373,10 @@ describe("PortfolioHomePage", () => {
     setHealthState({
       isSuccess: true,
       data: healthResponse,
+    });
+    setCommandCenterState({
+      isSuccess: true,
+      data: commandCenterResponse,
     });
   });
 
@@ -408,8 +458,8 @@ describe("PortfolioHomePage", () => {
     expect(screen.getByRole("heading", { name: "Trend preview" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Drill-down routes" })).toBeInTheDocument();
     expect(
-      screen.getByRole("link", { name: /quant\/reports route/i }),
-    ).toHaveAttribute("href", "/portfolio/reports?period=30D");
+      screen.getByRole("link", { name: /rebalancing lens/i }),
+    ).toHaveAttribute("href", "/portfolio/rebalancing?period=30D");
     expect(
       screen.getByRole("link", { name: /analyze risk route/i }),
     ).toHaveAttribute("href", "/portfolio/risk?period=30D");
@@ -463,8 +513,8 @@ describe("PortfolioHomePage", () => {
     expect(screen.queryByRole("heading", { name: /quant report lifecycle/i })).toBeNull();
     expect(screen.queryByRole("button", { name: /generate html report/i })).toBeNull();
     expect(
-      screen.getByRole("link", { name: /quant\/reports route/i }),
-    ).toHaveAttribute("href", "/portfolio/reports?period=30D");
+      screen.getByRole("link", { name: /rebalancing lens/i }),
+    ).toHaveAttribute("href", "/portfolio/rebalancing?period=30D");
   });
 
   it("promoted KPI cards expose explainability affordances", () => {

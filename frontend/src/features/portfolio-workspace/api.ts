@@ -3,10 +3,16 @@ import {
   fetchText,
 } from "../../core/api/client";
 import {
+  portfolioCommandCenterResponseSchema,
+  portfolioContributionToRiskResponseSchema,
   portfolioContributionResponseSchema,
+  portfolioCorrelationResponseSchema,
   portfolioEfficientFrontierResponseSchema,
+  portfolioExposureResponseSchema,
   portfolioHealthSynthesisResponseSchema,
   portfolioHierarchyResponseSchema,
+  portfolioMLAnomaliesResponseSchema,
+  portfolioMLClustersResponseSchema,
   portfolioMLForecastResponseSchema,
   portfolioMLRegistryResponseSchema,
   portfolioMLSignalResponseSchema,
@@ -18,23 +24,37 @@ import {
   portfolioRiskEstimatorsResponseSchema,
   portfolioTimeSeriesResponseSchema,
   portfolioTransactionsResponseSchema,
+  portfolioNewsContextResponseSchema,
+  portfolioRebalancingScenarioRequestSchema,
+  portfolioRebalancingScenarioResponseSchema,
+  portfolioRebalancingStrategiesResponseSchema,
   type PortfolioChartPeriod,
+  type PortfolioCommandCenterResponse,
+  type PortfolioContributionToRiskResponse,
   type PortfolioContributionResponse,
+  type PortfolioCorrelationResponse,
   type PortfolioEfficientFrontierResponse,
+  type PortfolioExposureResponse,
   type PortfolioHealthProfilePosture,
   type PortfolioHealthSynthesisResponse,
   type PortfolioHierarchyGroupBy,
   type PortfolioHierarchyResponse,
+  type PortfolioMLAnomaliesResponse,
+  type PortfolioMLClustersResponse,
   type PortfolioMLForecastResponse,
   type PortfolioMLRegistryResponse,
   type PortfolioMLScope,
   type PortfolioMLSignalResponse,
   type PortfolioMLState,
+  type PortfolioNewsContextResponse,
   type PortfolioMonteCarloRequest,
   type PortfolioMonteCarloResponse,
   type PortfolioQuantMetricsResponse,
   type PortfolioQuantReportGenerateRequest,
   type PortfolioQuantReportGenerateResponse,
+  type PortfolioRebalancingScenarioRequest,
+  type PortfolioRebalancingScenarioResponse,
+  type PortfolioRebalancingStrategiesResponse,
   type PortfolioReturnDistributionResponse,
   type PortfolioRiskEvolutionResponse,
   type PortfolioRiskEstimatorsResponse,
@@ -42,6 +62,44 @@ import {
   type PortfolioTimeSeriesResponse,
   type PortfolioTransactionsResponse,
 } from "../../core/api/schemas";
+
+export function fetchPortfolioCommandCenter(): Promise<PortfolioCommandCenterResponse> {
+  return fetchJson({
+    path: "/portfolio/command-center",
+    schema: portfolioCommandCenterResponseSchema,
+  });
+}
+
+export function fetchPortfolioExposure(
+  dimension: "asset_class" | "sector" | "currency" | "country" = "sector",
+): Promise<PortfolioExposureResponse> {
+  const query = new URLSearchParams({
+    dimension,
+  });
+  return fetchJson({
+    path: `/portfolio/exposure?${query.toString()}`,
+    schema: portfolioExposureResponseSchema,
+  });
+}
+
+export function fetchPortfolioContributionToRisk(): Promise<PortfolioContributionToRiskResponse> {
+  return fetchJson({
+    path: "/portfolio/contribution-to-risk",
+    schema: portfolioContributionToRiskResponseSchema,
+  });
+}
+
+export function fetchPortfolioCorrelation(
+  limitSymbols = 8,
+): Promise<PortfolioCorrelationResponse> {
+  const query = new URLSearchParams({
+    limit_symbols: String(limitSymbols),
+  });
+  return fetchJson({
+    path: `/portfolio/correlation?${query.toString()}`,
+    schema: portfolioCorrelationResponseSchema,
+  });
+}
 
 export function fetchPortfolioTimeSeries(
   period: PortfolioChartPeriod,
@@ -234,6 +292,44 @@ export function fetchPortfolioMLSignals(options?: {
   });
 }
 
+export function fetchPortfolioMLClusters(options?: {
+  scope?: PortfolioMLScope;
+  instrumentSymbol?: string | null;
+}): Promise<PortfolioMLClustersResponse> {
+  const scope = options?.scope ?? "portfolio";
+  const normalizedInstrumentSymbol =
+    options?.instrumentSymbol?.trim().toUpperCase() || null;
+  const query = new URLSearchParams({
+    scope,
+  });
+  if (scope === "instrument_symbol" && normalizedInstrumentSymbol) {
+    query.set("instrument_symbol", normalizedInstrumentSymbol);
+  }
+  return fetchJson({
+    path: `/portfolio/ml/clusters?${query.toString()}`,
+    schema: portfolioMLClustersResponseSchema,
+  });
+}
+
+export function fetchPortfolioMLAnomalies(options?: {
+  scope?: PortfolioMLScope;
+  instrumentSymbol?: string | null;
+}): Promise<PortfolioMLAnomaliesResponse> {
+  const scope = options?.scope ?? "portfolio";
+  const normalizedInstrumentSymbol =
+    options?.instrumentSymbol?.trim().toUpperCase() || null;
+  const query = new URLSearchParams({
+    scope,
+  });
+  if (scope === "instrument_symbol" && normalizedInstrumentSymbol) {
+    query.set("instrument_symbol", normalizedInstrumentSymbol);
+  }
+  return fetchJson({
+    path: `/portfolio/ml/anomalies?${query.toString()}`,
+    schema: portfolioMLAnomaliesResponseSchema,
+  });
+}
+
 export function fetchPortfolioMLForecasts(options?: {
   scope?: PortfolioMLScope;
   instrumentSymbol?: string | null;
@@ -281,6 +377,33 @@ export function fetchPortfolioTransactions(): Promise<PortfolioTransactionsRespo
   return fetchJson({
     path: "/portfolio/transactions",
     schema: portfolioTransactionsResponseSchema,
+  });
+}
+
+export function fetchPortfolioRebalancingStrategies():
+Promise<PortfolioRebalancingStrategiesResponse> {
+  return fetchJson({
+    path: "/portfolio/rebalancing/strategies",
+    schema: portfolioRebalancingStrategiesResponseSchema,
+  });
+}
+
+export function postPortfolioRebalancingScenario(
+  request: PortfolioRebalancingScenarioRequest,
+): Promise<PortfolioRebalancingScenarioResponse> {
+  const normalizedRequest = portfolioRebalancingScenarioRequestSchema.parse(request);
+  return fetchJson({
+    path: "/portfolio/rebalancing/scenario",
+    method: "POST",
+    body: normalizedRequest,
+    schema: portfolioRebalancingScenarioResponseSchema,
+  });
+}
+
+export function fetchPortfolioNewsContext(): Promise<PortfolioNewsContextResponse> {
+  return fetchJson({
+    path: "/portfolio/news/context",
+    schema: portfolioNewsContextResponseSchema,
   });
 }
 

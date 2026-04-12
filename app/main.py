@@ -32,6 +32,8 @@ from app.pdf_verification.routes import router as pdf_verification_router
 from app.portfolio_ai_copilot.routes import router as portfolio_ai_copilot_router
 from app.portfolio_analytics.routes import router as portfolio_analytics_router
 from app.portfolio_ml.routes import router as portfolio_ml_router
+from app.portfolio_news_context.routes import router as portfolio_news_context_router
+from app.portfolio_rebalancing.routes import router as portfolio_rebalancing_router
 
 settings = get_settings()
 
@@ -93,6 +95,8 @@ app.include_router(pdf_verification_router)
 app.include_router(portfolio_analytics_router)
 app.include_router(portfolio_ai_copilot_router)
 app.include_router(portfolio_ml_router)
+app.include_router(portfolio_rebalancing_router)
+app.include_router(portfolio_news_context_router)
 
 
 @app.get("/")

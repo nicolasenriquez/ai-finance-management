@@ -5,6 +5,7 @@ import {
   cleanup,
   render,
   screen,
+  within,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
@@ -160,7 +161,10 @@ describe("PortfolioTransactionsPage", () => {
     expect(
       screen.getByRole("heading", { name: "Transactions route unavailable" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("Unable to reach transactions route.")).toBeInTheDocument();
+    const alertBanner = screen.getByRole("alert");
+    expect(
+      within(alertBanner).getByText("Unable to reach transactions route."),
+    ).toBeInTheDocument();
   });
 
   it("renders deterministic sorted rows and filter behavior on success", async () => {

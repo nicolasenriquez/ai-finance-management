@@ -42,6 +42,10 @@ expectations.
   - `document_ids` (validated against persisted ingestion records)
 - Added optional response metadata:
   - `prompt_suggestions` (bounded follow-up prompts)
+- Added deterministic DCA strategy controls for opportunity scans:
+  - `opportunity_strategy_profile` (`dca_2x_v1`)
+  - `double_down_threshold_pct` (default `0.20`)
+  - `double_down_multiplier` (default `2.0`)
 
 ## Explicit Non-Goals
 

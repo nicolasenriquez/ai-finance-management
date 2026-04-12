@@ -13,6 +13,7 @@ import type {
   PortfolioCopilotChatResponse,
   PortfolioCopilotConversationMessage,
   PortfolioCopilotOperation,
+  PortfolioCopilotOpportunityStrategyProfile,
   PortfolioCopilotResponseState,
   PortfolioQuantReportScope,
 } from "../../core/api/schemas";
@@ -34,6 +35,7 @@ export type CopilotLaunchContext = {
 
 type SubmitCopilotRequestParams = {
   maxToolCalls?: number;
+  messageOverride?: string;
 };
 
 type PortfolioCopilotWorkspaceState = {
@@ -76,6 +78,10 @@ type PortfolioCopilotWorkspaceContextValue = {
 };
 
 const PORTFOLIO_COPILOT_MAX_DOCUMENT_REFERENCES = 8;
+const PORTFOLIO_COPILOT_OPPORTUNITY_STRATEGY_PROFILE_DEFAULT:
+  PortfolioCopilotOpportunityStrategyProfile = "dca_2x_v1";
+const PORTFOLIO_COPILOT_DOUBLE_DOWN_THRESHOLD_PCT_DEFAULT = "0.20";
+const PORTFOLIO_COPILOT_DOUBLE_DOWN_MULTIPLIER_DEFAULT = "2.0";
 
 const PortfolioCopilotWorkspaceContext =
   createContext<PortfolioCopilotWorkspaceContextValue | null>(null);
@@ -192,7 +198,7 @@ export function PortfolioCopilotWorkspaceProvider({
 
   const submitCopilotRequest = useCallback(
     async (params?: SubmitCopilotRequestParams): Promise<void> => {
-      const trimmedMessage = draftMessage.trim();
+      const trimmedMessage = (params?.messageOverride ?? draftMessage).trim();
       const normalizedInstrumentSymbol = instrumentSymbol.trim().toUpperCase();
       const isScopeRequestReady =
         scope === "portfolio" || normalizedInstrumentSymbol.length > 0;
@@ -220,6 +226,12 @@ export function PortfolioCopilotWorkspaceProvider({
           instrument_symbol:
             scope === "instrument_symbol" ? normalizedInstrumentSymbol : null,
           max_tool_calls: params?.maxToolCalls ?? 6,
+          opportunity_strategy_profile:
+            PORTFOLIO_COPILOT_OPPORTUNITY_STRATEGY_PROFILE_DEFAULT,
+          double_down_threshold_pct:
+            PORTFOLIO_COPILOT_DOUBLE_DOWN_THRESHOLD_PCT_DEFAULT,
+          double_down_multiplier:
+            PORTFOLIO_COPILOT_DOUBLE_DOWN_MULTIPLIER_DEFAULT,
           document_ids: documentIds,
         });
 
