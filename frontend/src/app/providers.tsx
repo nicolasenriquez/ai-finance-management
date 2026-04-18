@@ -5,7 +5,6 @@ import {
   QueryClientProvider,
 } from "@tanstack/react-query";
 
-import { PortfolioCopilotWorkspaceProvider } from "../features/portfolio-copilot/workspace-session";
 import { ThemeProvider } from "./theme";
 
 const queryClient = new QueryClient({
@@ -20,11 +19,7 @@ const queryClient = new QueryClient({
 export function AppProviders({ children }: PropsWithChildren) {
   return (
     <ThemeProvider>
-      <QueryClientProvider client={queryClient}>
-        <PortfolioCopilotWorkspaceProvider>
-          {children}
-        </PortfolioCopilotWorkspaceProvider>
-      </QueryClientProvider>
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
     </ThemeProvider>
   );
 }

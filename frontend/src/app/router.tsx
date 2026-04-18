@@ -4,36 +4,29 @@ import {
 } from "react-router-dom";
 
 import { PortfolioAnalyticsPage } from "../pages/portfolio-analytics-page/PortfolioAnalyticsPage";
-import { PortfolioCopilotPage } from "../pages/portfolio-copilot-page/PortfolioCopilotPage";
-import { PortfolioHoldingsPage } from "../pages/portfolio-holdings-page/PortfolioHoldingsPage";
+import { PortfolioAssetDetailPage } from "../pages/portfolio-asset-detail-page/PortfolioAssetDetailPage";
 import { PortfolioHomePage } from "../pages/portfolio-home-page/PortfolioHomePage";
-import { PortfolioLotDetailPage } from "../pages/portfolio-lot-detail-page/PortfolioLotDetailPage";
-import { PortfolioReportsPage } from "../pages/portfolio-reports-page/PortfolioReportsPage";
 import { PortfolioRiskPage } from "../pages/portfolio-risk-page/PortfolioRiskPage";
-import { PortfolioTransactionsPage } from "../pages/portfolio-transactions-page/PortfolioTransactionsPage";
+import { PortfolioSignalsPage } from "../pages/portfolio-signals-page/PortfolioSignalsPage";
 
 export const appRouter = createBrowserRouter([
   {
     path: "/",
-    element: <Navigate to="/portfolio/dashboard" replace />,
+    element: <Navigate to="/portfolio/home" replace />,
   },
   {
     path: "/portfolio",
     children: [
       {
         index: true,
-        element: <Navigate to="dashboard" replace />,
+        element: <Navigate to="home" replace />,
       },
       {
-        path: "dashboard",
+        path: "home",
         element: <PortfolioHomePage />,
       },
       {
-        path: "holdings",
-        element: <PortfolioHoldingsPage />,
-      },
-      {
-        path: "performance",
+        path: "analytics",
         element: <PortfolioAnalyticsPage />,
       },
       {
@@ -41,33 +34,17 @@ export const appRouter = createBrowserRouter([
         element: <PortfolioRiskPage />,
       },
       {
-        path: "rebalancing",
-        element: <PortfolioReportsPage />,
+        path: "signals",
+        element: <PortfolioSignalsPage />,
       },
       {
-        path: "copilot",
-        element: <PortfolioCopilotPage />,
-      },
-      {
-        path: "transactions",
-        element: <PortfolioTransactionsPage />,
-      },
-      {
-        path: "home",
-        element: <Navigate to="/portfolio/dashboard" replace />,
-      },
-      {
-        path: "analytics",
-        element: <Navigate to="/portfolio/performance" replace />,
-      },
-      {
-        path: "reports",
-        element: <Navigate to="/portfolio/rebalancing" replace />,
-      },
-      {
-        path: ":symbol",
-        element: <PortfolioLotDetailPage />,
+        path: "asset-detail/:ticker",
+        element: <PortfolioAssetDetailPage />,
       },
     ],
+  },
+  {
+    path: "*",
+    element: <Navigate to="/portfolio/home" replace />,
   },
 ]);

@@ -22,6 +22,121 @@ Use this structure for new entries:
 
 `type` guidance: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`.
 
+## 2026-04-18
+
+### feat(portfolio-ml,docs): implement deterministic technical strategy extension for ML signals
+- Summary: Extended deterministic signal generation to include daily return, SMA/EMA distance and 50/200 spread regime metrics, Bollinger `%B`, Ichimoku bias (close-proxy), monthly return metrics, and trailing 12-month return while preserving existing stable v1 signal IDs.
+- Why: Move ETF notebook strategy concepts into a production-safe, deterministic backend contract that can be consumed by the current read-only portfolio ML surface.
+- Files: `app/portfolio_ml/service.py`, `app/portfolio_ml/tests/test_deterministic_signal_payload_fail_first.py`, `docs/guides/portfolio-ml-technical-strategy-guide.md`, `docs/guides/portfolio-ml-phase-i-guide.md`, `docs/README.md`, `CHANGELOG.md`.
+- Validation: `rtk env UV_CACHE_DIR=/tmp/.uv-cache uv run ruff check app/portfolio_ml/service.py app/portfolio_ml/tests/test_deterministic_signal_payload_fail_first.py` (pass), `rtk env UV_CACHE_DIR=/tmp/.uv-cache uv run pytest -v app/portfolio_ml/tests/test_deterministic_signal_payload_fail_first.py` (2 passed), `rtk env UV_CACHE_DIR=/tmp/.uv-cache uv run mypy app/portfolio_ml/service.py` (pass), `rtk env UV_CACHE_DIR=/tmp/.uv-cache uv run pyright app/portfolio_ml/service.py` (0 errors).
+- Notes: Ichimoku is intentionally implemented as a close-only proxy because current `series_points` payload does not include explicit daily high/low fields.
+
+## 2026-04-18
+
+### fix(frontend-shell,frontend-utility,frontend-contracts): remove hardcoded AAPL fallback from runtime surfaces
+- Summary: Replaced the shell's asset-detail shortcut from `/portfolio/asset-detail/AAPL` to the portfolio-owned MSFT route, removed the AAPL placeholder from the report utility symbol field, and aligned the accessibility contract test with the current deep-dive example.
+- Why: The runtime UI was leaking a ticker the current portfolio does not hold, which made the asset-detail affordance look disconnected from the portfolio data shown elsewhere in the app.
+- Files: `frontend/src/components/shell/CompactDashboardShell.tsx`, `frontend/src/features/report-utility/ReportUtilityDock.tsx`, `frontend/src/app/accessibility.contract.test.tsx`, `CHANGELOG.md`.
+- Validation: `rtk rg -n "AAPL" frontend/src --glob '!**/*.test.*' --glob '!**/*.contract.*'` returned no runtime hits after the patch.
+- Notes: The asset-detail shell shortcut still uses a fixed fallback symbol until a portfolio-driven selected-ticker state is wired into the shell.
+
+## 2026-04-18
+
+### feat(frontend-responsive,frontend-state,openspec): execute compact-dashboard implementation slice `4.14-4.17`
+- Summary: Implemented route-aware responsive shell density metadata and explicit `320/768/1024/1440` media contracts, added semantic route token aliases for surface/border/spacing/radius/typography, introduced explicit `empty/unavailable/success/error` primary-module feedback with retry-to-ready behavior, and codified simple frontend state ownership boundaries with URL-backed report controls for shareable views.
+- Why: Tasks `4.14-4.17` require responsive/mobile contract hardening, semantic styling discipline, bounded module-state feedback beyond loading skeletons, and explicit local/URL/server state ownership without introducing global stores.
+- Files: `frontend/src/{app/styles.css,components/shell/CompactDashboardShell.tsx,components/workspace-layout/PrimaryModuleStateFeedback.tsx,features/portfolio-workspace/{route-module-state.ts,state-ownership.ts,state-ownership.contract.test.tsx},features/report-utility/ReportUtilityDock.tsx,pages/{portfolio-home-page/PortfolioHomePage.tsx,portfolio-analytics-page/PortfolioAnalyticsPage.tsx,portfolio-risk-page/PortfolioRiskPage.tsx,portfolio-signals-page/components/PortfolioSignalsRouteView.tsx,portfolio-asset-detail-page/components/PortfolioAssetDetailRouteView.tsx},app/{responsive-layout.contract.test.tsx,semantic-token-usage.contract.test.ts,primary-module-state-feedback.contract.test.tsx}}`, `openspec/changes/archive-v0-and-build-compact-trading-dashboard/tasks.md`, `CHANGELOG.md`.
+- Validation: `rtk npm --prefix frontend run test -- src/app/responsive-layout.contract.test.tsx src/app/semantic-token-usage.contract.test.ts src/app/primary-module-state-feedback.contract.test.tsx src/features/portfolio-workspace/state-ownership.contract.test.tsx src/features/report-utility/ReportUtilityDock.contract.test.tsx` (13 passed), `rtk npm --prefix frontend run test` (23 files / 47 tests passed), `rtk npm --prefix frontend run type-check` (pass).
+- Notes: Report utility control state now prefers URL search params when rendered inside Router and falls back to local state for standalone component tests/usages.
+
+### docs(frontend-docs,openspec): complete compact-dashboard documentation and validation slice `5.1-5.4`
+- Summary: Rewrote the trading-dashboard LLM wiki to match the delivered five-route compact IA and preserve list, added rebuild implementation handoff notes with final source-policy decisions and route chart grammar, and completed documentation/validation closeout for the change.
+- Why: Tasks `5.1-5.4` require canonical product-doc synchronization, explicit source-policy publication, validation evidence capture, and handoff readiness before archive.
+- Files: `docs/product/{trading-dashboard-llm-wiki.md,compact-trading-dashboard-implementation-handoff.md}`, `openspec/changes/archive-v0-and-build-compact-trading-dashboard/tasks.md`, `CHANGELOG.md`.
+- Validation: `rtk npm --prefix frontend run test` (23 files / 47 tests passed), `rtk npm --prefix frontend run lint` (pass), `rtk npm --prefix frontend run build` (pass), `rtk openspec validate "archive-v0-and-build-compact-trading-dashboard" --type change --strict --json` (valid: true), `rtk openspec instructions apply --change "archive-v0-and-build-compact-trading-dashboard" --json` (`state: all_done`, `38/38` complete).
+- Notes: OpenSpec telemetry DNS errors to `edge.openspec.dev` remain non-blocking in this environment; command outputs for validation/progress remain authoritative.
+
+## 2026-04-17
+
+### feat(frontend-hierarchy,frontend-storytelling,frontend-visual-tokens,openspec): execute compact-dashboard IA slice `3.7-3.9`
+- Summary: Reintroduced grouped-row hierarchy pivot behavior for holdings and asset position detail via expand/collapse pivot tables, moved compact report utility into bounded shell disclosure, implemented reusable `what/why/action/evidence` storytelling contracts across all five primary routes, and codified a phi-derived layout scale (`1.613`) for spacing/module rhythm tokens.
+- Why: Section `3.7-3.9` requires preserve-list behavior recovery, deterministic storytelling grammar, and consistent layout rhythm before deeper research-module implementation.
+- Files: `frontend/src/{features/portfolio-hierarchy/HierarchyPivotTable.tsx,components/storytelling/StoryContractBlock.tsx,components/shell/CompactDashboardShell.tsx,pages/{portfolio-home-page/PortfolioHomePage.tsx,portfolio-analytics-page/PortfolioAnalyticsPage.tsx,portfolio-risk-page/PortfolioRiskPage.tsx,portfolio-signals-page/PortfolioSignalsPage.tsx,portfolio-asset-detail-page/PortfolioAssetDetailPage.tsx},app/{styles.css,compact-preserved-behaviors.contract.test.tsx,module-storytelling.contract.test.tsx,phi-layout-scale.contract.test.ts}}`, `openspec/changes/archive-v0-and-build-compact-trading-dashboard/tasks.md`, `CHANGELOG.md`.
+- Validation: `rtk npm --prefix frontend run test -- src/app/compact-preserved-behaviors.contract.test.tsx src/app/module-storytelling.contract.test.tsx src/app/phi-layout-scale.contract.test.ts src/pages/portfolio-risk-page/PortfolioRiskPage.contract.test.tsx src/pages/portfolio-signals-page/PortfolioSignalsPage.contract.test.tsx src/pages/portfolio-asset-detail-page/PortfolioAssetDetailPage.contract.test.tsx src/app/compact-dashboard-information-architecture.contract.test.tsx src/pages/portfolio-home-page/PortfolioHomePage.contract.test.tsx src/pages/portfolio-analytics-page/PortfolioAnalyticsPage.contract.test.tsx src/app/compact-dashboard-shell.contract.fail-first.test.ts src/app/unavailable-research-metrics.contract.fail-first.test.ts src/pages/portfolio-signals-page/PortfolioSignalsPage.test.tsx` (18 passed), `rtk npm --prefix frontend run type-check` (pass), `rtk npm --prefix frontend run build` (pass).
+- Notes: Storytelling contracts are now enforced via a dedicated route-spanning contract test and hierarchy/report utility behaviors are bounded by disclosure instead of route sprawl.
+
+### feat(frontend-risk,frontend-signals,frontend-asset-detail,openspec): execute compact-dashboard IA slice `3.4-3.6`
+- Summary: Implemented the remaining IA route foundations by building `/portfolio/risk` around fragility/concentration/risk-profile triage, `/portfolio/signals` as a secondary tactical overlay with ranked review and watchlist candidates, and `/portfolio/asset-detail/:ticker` as ticker-level deep dive with isolated candlestick and price-volume treatment.
+- Why: Section `3.4-3.6` requires route-purpose separation across risk triage, tactical opportunity review, and instrument-level technical context without leaking deep-dive behavior back into executive routes.
+- Files: `frontend/src/{pages/portfolio-risk-page/PortfolioRiskPage.tsx,pages/portfolio-signals-page/PortfolioSignalsPage.tsx,pages/portfolio-asset-detail-page/PortfolioAssetDetailPage.tsx,app/styles.css,pages/portfolio-risk-page/PortfolioRiskPage.contract.test.tsx,pages/portfolio-signals-page/PortfolioSignalsPage.contract.test.tsx,pages/portfolio-asset-detail-page/PortfolioAssetDetailPage.contract.test.tsx}`, `openspec/changes/archive-v0-and-build-compact-trading-dashboard/tasks.md`, `CHANGELOG.md`.
+- Validation: `rtk npm --prefix frontend run test -- src/pages/portfolio-risk-page/PortfolioRiskPage.contract.test.tsx src/pages/portfolio-signals-page/PortfolioSignalsPage.contract.test.tsx src/pages/portfolio-asset-detail-page/PortfolioAssetDetailPage.contract.test.tsx src/app/compact-dashboard-information-architecture.contract.test.tsx src/pages/portfolio-home-page/PortfolioHomePage.contract.test.tsx src/pages/portfolio-analytics-page/PortfolioAnalyticsPage.contract.test.tsx src/app/compact-dashboard-shell.contract.fail-first.test.ts src/app/unavailable-research-metrics.contract.fail-first.test.ts src/pages/portfolio-signals-page/PortfolioSignalsPage.test.tsx` (14 passed), `rtk npm --prefix frontend run type-check` (pass), `rtk npm --prefix frontend run build` (pass).
+- Notes: Asset-detail contracts now explicitly enforce candlestick isolation from `/portfolio/home`, `/portfolio/analytics`, `/portfolio/risk`, and `/portfolio/signals`.
+
+### feat(frontend-shell,frontend-home,frontend-analytics,openspec): execute compact-dashboard IA slice `3.1-3.3`
+- Summary: Implemented the compact information-architecture slice by upgrading the shell to a five-route decision-journey rail and building executable first-viewport route contracts for `/portfolio/home` (state vs benchmark vs immediate attention) and `/portfolio/analytics` (movement explanation, attribution drivers, consistency).
+- Why: Section `3.1-3.3` requires one compact primary shell with strict route jobs and didactic first-surface answers before deeper risk/signals/asset-detail modules.
+- Files: `frontend/src/{components/shell/CompactDashboardShell.tsx,pages/portfolio-home-page/PortfolioHomePage.tsx,pages/portfolio-analytics-page/PortfolioAnalyticsPage.tsx,app/styles.css,app/compact-dashboard-information-architecture.contract.test.tsx,pages/portfolio-home-page/PortfolioHomePage.contract.test.tsx,pages/portfolio-analytics-page/PortfolioAnalyticsPage.contract.test.tsx}`, `openspec/changes/archive-v0-and-build-compact-trading-dashboard/tasks.md`, `CHANGELOG.md`.
+- Validation: `rtk npm --prefix frontend run test -- src/app/compact-dashboard-information-architecture.contract.test.tsx src/pages/portfolio-home-page/PortfolioHomePage.contract.test.tsx src/pages/portfolio-analytics-page/PortfolioAnalyticsPage.contract.test.tsx src/app/compact-dashboard-shell.contract.fail-first.test.ts src/app/unavailable-research-metrics.contract.fail-first.test.ts src/pages/portfolio-signals-page/PortfolioSignalsPage.test.tsx` (10 passed), `rtk npm --prefix frontend run type-check` (pass), `rtk npm --prefix frontend run build` (pass).
+- Notes: New route-level contracts are intentionally UI-contract focused and keep advanced analytics decomposition behind collapsed disclosure by default.
+
+### feat(frontend-archive,frontend-foundation,openspec): execute compact-dashboard archive and clean foundation slice `2.1-2.3`
+- Summary: Archived the full pre-reset frontend into `v0/frontend-legacy` with an explicit manifest, replaced active `frontend/src` with a clean five-route compact-shell scaffold, and re-imported only approved reusable primitives (typed API client/env, finance-safe formatters, lifecycle copy/banner, and minimal schemas).
+- Why: Section `2.x` requires a hard reset from workspace-heavy UI to a controlled compact foundation while preserving rollback safety and only carrying forward assets that still provide decision value.
+- Files: `v0/frontend-legacy/**`, `v0/frontend-legacy/ARCHIVE_MANIFEST.md`, `frontend/src/{app/**,components/shell/CompactDashboardShell.tsx,components/workspace-layout/WorkspaceStateBanner.tsx,core/{api/**,config/env.ts,lib/**},features/{portfolio-workspace/{state-copy.ts,dashboard-governance.ts,research-metric-availability.ts},report-utility/ReportUtilityDock.tsx},pages/**}`, `openspec/changes/archive-v0-and-build-compact-trading-dashboard/tasks.md`, `CHANGELOG.md`.
+- Validation: `rtk npm --prefix frontend run type-check` (pass), `rtk npm --prefix frontend run build` (pass), `rtk npm --prefix frontend run test -- src/app/compact-dashboard-shell.contract.fail-first.test.ts src/app/unavailable-research-metrics.contract.fail-first.test.ts` (6 passed; compact-shell and unavailable-contract baselines now enforced on scaffold).
+- Notes: Active frontend runtime caches/build artifacts were intentionally excluded from the archive (`node_modules`, `dist`, `.vite*`, `*.tsbuildinfo`) and legacy files remain recoverable under `/v0/frontend-legacy`.
+
+### test(dashboard-discovery,openspec): execute compact-dashboard discovery slice `1.1-1.5` with fail-first shell and unavailable contracts
+- Summary: Added fail-first frontend contract tests for compact-shell routing/viewport/progressive-disclosure behavior and unsupported-research `unavailable` rendering, produced a discovery baseline document with the frozen keep/move/remove inventory plus yfinance availability and UX contract matrices, and marked OpenSpec tasks `1.1-1.5` complete.
+- Why: The archive/rebuild reset needs a locked discovery baseline and executable fail-first contracts before archive (`/v0`) and implementation tasks can safely proceed.
+- Files: `frontend/src/app/{compact-dashboard-shell.contract.fail-first.test.ts,unavailable-research-metrics.contract.fail-first.test.ts}`, `docs/product/compact-dashboard-discovery-baseline.md`, `openspec/changes/archive-v0-and-build-compact-trading-dashboard/tasks.md`, `CHANGELOG.md`.
+- Validation: `rtk npm --prefix frontend run test -- src/app/compact-dashboard-shell.contract.fail-first.test.ts src/app/unavailable-research-metrics.contract.fail-first.test.ts` (expected fail-first failures: 6 failed assertions confirming missing compact-shell/unavailable contracts in current codebase).
+- Notes: Broader frontend validation is intentionally deferred until implementation tasks wire the new five-route shell and research-contract registry.
+
+### docs(frontend-research,openspec): propose compact trading dashboard reset with `/v0` archive plan and LLM wiki
+- Summary: Added a repo-native trading-dashboard wiki for LLM handoff, created an OpenSpec change proposal to archive the current frontend into `/v0`, and authored a concrete two-tab wireframe blueprint (`Opportunities` + `My Portfolio`) with viewport budgets, component IDs, endpoint mapping, scoring logic, and anti-bloat guardrails.
+- Why: The current frontend surface has grown beyond the value it is delivering, and the new design direction requires a smaller, more disciplined dashboard grounded in a clear investing process instead of a tall multi-route workspace.
+- Files: `docs/product/{trading-dashboard-llm-wiki.md,two-tab-dashboard-wireframe-v1.md}`, `openspec/changes/archive-v0-and-build-compact-trading-dashboard/{proposal.md,design.md,tasks.md,specs/frontend-legacy-archive/spec.md,specs/frontend-compact-trading-dashboard/spec.md,specs/frontend-dashboard-visual-system/spec.md}`, `CHANGELOG.md`.
+- Validation: Documentation and artifact review against current repo state, existing `phase-n` dashboard artifacts, product docs, skill guidance, and user-provided visual/finance references. OpenSpec CLI showed inconsistent status behavior immediately after scaffold creation in this sandbox, so change consumption should be rechecked before implementation.
+- Notes: This proposal intentionally avoids modifying the active dirty frontend worktree and keeps the redesign isolated to new planning artifacts.
+
+### docs(frontend-research,openspec): harden compact dashboard proposal with data-source contracts and blast-radius controls
+- Summary: Refined the compact-dashboard proposal, design, tasks, and wiki/wireframe artifacts with explicit source-contract policy (`pandas` as compute-only, `yfinance` bootstrap boundaries, provider graduation path), provenance/freshness requirements, module-level failure isolation, and feature-flag/kill-switch controls for high-risk research signals.
+- Why: User requested senior-level blind-spot review and strict blast-radius control so the redesign is trustworthy under data gaps, staleness, and provider failures.
+- Files: `openspec/changes/archive-v0-and-build-compact-trading-dashboard/{proposal.md,design.md,tasks.md,specs/frontend-compact-trading-dashboard/spec.md}`, `docs/product/{trading-dashboard-llm-wiki.md,two-tab-dashboard-wireframe-v1.md}`, `CHANGELOG.md`.
+- Validation: Artifact-level consistency review plus external-source refresh for market-data policy and source strategy (`yfinance`, `pandas`, `SEC EDGAR`, provider docs), followed by OpenSpec strict validation for the updated change package.
+- Notes: This remains planning-scope only; implementation work should start from the updated `tasks.md` sequence and preserve fail-fast unavailable states for unsupported contracts.
+
+### docs(frontend-research,openspec): verify yfinance data surface and rebase proposal to yfinance-first extraction
+- Summary: Performed an online documentation review of official yfinance API/docs/source and updated proposal/design/tasks/wiki/wireframe artifacts to prioritize yfinance-first extraction for v1, adding an explicit availability matrix (`direct`, `derived`, `unavailable`) for opportunity metrics and clarifying that provider migration is not a blocker for this phase.
+- Why: User requested that planning prioritize available data now from yfinance (financial statements, ratios, options context, screening fields) before spending scope on provider strategy changes.
+- Files: `openspec/changes/archive-v0-and-build-compact-trading-dashboard/{proposal.md,design.md,tasks.md}`, `docs/product/{trading-dashboard-llm-wiki.md,two-tab-dashboard-wireframe-v1.md}`, `CHANGELOG.md`.
+- Validation: Online source review anchored on official yfinance documentation/reference pages plus repository source (`ticker.py`) and re-validation of OpenSpec change artifacts in strict mode.
+- Notes: Proprietary signals (`J5`, `JR4`, green/red labels) and historical IV percentile remain non-native; proposal now enforces direct yfinance extraction and pandas derivation before any `unavailable` status.
+
+### docs(frontend-research,openspec): integrate boneyard + awesome-design-md UX constraints and preserve compact quant-report gadget
+- Summary: Refined compact-dashboard proposal/design/spec/tasks/wiki/wireframe artifacts with explicit storytelling contracts (`what/why/action/evidence`), phi-derived rhythm guidance (`1.613`), corner-token families (including large rounded emphasis controls), stable skeleton-loading requirements, and preservation requirements for a compact `My Portfolio` quant-report gadget with HTML export, analyst-pack export, scope selector, and date-range controls.
+- Why: User requested senior-level UX/UI expectations grounded in provided reference repositories and asked to keep report-export functionality while improving compactness and readability.
+- Files: `openspec/changes/archive-v0-and-build-compact-trading-dashboard/{proposal.md,design.md,tasks.md,specs/frontend-compact-trading-dashboard/spec.md,specs/frontend-dashboard-visual-system/spec.md}`, `docs/product/{trading-dashboard-llm-wiki.md,two-tab-dashboard-wireframe-v1.md}`, `CHANGELOG.md`.
+- Validation: Reference review of `boneyard` docs/repo plus `awesome-design-md` repository and selected `DESIGN.md` examples, followed by OpenSpec strict re-validation.
+- Notes: This remains planning-scope; full UI implementation should execute from updated tasks (`1.5`, `3.5`, `3.6`, `4.8`, `4.9`) before enabling advanced modules.
+
+### docs(frontend-research,openspec): publish third-pass route and visualization refinement memo
+- Summary: Added a new implementation-facing refinement memo that supersedes the earlier 2-tab wireframe for the next frontend pass, centers the dashboard on five routes (`home`, `analytics`, `risk`, `signals`, `asset-detail`), compresses quant depth into executive clarity, and formalizes chart grammar, information distribution, and compact utility placement for report/export actions.
+- Why: The latest product direction requires a sharper executive/analytical separation and stricter visual grammar before any further frontend implementation proceeds.
+- Files: `docs/product/portfolio-dashboard-third-pass-refinement.md`, `docs/product/{trading-dashboard-llm-wiki.md,two-tab-dashboard-wireframe-v1.md}`, `CHANGELOG.md`.
+- Validation: Documentation cross-check against the existing OpenSpec change artifacts and the user-provided third-pass refinement context; no code/runtime changes required.
+- Notes: The new memo is the preferred implementation steering document for the next agent pass; the earlier 2-tab wireframe is now explicitly marked superseded.
+
+## 2026-04-12
+
+### feat(frontend-dashboard,docs,openspec): execute phase-n dashboard professionalization and executive workspace system
+- Summary: Implemented the full phase-n redesign slice by adding a route-aware dashboard visual system (lens/status tokens, typography roles, `hero|standard|utility` panel hierarchy), executive first-viewport route composition (`dominant-job`, `hero-insight`, support modules), support-rail shell framing, and governance extensions for promoted insights/chart-fit rules plus first-viewport templates; delivered route updates across Home, Holdings, Performance/Analytics, and Transactions with new fail-first contracts and test coverage.
+- Why: Complete the OpenSpec professionalization pass so the dashboard behaves as an executive operator workspace with auditable governance and stronger first-surface clarity.
+- Files: `frontend/src/{app/{styles.css,analytics-workspace.contract.test.ts,dashboard-information-architecture.contract.fail-first.test.ts,workspace-shell-navigation.contract.fail-first.test.ts,dashboard-visual-system.contract.fail-first.test.ts},components/{charts/WorkspaceChartPanel.tsx,workspace-layout/{PortfolioWorkspaceLayout.tsx,PortfolioWorkspaceLayout.test.tsx,PortfolioWorkspaceShell.test.tsx,WorkspacePrimaryJobPanel.tsx,WorkspaceStateBanner.tsx}},features/portfolio-workspace/{dashboard-governance.ts,state-copy.ts},pages/portfolio-{home,analytics,holdings,transactions}-page/*}`, `docs/{product/{portfolio-kpi-governance.md,phase-n-dashboard-implementation-handoff.md},guides/frontend-api-and-ux-guide.md}`, `openspec/changes/phase-n-dashboard-professionalization-and-executive-workspace-system/tasks.md`, `CHANGELOG.md`.
+- Validation: `rtk npm --prefix frontend run test` (32 files / 157 tests passed), `rtk npm --prefix frontend run lint` (pass), `rtk npm --prefix frontend run build` (pass), `rtk openspec status --change phase-n-dashboard-professionalization-and-executive-workspace-system --json` (complete), `rtk openspec validate phase-n-dashboard-professionalization-and-executive-workspace-system --type change --strict --json` (pass).
+- Notes: OpenSpec commands report non-blocking PostHog DNS flush warnings (`edge.openspec.dev`) in this sandboxed environment; build retains existing non-blocking Vite chunk-size warning.
+
 ## 2026-04-06
 
 ### feat(portfolio-decision-layer,portfolio-ml,portfolio-ai-copilot): implement phase-m backend contracts for command center, rebalancing/news context, clustering/anomalies, and structured copilot envelope
@@ -747,6 +862,14 @@ Use this structure for new entries:
 - Files: `app/pdf_extraction/service.py`, `app/pdf_extraction/routes.py`, `app/pdf_extraction/schemas.py`, `app/pdf_extraction/tests/test_service.py`, `app/pdf_extraction/tests/test_routes.py`, `app/main.py`, `pyproject.toml`, `docs/guides/pdf-extraction-guide.md`.
 - Validation: `uv run pytest -v app/pdf_extraction/tests` (6 passed), `uv run mypy app/` (pass), `uv run pyright app/` (0 errors), `uv run ruff check .` (pass).
 - Notes: Current scope is raw extraction only; canonical mapping/normalization and persistence remain out of scope for this slice.
+
+## 2026-04-18
+
+### docs(frontend): harden compact dashboard proposal with frontend engineering gates
+- Summary: Refined the compact dashboard OpenSpec change to make component architecture, accessibility, responsive behavior, semantic token usage, and meaningful UI state handling explicit implementation requirements.
+- Why: The proposal was visually and analytically strong, but still under-specified on production-grade frontend engineering constraints needed before implementation.
+- Files: `openspec/changes/archive-v0-and-build-compact-trading-dashboard/{proposal.md,design.md,tasks.md,specs/frontend-compact-trading-dashboard/spec.md}`.
+- Validation: `rtk openspec validate "archive-v0-and-build-compact-trading-dashboard" --type change --strict --json`.
 
 ## 2026-03-17
 

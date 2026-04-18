@@ -29,6 +29,7 @@ This repository organizes documentation by function so standards, product artifa
 - Frontend delivery checklist: `docs/guides/frontend-delivery-checklist.md`
 - Portfolio AI copilot guide: `docs/guides/portfolio-ai-copilot-guide.md`
 - Portfolio ML phase-i guide: `docs/guides/portfolio-ml-phase-i-guide.md`
+- Portfolio ML technical strategy guide: `docs/guides/portfolio-ml-technical-strategy-guide.md`
 - Local workflow (`just`): `docs/guides/local-workflow-justfile.md`
 - Logging standard: `docs/standards/logging-standard.md`
 - Frontend standard: `docs/standards/frontend-standard.md`

@@ -16,6 +16,12 @@ This guide documents the shipped phase-i `portfolio_ml` scope, including:
   - momentum
   - volatility regime
   - drawdown state
+  - technical strategy extension:
+    - daily return
+    - SMA/EMA distance and 50/200 spread regime
+    - Bollinger percent-b
+    - Ichimoku close-proxy bias
+    - monthly return, 3-month monthly average return, trailing 12-month return
 - CAPM signal metrics:
   - `beta`
   - `alpha`
@@ -41,6 +47,9 @@ This guide documents the shipped phase-i `portfolio_ml` scope, including:
 
 Unsupported/deferred families are rejected with explicit `unsupported_model_policy`
 semantics.
+
+See `docs/guides/portfolio-ml-technical-strategy-guide.md` for full formulas,
+thresholds, and interpretation-band policy.
 
 ## Read-Only and Non-Advice Posture
 

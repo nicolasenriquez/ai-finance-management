@@ -4,18 +4,42 @@
 Define one deterministic governance contract for promoted KPI and widget surfaces so interpretation tiering, route ownership, question-to-decision mapping, and comparison framing remain stable.
 
 ## Route Labels
-| Route key | User-facing label | Lens | Interpretation job |
-| --- | --- | --- | --- |
-| `dashboard` | Overview command home | `Overview` | Portfolio operating posture and highlights-first interpretation. |
-| `holdings` | Holdings explorer | `Holdings` | Position, lot, and concentration interpretation by instrument. |
-| `performance` | Performance and contribution analytics | `Performance` | Attribution concentration and period-impact interpretation. |
-| `risk` | Bounded estimator workspace | `Risk` | Downside and estimator posture interpretation with unit guardrails. |
-| `rebalancing` | Rebalancing and quant diagnostics | `Rebalancing` | Scenario comparison, optimization context, and forecast interpretation. |
-| `copilot` | Portfolio copilot | `Copilot` | Grounded narrative explanation with evidence-linked follow-ups. |
-| `transactions` | Cash and ledger operating narrative | `Cash/Transactions` | Deterministic cash-event and ledger-flow interpretation. |
+| Route key | User-facing label | Lens | Interpretation job | Shell density | Executive first viewport template |
+| --- | --- | --- | --- | --- | --- |
+| `dashboard` | Executive morning briefing | `Overview` | Portfolio operating posture and highlights-first interpretation. | `expanded` | Dominant job: `home-primary-job`; Hero insight: `home-trend-preview`; Supporting: `home-kpi-strip`, `home-health-synthesis`, `home-hierarchy` |
+| `holdings` | Holdings ledger workspace | `Holdings` | Position, lot, and concentration interpretation by instrument. | `standard` | Dominant job: `holdings-ledger-snapshot`; Hero insight: `holdings-ledger-pulse`; Supporting: holdings ledger table |
+| `performance` | Benchmark-relative performance narrative | `Performance` | Attribution concentration and period-impact interpretation. | `standard` | Dominant job: `analytics-primary-job`; Hero insight: `analytics-trend`; Supporting: `analytics-contribution-leaders` |
+| `risk` | Bounded estimator workspace | `Risk` | Downside and estimator posture interpretation with unit guardrails. | `compact` | Dominant job: `risk-primary-job`; Hero insight: estimator/risk context bridge; Supporting: drawdown + distribution before advanced diagnostics |
+| `rebalancing` | Rebalancing and quant diagnostics | `Rebalancing` | Scenario comparison, optimization context, and forecast interpretation. | `compact` | Dominant job: `reports-primary-job`; Hero insight: quant scorecards; Supporting: lifecycle + Monte Carlo + contribution |
+| `copilot` | Portfolio copilot | `Copilot` | Grounded narrative explanation with evidence-linked follow-ups. | `compact` | Chat-first workflow (outside executive operator first-viewport contract). |
+| `transactions` | Cash operating console | `Cash/Transactions` | Deterministic cash-event and ledger-flow interpretation. | `standard` | Dominant job: `transactions-operating-job`; Hero insight: `transactions-ledger-pulse`; Supporting: `transactions-ledger-table` |
 
 Legacy compatibility aliases remain supported for route migration:
 `home -> dashboard`, `analytics -> performance`, `reports -> rebalancing`.
+
+## Promoted Insight Governance Fields
+
+All promoted (`primary`) widgets must include:
+
+- Decision intent: one sentence describing what decision the module enables.
+- Benchmark/target frame: explicit comparison context required to interpret value.
+- Evidence depth: one of `first_surface_only`, `secondary_chart`, `companion_table`, `advanced_disclosure`.
+- Chart relationship: one of `trend`, `ranking`, `distribution`, `contribution`, `performance_vs_target`, `state_summary`, `ledger`.
+- Chart-fit rationale: why the chart form matches the data relationship.
+- Prohibited alternatives: misleading chart forms that are not allowed without governance update.
+- Accessible fallback: direct labels, summary text, and/or companion table requirements so first-surface interpretation is never hover-only.
+
+## Chart-Fit Rules For Promoted Visuals
+
+| Relationship | Approved form | Why it fits | Prohibited alternatives | Accessible fallback |
+| --- | --- | --- | --- | --- |
+| `trend` | line/timeline chart | Preserves sequence and slope interpretation for time-ordered movement. | pie/radar | latest + baseline labels, benchmark delta summary |
+| `ranking` | ranked bars + table | Preserves ordering and cross-category magnitude comparison. | stacked-area, decorative donut | ranked companion table, top/bottom summary |
+| `distribution` | histogram + tail summary | Preserves spread/skew/tail interpretation. | pie, stacked-line | bucket table and tail-mass text |
+| `contribution` | diverging bars + ledger | Preserves signed magnitude and concentration interpretation. | single-value gauge | signed contribution ledger and leader/drag summary |
+| `performance_vs_target` | benchmark/target referenced chart or card cluster | Keeps relative frame explicit in title/subtitle/legend. | isolated value without comparison | target and benchmark labels plus gap summary |
+| `state_summary` | state cards / synthesis table | Supports decision framing and route orientation before drill-down. | dense mixed-axis composites | deterministic state sentence + status table |
+| `ledger` | sortable table | Preserves deterministic event/row evidence path. | abstract heatmap without rows | row labels + filter state summary |
 
 ## Promoted KPI Catalog
 | Metric ID | Tier | Route owner | Question owner | Decision tags | Comparison framing | Plain-language interpretation |
