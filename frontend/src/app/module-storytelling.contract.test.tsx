@@ -16,6 +16,7 @@ import {
   it,
 } from "vitest";
 
+import { AppProviders } from "./providers";
 import { PortfolioAnalyticsPage } from "../pages/portfolio-analytics-page/PortfolioAnalyticsPage";
 import { PortfolioAssetDetailPage } from "../pages/portfolio-asset-detail-page/PortfolioAssetDetailPage";
 import { PortfolioHomePage } from "../pages/portfolio-home-page/PortfolioHomePage";
@@ -29,8 +30,8 @@ const STORY_CONTRACT_LABELS = [
   "Evidence",
 ] as const;
 
-function expectStoryContracts(minimumContracts: number): void {
-  const storyContracts = screen.getAllByTestId("story-contract-block");
+async function expectStoryContracts(minimumContracts: number): Promise<void> {
+  const storyContracts = await screen.findAllByTestId("story-contract-block");
   expect(storyContracts.length >= minimumContracts).toBe(true);
 
   for (const storyContract of storyContracts) {
@@ -41,48 +42,58 @@ function expectStoryContracts(minimumContracts: number): void {
 }
 
 describe("module storytelling contract", () => {
-  it("3.8 applies what/why/action/evidence contract to primary blocks across all five routes", () => {
+  it("3.8 applies what/why/action/evidence contract to primary blocks across all five routes", async () => {
     const routeRenderers = [
       () =>
         render(
           <MemoryRouter initialEntries={["/portfolio/home"]}>
-            <PortfolioHomePage />
+            <AppProviders>
+              <PortfolioHomePage />
+            </AppProviders>
           </MemoryRouter>,
         ),
       () =>
         render(
           <MemoryRouter initialEntries={["/portfolio/analytics"]}>
-            <PortfolioAnalyticsPage />
+            <AppProviders>
+              <PortfolioAnalyticsPage />
+            </AppProviders>
           </MemoryRouter>,
         ),
       () =>
         render(
           <MemoryRouter initialEntries={["/portfolio/risk"]}>
-            <PortfolioRiskPage />
+            <AppProviders>
+              <PortfolioRiskPage />
+            </AppProviders>
           </MemoryRouter>,
         ),
       () =>
         render(
           <MemoryRouter initialEntries={["/portfolio/signals"]}>
-            <PortfolioSignalsPage />
+            <AppProviders>
+              <PortfolioSignalsPage />
+            </AppProviders>
           </MemoryRouter>,
         ),
       () =>
         render(
           <MemoryRouter initialEntries={["/portfolio/asset-detail/msft"]}>
-            <Routes>
-              <Route
-                path="/portfolio/asset-detail/:ticker"
-                element={<PortfolioAssetDetailPage />}
-              />
-            </Routes>
+            <AppProviders>
+              <Routes>
+                <Route
+                  path="/portfolio/asset-detail/:ticker"
+                  element={<PortfolioAssetDetailPage />}
+                />
+              </Routes>
+            </AppProviders>
           </MemoryRouter>,
         ),
     ];
 
     for (const renderRoute of routeRenderers) {
       const routeRender = renderRoute();
-      expectStoryContracts(3);
+      await expectStoryContracts(3);
       routeRender.unmount();
     }
   });

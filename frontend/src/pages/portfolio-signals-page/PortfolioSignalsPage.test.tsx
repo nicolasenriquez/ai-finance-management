@@ -8,13 +8,16 @@ import {
   it,
 } from "vitest";
 
+import { AppProviders } from "../../app/providers";
 import { PortfolioSignalsPage } from "./PortfolioSignalsPage";
 
 describe("PortfolioSignalsPage", () => {
   it("renders opportunities heading", () => {
     render(
       <MemoryRouter initialEntries={["/portfolio/signals"]}>
-        <PortfolioSignalsPage />
+        <AppProviders>
+          <PortfolioSignalsPage />
+        </AppProviders>
       </MemoryRouter>,
     );
 

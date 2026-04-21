@@ -16,6 +16,7 @@ import {
   it,
 } from "vitest";
 
+import { AppProviders } from "../../app/providers";
 import { PortfolioAnalyticsPage } from "../portfolio-analytics-page/PortfolioAnalyticsPage";
 import { PortfolioHomePage } from "../portfolio-home-page/PortfolioHomePage";
 import { PortfolioRiskPage } from "../portfolio-risk-page/PortfolioRiskPage";
@@ -26,12 +27,14 @@ describe("PortfolioAssetDetailPage contract", () => {
   it("4.5 exposes asset deep-dive modules for hero, price action, price-volume combo, detail, benchmark, risk, and narrative notes", () => {
     render(
       <MemoryRouter initialEntries={["/portfolio/asset-detail/msft"]}>
-        <Routes>
-          <Route
-            path="/portfolio/asset-detail/:ticker"
-            element={<PortfolioAssetDetailPage />}
-          />
-        </Routes>
+        <AppProviders>
+          <Routes>
+            <Route
+              path="/portfolio/asset-detail/:ticker"
+              element={<PortfolioAssetDetailPage />}
+            />
+          </Routes>
+        </AppProviders>
       </MemoryRouter>,
     );
 
@@ -72,7 +75,9 @@ describe("PortfolioAssetDetailPage contract", () => {
 
     for (const executiveRouteElement of executiveRoutes) {
       const { queryByText, unmount } = render(
-        <MemoryRouter>{executiveRouteElement}</MemoryRouter>,
+        <MemoryRouter>
+          <AppProviders>{executiveRouteElement}</AppProviders>
+        </MemoryRouter>,
       );
       expect(queryByText(/candlestick/i)).toBeNull();
       unmount();

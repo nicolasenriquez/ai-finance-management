@@ -17,9 +17,15 @@ from app.data_sync.schemas import (
     PortfolioLedgerRebuildRunResult,
 )
 from app.market_data.schemas import MarketDataRefreshRunResult
-from app.market_data.service import MarketDataClientError, refresh_yfinance_supported_universe
+from app.market_data.service import (
+    MarketDataClientError,
+    refresh_yfinance_supported_universe,
+)
 from app.pdf_ingestion.service import PdfIngestionClientError, ingest_pdf_bytes
-from app.pdf_persistence.service import PdfPersistenceClientError, persist_pdf_from_storage
+from app.pdf_persistence.service import (
+    PdfPersistenceClientError,
+    persist_pdf_from_storage,
+)
 from app.portfolio_ledger.service import (
     PortfolioLedgerClientError,
     rebuild_portfolio_ledger_from_canonical_records,
@@ -27,7 +33,9 @@ from app.portfolio_ledger.service import (
 
 logger = get_logger(__name__)
 
-_DEFAULT_DATASET_1_PDF_PATH: Final[Path] = Path("app/golden_sets/dataset_1/202602_stocks.pdf")
+_DEFAULT_DATASET_1_PDF_PATH: Final[Path] = Path(
+    "app/golden_sets/dataset_1/202602_stocks.pdf"
+)
 _REFRESH_SCOPE_MODES: Final[frozenset[str]] = frozenset({"core", "100", "200"})
 
 DataSyncRefreshScopeMode = Literal["core", "100", "200"]
@@ -56,7 +64,9 @@ async def run_dataset1_bootstrap(
     """Run dataset_1 ingest -> persist -> rebuild using existing service seams."""
 
     effective_settings = settings if settings is not None else get_settings()
-    resolved_dataset_pdf_path = _resolve_dataset_pdf_path(dataset_pdf_path=dataset_pdf_path)
+    resolved_dataset_pdf_path = _resolve_dataset_pdf_path(
+        dataset_pdf_path=dataset_pdf_path
+    )
     storage_root = Path(effective_settings.pdf_upload_storage_root)
 
     logger.info(
@@ -299,8 +309,12 @@ async def run_data_sync_local(
         requested_symbols_count=result.market_refresh.requested_symbols_count,
         retry_attempted_symbols_count=result.market_refresh.retry_attempted_symbols_count,
         failed_symbols_count=result.market_refresh.failed_symbols_count,
-        history_fallback_symbols_count=len(result.market_refresh.history_fallback_symbols),
-        currency_assumed_symbols_count=len(result.market_refresh.currency_assumed_symbols),
+        history_fallback_symbols_count=len(
+            result.market_refresh.history_fallback_symbols
+        ),
+        currency_assumed_symbols_count=len(
+            result.market_refresh.currency_assumed_symbols
+        ),
     )
     return result
 

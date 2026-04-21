@@ -51,7 +51,9 @@ def test_extract_endpoint_returns_dataset_1_tables(
     assert body["storage_key"] == storage_key
     assert body["source_pdf_pages"] == 9
 
-    counts_by_table = {table["table_name"]: len(table["rows"]) for table in body["tables"]}
+    counts_by_table = {
+        table["table_name"]: len(table["rows"]) for table in body["tables"]
+    }
     assert counts_by_table == {
         "compra_venta_activos": 136,
         "dividendos_recibidos": 34,

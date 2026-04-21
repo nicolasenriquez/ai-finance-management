@@ -54,7 +54,9 @@ async def _main() -> int:
                 if target_db_owner:
                     escaped_owner = _escape_identifier(target_db_owner)
                     owner_clause = f' OWNER "{escaped_owner}"'
-                await connection.execute(text(f'CREATE DATABASE "{escaped_db_name}"{owner_clause}'))
+                await connection.execute(
+                    text(f'CREATE DATABASE "{escaped_db_name}"{owner_clause}')
+                )
                 print(f"Created missing test database: {target_db_name}")
             else:
                 print(f"Test database already exists: {target_db_name}")
@@ -64,7 +66,9 @@ async def _main() -> int:
                 escaped_owner = _escape_identifier(target_db_owner)
                 try:
                     await connection.execute(
-                        text(f'ALTER DATABASE "{escaped_db_name}" OWNER TO "{escaped_owner}"')
+                        text(
+                            f'ALTER DATABASE "{escaped_db_name}" OWNER TO "{escaped_owner}"'
+                        )
                     )
 
                     schema_admin_url = admin_url.set(database=target_db_name)
@@ -83,7 +87,8 @@ async def _main() -> int:
                         await schema_engine.dispose()
                 except Exception as owner_bootstrap_error:
                     print(
-                        "Skipped owner/schema bootstrap normalization: " f"{owner_bootstrap_error}",
+                        "Skipped owner/schema bootstrap normalization: "
+                        f"{owner_bootstrap_error}",
                         file=sys.stderr,
                     )
     finally:
@@ -94,7 +99,9 @@ async def _main() -> int:
         async with verification_engine.connect() as connection:
             can_create = (
                 await connection.execute(
-                    text("SELECT has_schema_privilege(current_user, 'public', 'CREATE')")
+                    text(
+                        "SELECT has_schema_privilege(current_user, 'public', 'CREATE')"
+                    )
                 )
             ).scalar_one()
             if not can_create:

@@ -49,7 +49,11 @@ def _load_schemas_module() -> ModuleType:
 def _load_from_module(module_name: str, symbol_name: str) -> object:
     """Load one named symbol from a module and fail fast when missing."""
 
-    module = _load_accounting_module() if module_name == "accounting" else _load_schemas_module()
+    module = (
+        _load_accounting_module()
+        if module_name == "accounting"
+        else _load_schemas_module()
+    )
     symbol = getattr(module, symbol_name, None)
     if symbol is None:
         pytest.fail(

@@ -10,7 +10,10 @@ from typing import cast
 
 import pytest
 
-from app.portfolio_analytics.schemas import PortfolioChartPeriod, PortfolioQuantReportScope
+from app.portfolio_analytics.schemas import (
+    PortfolioChartPeriod,
+    PortfolioQuantReportScope,
+)
 
 
 def test_quant_report_retrieval_returns_expired_error_and_cleans_up_artifact(
@@ -19,7 +22,9 @@ def test_quant_report_retrieval_returns_expired_error_and_cleans_up_artifact(
     """Expired report artifacts should fail explicitly and be removed from lifecycle state."""
 
     service_module = import_module("app.portfolio_analytics.service")
-    client_error_type = cast(type[Exception], service_module.PortfolioAnalyticsClientError)
+    client_error_type = cast(
+        type[Exception], service_module.PortfolioAnalyticsClientError
+    )
     artifact_type = service_module._QuantReportArtifact
     registry = cast(dict[str, object], service_module._QUANT_REPORT_ARTIFACTS_BY_ID)
     get_html_content = cast(

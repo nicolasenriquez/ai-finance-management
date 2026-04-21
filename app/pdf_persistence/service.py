@@ -19,14 +19,20 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logging import get_logger
 from app.pdf_ingestion.schemas import PdfIngestionResult
-from app.pdf_ingestion.service import PdfIngestionClientError, load_ingestion_result_from_storage
+from app.pdf_ingestion.service import (
+    PdfIngestionClientError,
+    load_ingestion_result_from_storage,
+)
 from app.pdf_normalization.schemas import (
     CanonicalDividendRecord,
     CanonicalRecord,
     CanonicalTradeRecord,
     PdfNormalizationResult,
 )
-from app.pdf_normalization.service import PdfNormalizationClientError, normalize_pdf_from_storage
+from app.pdf_normalization.service import (
+    PdfNormalizationClientError,
+    normalize_pdf_from_storage,
+)
 from app.pdf_persistence.models import CanonicalPdfRecord, ImportJob, SourceDocument
 from app.pdf_persistence.schemas import (
     PdfPersistenceResult,
@@ -45,7 +51,11 @@ _TRADE_EVENT_TYPE = "trade"
 _DIVIDEND_EVENT_TYPE = "dividend"
 _SPLIT_EVENT_TYPE = "split"
 
-_PROVENANCE_FINGERPRINT_FIELDS: tuple[str, ...] = ("table_name", "row_index", "source_page")
+_PROVENANCE_FINGERPRINT_FIELDS: tuple[str, ...] = (
+    "table_name",
+    "row_index",
+    "source_page",
+)
 _EVENT_FINGERPRINT_FIELDS: dict[str, tuple[str, ...]] = {
     _TRADE_EVENT_TYPE: (
         "trade_date",
@@ -142,7 +152,9 @@ async def persist_pdf_from_storage(
     return result
 
 
-def _load_ingestion_result(*, storage_key: str, storage_root: Path) -> PdfIngestionResult:
+def _load_ingestion_result(
+    *, storage_key: str, storage_root: Path
+) -> PdfIngestionResult:
     """Load durable ingestion metadata for persistence."""
 
     try:
@@ -163,7 +175,9 @@ def _load_ingestion_result(*, storage_key: str, storage_root: Path) -> PdfIngest
         ) from exc
 
 
-def _load_normalization_result(*, storage_key: str, storage_root: Path) -> PdfNormalizationResult:
+def _load_normalization_result(
+    *, storage_key: str, storage_root: Path
+) -> PdfNormalizationResult:
     """Normalize a stored PDF into canonical records for persistence."""
 
     try:
@@ -194,9 +208,11 @@ async def _persist_normalization_result(
     """Persist source document, import job, and canonical records in one transaction."""
 
     async with db.begin():
-        source_document, source_document_status = await _resolve_or_create_source_document(
-            ingestion_result=ingestion_result,
-            db=db,
+        source_document, source_document_status = (
+            await _resolve_or_create_source_document(
+                ingestion_result=ingestion_result,
+                db=db,
+            )
         )
 
         import_job = ImportJob(
@@ -388,7 +404,9 @@ def build_canonical_record_fingerprint(
     """
 
     normalized_source_type = _normalize_required_text(source_type, field="source_type")
-    normalized_source_system = _normalize_required_text(source_system, field="source_system")
+    normalized_source_system = _normalize_required_text(
+        source_system, field="source_system"
+    )
     normalized_fingerprint_version = _normalize_required_text(
         fingerprint_version,
         field="fingerprint_version",

@@ -6,6 +6,7 @@ import { WorkspaceStateBanner } from "../../../components/workspace-layout/Works
 import { useRoutePrimaryModuleStateController } from "../../../features/portfolio-workspace/route-module-state";
 import type { YFinanceAdapterRow } from "../../../features/portfolio-workspace/yfinance-extraction-adapters";
 import type { PortfolioSignalsRouteState } from "../hooks/usePortfolioSignalsRouteState";
+import { Link } from "react-router-dom";
 
 type PortfolioSignalsRouteViewProps = {
   routeState: PortfolioSignalsRouteState;
@@ -49,11 +50,27 @@ export function PortfolioSignalsRouteView({
     shouldRenderBlockingFeedback,
     retryModuleLoad,
   } = useRoutePrimaryModuleStateController();
+  const shouldRenderLoadingSkeleton =
+    (isPrimaryModuleLoading || routeState.status === "loading") &&
+    !shouldRenderBlockingFeedback;
+  const shouldRenderRouteFeedback =
+    shouldRenderBlockingFeedback || routeState.status === "error" || routeState.status === "empty";
+  const routeModuleState =
+    routeState.status === "error"
+      ? "error"
+      : routeState.status === "empty"
+        ? "empty"
+        : moduleState;
+  const retryAction = routeState.status === "error" || routeState.status === "empty"
+    ? routeState.reload
+    : retryModuleLoad;
   const shouldRenderSuccessFeedback = moduleState === "success";
   const topMomentumTickers =
     routeState.momentumRanking.length > 0
       ? routeState.momentumRanking.map((candidate) => candidate.ticker).join(", ")
       : "Live holdings";
+  const hasUnavailableTacticalContracts =
+    !routeState.technicalSignalsGate.enabled || !routeState.watchlistFundamentalsGate.enabled;
 
   return (
     <CompactDashboardShell
@@ -70,17 +87,17 @@ export function PortfolioSignalsRouteView({
         </p>
 
         <div className="signals-first-viewport-grid">
-          {isPrimaryModuleLoading ? (
+          {shouldRenderLoadingSkeleton ? (
             <>
               <PrimaryModuleSkeleton label="Signals trend regime summary" rowCount={5} />
               <PrimaryModuleSkeleton label="Signals momentum ranking" rowCount={5} />
               <PrimaryModuleSkeleton label="Signals technical table" rowCount={5} />
               <PrimaryModuleSkeleton label="Signals watchlist panel" rowCount={5} />
             </>
-          ) : shouldRenderBlockingFeedback ? (
+          ) : shouldRenderRouteFeedback ? (
             <PrimaryModuleStateFeedback
-              moduleState={moduleState}
-              onRetryModuleLoad={retryModuleLoad}
+              moduleState={routeModuleState}
+              onRetryModuleLoad={retryAction}
             />
           ) : (
             <>
@@ -95,6 +112,7 @@ export function PortfolioSignalsRouteView({
                       <th scope="col">Sleeve</th>
                       <th scope="col">Regime</th>
                       <th scope="col">Posture</th>
+                      <th scope="col">Reason code</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -103,6 +121,7 @@ export function PortfolioSignalsRouteView({
                         <td>{row.sleeve}</td>
                         <td>{row.regime}</td>
                         <td>{row.posture}</td>
+                        <td>{row.reasonCode}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -124,11 +143,16 @@ export function PortfolioSignalsRouteView({
                   {routeState.momentumRanking.map((candidate) => (
                     <li key={candidate.ticker}>
                       <p className="signals-ranked-list__row">
-                        <span>{candidate.ticker}</span>
+                        <span>
+                          <Link to={`/portfolio/asset-detail/${candidate.ticker}`}>{candidate.ticker}</Link>
+                        </span>
                         <span className="numeric-value">{candidate.momentumScore}</span>
                       </p>
                       <p className="signals-ranked-list__meta">{candidate.trend}</p>
                       <p className="signals-ranked-list__meta">{candidate.setup}</p>
+                      <p className="signals-ranked-list__meta">Action state: {candidate.actionState}</p>
+                      <p className="signals-ranked-list__meta">Reason code: {candidate.reasonCode}</p>
+                      <p className="signals-ranked-list__meta">{candidate.freshnessCue} · {candidate.confidenceCue}</p>
                     </li>
                   ))}
                 </ol>
@@ -150,7 +174,7 @@ export function PortfolioSignalsRouteView({
                 </p>
                 {!routeState.technicalSignalsGate.enabled ? (
                   <p className="signals-module-unavailable-copy">
-                    Module unavailable: {routeState.technicalSignalsGate.reason}
+                    Technical signals disabled by gate policy: {routeState.technicalSignalsGate.reason}
                   </p>
                 ) : (
                   <table className="route-metric-table">
@@ -161,21 +185,31 @@ export function PortfolioSignalsRouteView({
                         <th scope="col">ATR</th>
                         <th scope="col">Trigger</th>
                         <th scope="col">Action state</th>
+                        <th scope="col">Reason code</th>
                       </tr>
                     </thead>
                     <tbody>
                       {routeState.technicalSignalRows.map((row) => (
                         <tr key={row.ticker}>
-                          <td>{row.ticker}</td>
+                          <td>
+                            <Link to={`/portfolio/asset-detail/${row.ticker}`}>{row.ticker}</Link>
+                          </td>
                           <td>{row.regime}</td>
                           <td>{row.atr}</td>
                           <td>{row.trigger}</td>
                           <td>{row.decisionState}</td>
+                          <td>{row.reasonCode}</td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 )}
+                {routeState.technicalSignalsGate.enabled ? (
+                  <p className="signals-ranked-list__meta">
+                    {routeState.technicalSignalRows[0]?.freshnessCue ?? "freshness: unavailable"} · {" "}
+                    {routeState.technicalSignalRows[0]?.confidenceCue ?? "confidence: unavailable"}
+                  </p>
+                ) : null}
                 <StoryContractBlock
                   what="Technical signals are gated by explicit source contracts and feature controls."
                   why="Advanced decision states require both signal + fundamentals contracts."
@@ -191,15 +225,22 @@ export function PortfolioSignalsRouteView({
                 </p>
                 {!routeState.watchlistFundamentalsGate.enabled ? (
                   <p className="signals-module-unavailable-copy">
-                    Fundamentals overlay unavailable: {routeState.watchlistFundamentalsGate.reason}
+                    Fundamentals overlay disabled by gate policy: {routeState.watchlistFundamentalsGate.reason}
                   </p>
                 ) : (
                   <ul className="signals-watchlist">
                     {routeState.watchlistCandidates.map((candidate) => (
                       <li key={candidate.ticker}>
-                        <strong>{candidate.ticker}</strong>
+                        <strong>
+                          <Link to={`/portfolio/asset-detail/${candidate.ticker}`}>{candidate.ticker}</Link>
+                        </strong>
                         <p>{candidate.note}</p>
                         <p className="signals-watchlist__valuation">{candidate.valuation}</p>
+                        <p className="signals-watchlist__valuation">Action state: {candidate.actionState}</p>
+                        <p className="signals-watchlist__valuation">Reason code: {candidate.reasonCode}</p>
+                        <p className="signals-watchlist__valuation">
+                          {candidate.freshnessCue} · {candidate.confidenceCue}
+                        </p>
                       </li>
                     ))}
                   </ul>
@@ -219,15 +260,29 @@ export function PortfolioSignalsRouteView({
         ) : null}
       </section>
 
-      <WorkspaceStateBanner
-        state={isPrimaryModuleLoading ? "loading" : "unavailable"}
-        hierarchy="standard"
-        message={
-          isPrimaryModuleLoading
+      {hasUnavailableTacticalContracts && !shouldRenderLoadingSkeleton && routeState.status === "ready" ? (
+        <WorkspaceStateBanner
+          state="unavailable"
+          hierarchy="standard"
+          message={routeState.routeMessage}
+        />
+      ) : (
+        <WorkspaceStateBanner
+          state={
+            shouldRenderLoadingSkeleton
+              ? "loading"
+              : routeState.status === "error"
+                ? "error"
+                : routeState.status === "empty"
+                  ? "empty"
+                  : "ready"
+          }
+          hierarchy="standard"
+          message={shouldRenderLoadingSkeleton
             ? "Signals route loading skeletons preserve first-viewport layout while contracts resolve."
-            : routeState.routeMessage
-        }
-      />
+            : routeState.routeMessage}
+        />
+      )}
 
       <section className="panel workspace-panel workspace-panel--standard">
         <h3>Technical and fundamentals availability baseline</h3>

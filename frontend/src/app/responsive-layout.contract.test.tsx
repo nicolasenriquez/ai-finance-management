@@ -15,6 +15,7 @@ import {
   it,
 } from "vitest";
 
+import { AppProviders } from "./providers";
 import { PortfolioAssetDetailPage } from "../pages/portfolio-asset-detail-page/PortfolioAssetDetailPage";
 import { PortfolioHomePage } from "../pages/portfolio-home-page/PortfolioHomePage";
 
@@ -47,7 +48,9 @@ describe("responsive layout contract", () => {
       setViewportWidth(breakpointWidth);
       const homeRender = render(
         <MemoryRouter initialEntries={["/portfolio/home"]}>
-          <PortfolioHomePage />
+          <AppProviders>
+            <PortfolioHomePage />
+          </AppProviders>
         </MemoryRouter>,
       );
       const homeShell = homeRender.container.querySelector(".compact-shell");
@@ -58,12 +61,14 @@ describe("responsive layout contract", () => {
 
       const assetRender = render(
         <MemoryRouter initialEntries={["/portfolio/asset-detail/aapl"]}>
-          <Routes>
-            <Route
-              path="/portfolio/asset-detail/:ticker"
-              element={<PortfolioAssetDetailPage />}
-            />
-          </Routes>
+          <AppProviders>
+            <Routes>
+              <Route
+                path="/portfolio/asset-detail/:ticker"
+                element={<PortfolioAssetDetailPage />}
+              />
+            </Routes>
+          </AppProviders>
         </MemoryRouter>,
       );
       const assetShell = assetRender.container.querySelector(".compact-shell");
@@ -78,7 +83,9 @@ describe("responsive layout contract", () => {
     setViewportWidth(320);
     const routeRender = render(
       <MemoryRouter initialEntries={["/portfolio/home"]}>
-        <PortfolioHomePage />
+        <AppProviders>
+          <PortfolioHomePage />
+        </AppProviders>
       </MemoryRouter>,
     );
     const shellContent = routeRender.container.querySelector(".compact-shell__content");

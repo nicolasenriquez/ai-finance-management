@@ -81,7 +81,9 @@ def upgrade() -> None:
         ),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index("ix_price_history_snapshot_id", "price_history", ["snapshot_id"], unique=False)
+    op.create_index(
+        "ix_price_history_snapshot_id", "price_history", ["snapshot_id"], unique=False
+    )
     op.create_index(
         "ix_price_history_instrument_symbol",
         "price_history",
@@ -136,6 +138,10 @@ def downgrade() -> None:
         "ix_market_data_snapshot_snapshot_captured_at",
         table_name="market_data_snapshot",
     )
-    op.drop_index("ix_market_data_snapshot_source_provider", table_name="market_data_snapshot")
-    op.drop_index("ix_market_data_snapshot_source_type", table_name="market_data_snapshot")
+    op.drop_index(
+        "ix_market_data_snapshot_source_provider", table_name="market_data_snapshot"
+    )
+    op.drop_index(
+        "ix_market_data_snapshot_source_type", table_name="market_data_snapshot"
+    )
     op.drop_table("market_data_snapshot")

@@ -159,9 +159,13 @@ async def test_async_main_market_refresh_emits_fail_fast_error(
             stage="market_refresh",
         )
 
-    monkeypatch.setattr(sys, "argv", ["data_sync_operations.py", "market-refresh-yfinance"])
+    monkeypatch.setattr(
+        sys, "argv", ["data_sync_operations.py", "market-refresh-yfinance"]
+    )
     monkeypatch.setattr("app.core.database.AsyncSessionLocal", _fake_session_local)
-    monkeypatch.setattr(data_sync_operations, "run_market_refresh_yfinance", fake_refresh)
+    monkeypatch.setattr(
+        data_sync_operations, "run_market_refresh_yfinance", fake_refresh
+    )
 
     exit_code = await data_sync_operations.async_main()
 
@@ -249,7 +253,9 @@ async def test_async_main_data_sync_local_passes_both_optional_arguments(
         ],
     )
     monkeypatch.setattr("app.core.database.AsyncSessionLocal", _fake_session_local)
-    monkeypatch.setattr(data_sync_operations, "run_data_sync_local", fake_data_sync_local)
+    monkeypatch.setattr(
+        data_sync_operations, "run_data_sync_local", fake_data_sync_local
+    )
 
     exit_code = await data_sync_operations.async_main()
 
@@ -311,7 +317,9 @@ async def test_async_main_market_refresh_passes_refresh_scope_argument(
         ],
     )
     monkeypatch.setattr("app.core.database.AsyncSessionLocal", _fake_session_local)
-    monkeypatch.setattr(data_sync_operations, "run_market_refresh_yfinance", fake_refresh)
+    monkeypatch.setattr(
+        data_sync_operations, "run_market_refresh_yfinance", fake_refresh
+    )
 
     exit_code = await data_sync_operations.async_main()
 

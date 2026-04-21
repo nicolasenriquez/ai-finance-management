@@ -27,7 +27,9 @@ def _load_golden_pdf_bytes() -> bytes:
 def _load_golden_json() -> dict[str, object]:
     """Load dataset 1 JSON contract fixture."""
 
-    return cast(dict[str, object], json.loads(_GOLDEN_JSON_PATH.read_text(encoding="utf-8")))
+    return cast(
+        dict[str, object], json.loads(_GOLDEN_JSON_PATH.read_text(encoding="utf-8"))
+    )
 
 
 def _seed_storage_key(tmp_path: Path) -> str:
@@ -98,7 +100,9 @@ def test_extract_dataset1_matches_expected_summary_contract(tmp_path: Path) -> N
     }
 
 
-def test_extract_dataset1_filters_repeated_headers_and_footer_rows(tmp_path: Path) -> None:
+def test_extract_dataset1_filters_repeated_headers_and_footer_rows(
+    tmp_path: Path,
+) -> None:
     """Extraction should not emit known header/footer artifacts as rows."""
 
     extractor = _load_extractor()
@@ -122,7 +126,9 @@ def test_extract_dataset1_filters_repeated_headers_and_footer_rows(tmp_path: Pat
             assert marker not in joined_values
 
 
-def test_extract_dataset1_preserves_row_id_and_source_page_provenance(tmp_path: Path) -> None:
+def test_extract_dataset1_preserves_row_id_and_source_page_provenance(
+    tmp_path: Path,
+) -> None:
     """Extraction should preserve deterministic row order and source-page provenance."""
 
     extractor = _load_extractor()

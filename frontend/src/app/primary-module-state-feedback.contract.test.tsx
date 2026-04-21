@@ -13,6 +13,7 @@ import {
   it,
 } from "vitest";
 
+import { AppProviders } from "./providers";
 import { PortfolioAssetDetailPage } from "../pages/portfolio-asset-detail-page/PortfolioAssetDetailPage";
 import { PortfolioHomePage } from "../pages/portfolio-home-page/PortfolioHomePage";
 import { PortfolioSignalsPage } from "../pages/portfolio-signals-page/PortfolioSignalsPage";
@@ -21,7 +22,9 @@ describe("primary module state feedback contract", () => {
   it("4.16 renders explicit empty/unavailable/success feedback states on primary modules", () => {
     const emptyRender = render(
       <MemoryRouter initialEntries={["/portfolio/home?module_state=empty"]}>
-        <PortfolioHomePage />
+        <AppProviders>
+          <PortfolioHomePage />
+        </AppProviders>
       </MemoryRouter>,
     );
     expect(screen.getByText("No rows match current route scope.")).not.toBeNull();
@@ -30,7 +33,9 @@ describe("primary module state feedback contract", () => {
 
     const unavailableRender = render(
       <MemoryRouter initialEntries={["/portfolio/signals?module_state=unavailable"]}>
-        <PortfolioSignalsPage />
+        <AppProviders>
+          <PortfolioSignalsPage />
+        </AppProviders>
       </MemoryRouter>,
     );
     expect(screen.getByText("Required source contract is unavailable for this module.")).not.toBeNull();
@@ -39,12 +44,14 @@ describe("primary module state feedback contract", () => {
 
     const successRender = render(
       <MemoryRouter initialEntries={["/portfolio/asset-detail/aapl?module_state=success"]}>
-        <Routes>
-          <Route
-            path="/portfolio/asset-detail/:ticker"
-            element={<PortfolioAssetDetailPage />}
-          />
-        </Routes>
+        <AppProviders>
+          <Routes>
+            <Route
+              path="/portfolio/asset-detail/:ticker"
+              element={<PortfolioAssetDetailPage />}
+            />
+          </Routes>
+        </AppProviders>
       </MemoryRouter>,
     );
     expect(screen.getByText("Module refresh completed successfully.")).not.toBeNull();
@@ -56,7 +63,9 @@ describe("primary module state feedback contract", () => {
     const user = userEvent.setup();
     render(
       <MemoryRouter initialEntries={["/portfolio/home?module_state=error"]}>
-        <PortfolioHomePage />
+        <AppProviders>
+          <PortfolioHomePage />
+        </AppProviders>
       </MemoryRouter>,
     );
 

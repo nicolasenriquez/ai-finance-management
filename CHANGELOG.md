@@ -22,7 +22,23 @@ Use this structure for new entries:
 
 `type` guidance: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`.
 
+## 2026-04-21
+
+### docs(product-roadmap,governance): add stage-gated data-integrity steering update and active-change execution order
+- Summary: Added a roadmap steering section that formalizes a stage-gated quality model (`Bronze`/`Silver Core`/`Silver Expansion`/`Gold` equivalence), explicit gate exit criteria for data integrity and non-mutation guarantees, an immediate active-change sequence (`phase-k` before `phase-o`), and a status-alignment rule tying operational truth to OpenSpec plus changelog evidence.
+- Why: Keep roadmap execution aligned with deterministic system-of-record priorities and reduce governance drift between roadmap text, active OpenSpec changes, and delivery evidence.
+- Files: `docs/product/roadmap.md`, `CHANGELOG.md`.
+- Validation: `rtk sed -n '1,110p' docs/product/roadmap.md` (steering content and placement verified), `rtk openspec list --json` (active-change dependency context verified).
+- Notes: The steering update preserves the existing repository domain model (`pdf -> canonical -> ledger -> market_data -> analytics/ml/copilot`) and does not introduce Bronze/Silver/Gold table renaming.
+
 ## 2026-04-18
+
+### feat(frontend-dashboard,openspec): complete phase-p compact-dashboard SaaS hardening before DCA
+- Summary: Completed `phase-p-dashboard-saas-hardening-before-dca` with route-level orchestration hardening, lazy route loading + navigation prefetch, contract-backed first-surface charts on Home/Analytics/Risk, opportunities-route tactical realism upgrades, async-state normalization, and cross-route readability/accessibility regression coverage.
+- Why: Finalize dashboard quality/performance hardening before starting DCA implementation so next-phase policy and decision flows build on a stable, trustworthy, and contract-backed UI surface.
+- Files: `frontend/src/{app/{providers.tsx,router.tsx,styles.css,module-storytelling.contract.test.tsx},components/shell/CompactDashboardShell.tsx,pages/{portfolio-home-page/PortfolioHomePage.tsx,portfolio-analytics-page/{PortfolioAnalyticsPage.tsx,hooks/usePortfolioAnalyticsRouteData.ts},portfolio-risk-page/{PortfolioRiskPage.tsx,hooks/usePortfolioRiskRouteData.ts},portfolio-signals-page/{PortfolioSignalsPage.contract.test.tsx,components/PortfolioSignalsRouteView.tsx,hooks/usePortfolioSignalsRouteState.ts}}`, `docs/product/{phase-p-dashboard-baseline-evidence.md,phase-p-dashboard-implementation-handoff.md}`, `openspec/changes/phase-p-dashboard-saas-hardening-before-dca/tasks.md`, `CHANGELOG.md`.
+- Validation: `rtk npm --prefix frontend run test` (25 passed files / 50 passed tests), `rtk npm --prefix frontend run lint` (pass), `rtk npm --prefix frontend run build` (pass), `rtk openspec validate phase-p-dashboard-saas-hardening-before-dca --type change --strict --json` (valid), `rtk openspec validate --specs --all --json` (33/33 valid).
+- Notes: Recharts emits non-blocking JSDOM container-size warnings during test runs; app build/runtime behavior remains green. DCA implementation is explicitly sequenced next and was not introduced in this phase.
 
 ### feat(portfolio-ml,docs): implement deterministic technical strategy extension for ML signals
 - Summary: Extended deterministic signal generation to include daily return, SMA/EMA distance and 50/200 spread regime metrics, Bollinger `%B`, Ichimoku bias (close-proxy), monthly return metrics, and trailing 12-month return while preserving existing stable v1 signal IDs.

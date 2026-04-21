@@ -184,6 +184,55 @@ backend:
 frontend:
     cd frontend && npm run dev -- --port 3000
 
+# Capture screenshots from all frontend pages.
+# Uses the running frontend on port 3000 or starts one temporarily if needed.
+screenshots output_dir="docs/evidence/frontend/screenshots-$(date +%F)":
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    output_dir="{{output_dir}}"
+    mkdir -p "$output_dir"
+
+    own_server=0
+    frontend_pid=0
+
+    cleanup() {
+      if [[ "$own_server" -eq 1 ]] && [[ "$frontend_pid" -ne 0 ]] && kill -0 "$frontend_pid" 2>/dev/null; then
+        kill "$frontend_pid" 2>/dev/null || true
+        wait "$frontend_pid" 2>/dev/null || true
+      fi
+    }
+
+    trap cleanup EXIT INT TERM
+
+    if ! lsof -iTCP:3000 -sTCP:LISTEN -Pn >/dev/null 2>&1; then
+      own_server=1
+      (
+        cd frontend
+        npm run dev -- --port 3000
+      ) &
+      frontend_pid=$!
+
+      for i in $(seq 1 30); do
+        if lsof -iTCP:3000 -sTCP:LISTEN -Pn >/dev/null 2>&1; then
+          break
+        fi
+        sleep 1
+      done
+
+      if ! lsof -iTCP:3000 -sTCP:LISTEN -Pn >/dev/null 2>&1; then
+        echo "Frontend did not start on port 3000"
+        exit 1
+      fi
+    fi
+
+    cd frontend
+    npx playwright screenshot --wait-for-selector ".route-heading" --timeout 30000 --full-page http://localhost:3000/portfolio/home "../${output_dir}/portfolio-home.png"
+    npx playwright screenshot --wait-for-selector ".route-heading" --timeout 30000 --full-page http://localhost:3000/portfolio/analytics "../${output_dir}/portfolio-analytics.png"
+    npx playwright screenshot --wait-for-selector ".route-heading" --timeout 30000 --full-page http://localhost:3000/portfolio/risk "../${output_dir}/portfolio-risk.png"
+    npx playwright screenshot --wait-for-selector ".route-heading" --timeout 30000 --full-page http://localhost:3000/portfolio/signals "../${output_dir}/portfolio-signals.png"
+    npx playwright screenshot --wait-for-selector ".route-heading" --timeout 30000 --full-page http://localhost:3000/portfolio/asset-detail/NVDA "../${output_dir}/portfolio-asset-detail-NVDA.png"
+
 # Run backend + frontend in parallel after DB readiness and migrations.
 # Fast path for day-to-day local development when DB is already populated.
 # Stops both processes when either exits or on Ctrl+C.

@@ -63,7 +63,9 @@ class _NormalizedPriceWrite:
         """Return deterministic in-request key used for duplicate detection."""
 
         market_timestamp_key = (
-            self.market_timestamp.isoformat() if self.market_timestamp is not None else "none"
+            self.market_timestamp.isoformat()
+            if self.market_timestamp is not None
+            else "none"
         )
         trading_date_key = (
             self.trading_date.isoformat() if self.trading_date is not None else "none"
@@ -257,7 +259,9 @@ async def refresh_yfinance_supported_universe(
             retry_attempted_symbols = fetch_result.retry_attempted_symbols
             failed_symbols = fetch_result.failed_symbols
             history_fallback_symbols = fetch_result.history_fallback_symbols
-            history_fallback_periods_by_symbol = fetch_result.history_fallback_periods_by_symbol
+            history_fallback_periods_by_symbol = (
+                fetch_result.history_fallback_periods_by_symbol
+            )
             currency_assumed_symbols = fetch_result.currency_assumed_symbols
             ingest_result = await _ingest_fetched_yfinance_scope_rows(
                 db=db,
@@ -372,7 +376,9 @@ async def _fetch_yfinance_rows_with_non_portfolio_tolerance(
     retry_attempted_symbols: list[str] = []
     final_errors: dict[str, YFinanceAdapterError] = {}
     if first_pass_errors:
-        retry_attempted_symbols = [symbol for symbol in symbols if symbol in first_pass_errors]
+        retry_attempted_symbols = [
+            symbol for symbol in symbols if symbol in first_pass_errors
+        ]
         logger.info(
             "market_data.refresh_retrying",
             source_provider=_YFINANCE_SOURCE_PROVIDER,
@@ -585,7 +591,8 @@ def _normalize_adapter_error_message_for_market_data(*, message: str) -> str:
         if symbol_match is not None:
             symbol = symbol_match.group(1).strip().upper()
             return (
-                "YFinance exhausted configured history fallback periods for symbol " f"'{symbol}'."
+                "YFinance exhausted configured history fallback periods for symbol "
+                f"'{symbol}'."
             )
         return "YFinance exhausted configured history fallback periods for one symbol."
     return message
@@ -639,7 +646,9 @@ async def ingest_market_data_snapshot(
     """Persist one market-data snapshot with idempotent write semantics."""
 
     source_type = _normalize_source_identity(request.source_type, field="source_type")
-    source_provider = _normalize_source_identity(request.source_provider, field="source_provider")
+    source_provider = _normalize_source_identity(
+        request.source_provider, field="source_provider"
+    )
     snapshot_key = _normalize_required_text(request.snapshot_key, field="snapshot_key")
     snapshot_captured_at = _normalize_timestamp_with_timezone(
         request.snapshot_captured_at,
@@ -651,7 +660,9 @@ async def ingest_market_data_snapshot(
             status_code=422,
         )
 
-    normalized_prices = [_normalize_price_write(price_write=row) for row in request.prices]
+    normalized_prices = [
+        _normalize_price_write(price_write=row) for row in request.prices
+    ]
     _ensure_no_duplicate_rows_in_request(rows=normalized_prices)
 
     logger.info(
@@ -922,7 +933,9 @@ def _to_price_write(*, row: YFinanceNormalizedRow) -> MarketDataPriceWrite:
     )
 
 
-def list_supported_market_data_symbols(*, settings: Settings | None = None) -> list[str]:
+def list_supported_market_data_symbols(
+    *, settings: Settings | None = None
+) -> list[str]:
     """Return current supported refresh scope in stable sorted order."""
 
     universe = _get_market_data_symbol_universe(settings=settings)
@@ -968,7 +981,9 @@ def _normalize_refresh_scope_mode(value: str | None) -> MarketDataRefreshScopeMo
     if value is None:
         return "core"
 
-    normalized_value = _normalize_required_text(value, field="refresh_scope_mode").lower()
+    normalized_value = _normalize_required_text(
+        value, field="refresh_scope_mode"
+    ).lower()
     if normalized_value not in _REFRESH_SCOPE_MODES:
         supported_modes = ", ".join(sorted(_REFRESH_SCOPE_MODES))
         raise MarketDataClientError(
@@ -1074,7 +1089,9 @@ def _build_yfinance_snapshot_key(
     """Build bounded deterministic yfinance snapshot key for idempotent writes."""
 
     symbol_fingerprint_source = ",".join(sorted(symbols))
-    symbol_fingerprint = hashlib.sha256(symbol_fingerprint_source.encode("utf-8")).hexdigest()[:12]
+    symbol_fingerprint = hashlib.sha256(
+        symbol_fingerprint_source.encode("utf-8")
+    ).hexdigest()[:12]
     semantic_flags = f"aa{int(auto_adjust)}rp{int(repair)}"
     key = (
         "yf|d1|"
@@ -1303,7 +1320,9 @@ def _ensure_no_duplicate_rows_in_request(*, rows: list[_NormalizedPriceWrite]) -
         )
 
 
-def _normalize_price_write(*, price_write: MarketDataPriceWrite) -> _NormalizedPriceWrite:
+def _normalize_price_write(
+    *, price_write: MarketDataPriceWrite
+) -> _NormalizedPriceWrite:
     """Normalize one price-write row for deterministic persistence."""
 
     normalized_symbol = _normalize_symbol(

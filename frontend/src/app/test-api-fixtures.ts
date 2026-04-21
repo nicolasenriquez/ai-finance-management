@@ -485,6 +485,45 @@ export const PORTFOLIO_API_FIXTURE: Record<string, unknown> = {
     ],
   },
   [buildPortfolioApiFixtureKey("/portfolio/time-series", {
+    period: "90D",
+    scope: "portfolio",
+  })]: {
+    as_of_ledger_at: "2026-04-18T14:30:00Z",
+    period: "90D",
+    frequency: "1D",
+    timezone: "UTC",
+    points: [
+      {
+        captured_at: "2026-01-20T00:00:00Z",
+        portfolio_value_usd: "962000",
+        pnl_usd: "0",
+        benchmark_sp500_value_usd: "962000",
+        benchmark_nasdaq100_value_usd: "962000",
+      },
+      {
+        captured_at: "2026-02-21T00:00:00Z",
+        portfolio_value_usd: "986500",
+        pnl_usd: "24500",
+        benchmark_sp500_value_usd: "975100",
+        benchmark_nasdaq100_value_usd: "980400",
+      },
+      {
+        captured_at: "2026-03-23T00:00:00Z",
+        portfolio_value_usd: "1004200",
+        pnl_usd: "42200",
+        benchmark_sp500_value_usd: "989900",
+        benchmark_nasdaq100_value_usd: "997500",
+      },
+      {
+        captured_at: "2026-04-18T00:00:00Z",
+        portfolio_value_usd: "1010000",
+        pnl_usd: "48000",
+        benchmark_sp500_value_usd: "993000",
+        benchmark_nasdaq100_value_usd: "1005000",
+      },
+    ],
+  },
+  [buildPortfolioApiFixtureKey("/portfolio/time-series", {
     period: "YTD",
     scope: "portfolio",
   })]: {

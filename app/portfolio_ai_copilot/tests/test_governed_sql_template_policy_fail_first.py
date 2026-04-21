@@ -53,7 +53,9 @@ def _load_execute_governed_sql_callable() -> ExecuteGovernedSqlTemplateCallable:
             "Implement tasks 7.3-7.4 before this test can pass.",
         )
     if not callable(candidate):
-        pytest.fail("Fail-first baseline: execute_governed_sql_template must be callable.")
+        pytest.fail(
+            "Fail-first baseline: execute_governed_sql_template must be callable."
+        )
     return cast(ExecuteGovernedSqlTemplateCallable, candidate)
 
 

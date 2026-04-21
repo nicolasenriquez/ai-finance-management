@@ -32,7 +32,9 @@ def upgrade() -> None:
         sa.Column("instrument_symbol", sa.String(length=64), nullable=False),
         sa.Column("trade_side", sa.String(length=8), nullable=False),
         sa.Column("quantity", sa.Numeric(precision=18, scale=9), nullable=False),
-        sa.Column("gross_amount_usd", sa.Numeric(precision=18, scale=2), nullable=False),
+        sa.Column(
+            "gross_amount_usd", sa.Numeric(precision=18, scale=2), nullable=False
+        ),
         sa.Column("accounting_policy_version", sa.String(length=64), nullable=False),
         sa.Column("canonical_payload", sa.JSON(), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
@@ -98,8 +100,12 @@ def upgrade() -> None:
         sa.Column("canonical_fingerprint", sa.String(length=128), nullable=False),
         sa.Column("event_date", sa.Date(), nullable=False),
         sa.Column("instrument_symbol", sa.String(length=64), nullable=False),
-        sa.Column("gross_amount_usd", sa.Numeric(precision=18, scale=2), nullable=False),
-        sa.Column("taxes_withheld_usd", sa.Numeric(precision=18, scale=2), nullable=False),
+        sa.Column(
+            "gross_amount_usd", sa.Numeric(precision=18, scale=2), nullable=False
+        ),
+        sa.Column(
+            "taxes_withheld_usd", sa.Numeric(precision=18, scale=2), nullable=False
+        ),
         sa.Column("net_amount_usd", sa.Numeric(precision=18, scale=2), nullable=False),
         sa.Column("accounting_policy_version", sa.String(length=64), nullable=False),
         sa.Column("canonical_payload", sa.JSON(), nullable=False),
@@ -167,9 +173,15 @@ def upgrade() -> None:
         sa.Column("event_date", sa.Date(), nullable=False),
         sa.Column("instrument_symbol", sa.String(length=64), nullable=False),
         sa.Column("action_type", sa.String(length=32), nullable=False),
-        sa.Column("shares_before_qty", sa.Numeric(precision=18, scale=9), nullable=False),
-        sa.Column("shares_after_qty", sa.Numeric(precision=18, scale=9), nullable=False),
-        sa.Column("split_ratio_value", sa.Numeric(precision=18, scale=9), nullable=False),
+        sa.Column(
+            "shares_before_qty", sa.Numeric(precision=18, scale=9), nullable=False
+        ),
+        sa.Column(
+            "shares_after_qty", sa.Numeric(precision=18, scale=9), nullable=False
+        ),
+        sa.Column(
+            "split_ratio_value", sa.Numeric(precision=18, scale=9), nullable=False
+        ),
         sa.Column("accounting_policy_version", sa.String(length=64), nullable=False),
         sa.Column("canonical_payload", sa.JSON(), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
@@ -235,8 +247,12 @@ def upgrade() -> None:
         sa.Column("opened_on", sa.Date(), nullable=False),
         sa.Column("original_qty", sa.Numeric(precision=18, scale=9), nullable=False),
         sa.Column("remaining_qty", sa.Numeric(precision=18, scale=9), nullable=False),
-        sa.Column("total_cost_basis_usd", sa.Numeric(precision=18, scale=2), nullable=False),
-        sa.Column("unit_cost_basis_usd", sa.Numeric(precision=18, scale=9), nullable=False),
+        sa.Column(
+            "total_cost_basis_usd", sa.Numeric(precision=18, scale=2), nullable=False
+        ),
+        sa.Column(
+            "unit_cost_basis_usd", sa.Numeric(precision=18, scale=9), nullable=False
+        ),
         sa.Column("accounting_policy_version", sa.String(length=64), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
@@ -262,7 +278,9 @@ def upgrade() -> None:
         ["last_corporate_action_event_id"],
         unique=False,
     )
-    op.create_index("ix_lot_instrument_symbol", "lot", ["instrument_symbol"], unique=False)
+    op.create_index(
+        "ix_lot_instrument_symbol", "lot", ["instrument_symbol"], unique=False
+    )
     op.create_index("ix_lot_opened_on", "lot", ["opened_on"], unique=False)
 
     op.create_table(
@@ -272,7 +290,9 @@ def upgrade() -> None:
         sa.Column("sell_transaction_id", sa.Integer(), nullable=False),
         sa.Column("disposition_date", sa.Date(), nullable=False),
         sa.Column("matched_qty", sa.Numeric(precision=18, scale=9), nullable=False),
-        sa.Column("matched_cost_basis_usd", sa.Numeric(precision=18, scale=2), nullable=False),
+        sa.Column(
+            "matched_cost_basis_usd", sa.Numeric(precision=18, scale=2), nullable=False
+        ),
         sa.Column("accounting_policy_version", sa.String(length=64), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
@@ -287,9 +307,13 @@ def upgrade() -> None:
             ondelete="RESTRICT",
         ),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint("lot_id", "sell_transaction_id", name="uq_lot_disposition_lot_sell_tx"),
+        sa.UniqueConstraint(
+            "lot_id", "sell_transaction_id", name="uq_lot_disposition_lot_sell_tx"
+        ),
     )
-    op.create_index("ix_lot_disposition_lot_id", "lot_disposition", ["lot_id"], unique=False)
+    op.create_index(
+        "ix_lot_disposition_lot_id", "lot_disposition", ["lot_id"], unique=False
+    )
     op.create_index(
         "ix_lot_disposition_sell_transaction_id",
         "lot_disposition",
@@ -307,7 +331,9 @@ def upgrade() -> None:
 def downgrade() -> None:
     """Downgrade schema."""
     op.drop_index("ix_lot_disposition_disposition_date", table_name="lot_disposition")
-    op.drop_index("ix_lot_disposition_sell_transaction_id", table_name="lot_disposition")
+    op.drop_index(
+        "ix_lot_disposition_sell_transaction_id", table_name="lot_disposition"
+    )
     op.drop_index("ix_lot_disposition_lot_id", table_name="lot_disposition")
     op.drop_table("lot_disposition")
 
@@ -321,12 +347,16 @@ def downgrade() -> None:
         "ix_corporate_action_event_instrument_symbol",
         table_name="corporate_action_event",
     )
-    op.drop_index("ix_corporate_action_event_event_date", table_name="corporate_action_event")
+    op.drop_index(
+        "ix_corporate_action_event_event_date", table_name="corporate_action_event"
+    )
     op.drop_index(
         "ix_corporate_action_event_canonical_record_id",
         table_name="corporate_action_event",
     )
-    op.drop_index("ix_corporate_action_event_import_job_id", table_name="corporate_action_event")
+    op.drop_index(
+        "ix_corporate_action_event_import_job_id", table_name="corporate_action_event"
+    )
     op.drop_index(
         "ix_corporate_action_event_source_document_id",
         table_name="corporate_action_event",
@@ -344,12 +374,16 @@ def downgrade() -> None:
         "ix_portfolio_transaction_instrument_symbol",
         table_name="portfolio_transaction",
     )
-    op.drop_index("ix_portfolio_transaction_event_date", table_name="portfolio_transaction")
+    op.drop_index(
+        "ix_portfolio_transaction_event_date", table_name="portfolio_transaction"
+    )
     op.drop_index(
         "ix_portfolio_transaction_canonical_record_id",
         table_name="portfolio_transaction",
     )
-    op.drop_index("ix_portfolio_transaction_import_job_id", table_name="portfolio_transaction")
+    op.drop_index(
+        "ix_portfolio_transaction_import_job_id", table_name="portfolio_transaction"
+    )
     op.drop_index(
         "ix_portfolio_transaction_source_document_id",
         table_name="portfolio_transaction",

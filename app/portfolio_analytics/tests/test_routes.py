@@ -25,7 +25,12 @@ import app.portfolio_ledger.service as portfolio_ledger_service
 from app.main import app
 from app.market_data.models import MarketDataSnapshot, PriceHistory
 from app.pdf_persistence.models import CanonicalPdfRecord, ImportJob, SourceDocument
-from app.portfolio_ledger.models import DividendEvent, Lot, LotDisposition, PortfolioTransaction
+from app.portfolio_ledger.models import (
+    DividendEvent,
+    Lot,
+    LotDisposition,
+    PortfolioTransaction,
+)
 
 _TRUNCATE_CANDIDATES: tuple[str, ...] = (
     "price_history",
@@ -173,9 +178,15 @@ def _patch_forbidden_upstream_calls(monkeypatch: pytest.MonkeyPatch) -> None:
             "persistence flows or ledger rebuild side effects.",
         )
 
-    monkeypatch.setattr(pdf_extraction_service, "extract_pdf_from_storage", _forbidden_call)
-    monkeypatch.setattr(pdf_normalization_service, "normalize_pdf_from_storage", _forbidden_call)
-    monkeypatch.setattr(pdf_persistence_service, "persist_pdf_from_storage", _forbidden_call)
+    monkeypatch.setattr(
+        pdf_extraction_service, "extract_pdf_from_storage", _forbidden_call
+    )
+    monkeypatch.setattr(
+        pdf_normalization_service, "normalize_pdf_from_storage", _forbidden_call
+    )
+    monkeypatch.setattr(
+        pdf_persistence_service, "persist_pdf_from_storage", _forbidden_call
+    )
     monkeypatch.setattr(
         market_data_service,
         "refresh_yfinance_supported_universe",
@@ -205,7 +216,9 @@ def _patch_fake_quantstats_report_module(monkeypatch: pytest.MonkeyPatch) -> Non
         **_: Any,
     ) -> None:
         if output is None:
-            raise ValueError("output path is required for backend report generation tests")
+            raise ValueError(
+                "output path is required for backend report generation tests"
+            )
         report_path = Path(output)
         report_path.parent.mkdir(parents=True, exist_ok=True)
         report_path.write_text(
@@ -247,7 +260,9 @@ def _patch_quantstats_report_module_requiring_naive_index(
         **_: Any,
     ) -> None:
         if output is None:
-            raise ValueError("output path is required for backend report generation tests")
+            raise ValueError(
+                "output path is required for backend report generation tests"
+            )
         if not isinstance(returns, pd.Series):
             raise TypeError("returns must be a pandas Series")
         if not isinstance(returns.index, pd.DatetimeIndex):
@@ -268,7 +283,9 @@ def _patch_quantstats_report_module_requiring_naive_index(
 
         report_path = Path(output)
         report_path.parent.mkdir(parents=True, exist_ok=True)
-        report_path.write_text("<html><body><h1>Quant Report</h1></body></html>", encoding="utf-8")
+        report_path.write_text(
+            "<html><body><h1>Quant Report</h1></body></html>", encoding="utf-8"
+        )
 
     fake_reports_module.html = _fake_html  # type: ignore[attr-defined]
     fake_quantstats_module = ModuleType("fake_quantstats_root")
@@ -301,7 +318,9 @@ async def _truncate_tables_if_present(session: AsyncSession) -> None:
     if not existing_tables:
         return
 
-    truncate_sql = f"TRUNCATE TABLE {', '.join(existing_tables)} RESTART IDENTITY CASCADE"
+    truncate_sql = (
+        f"TRUNCATE TABLE {', '.join(existing_tables)} RESTART IDENTITY CASCADE"
+    )
     await session.execute(text(truncate_sql))
     await session.commit()
 
@@ -591,26 +610,35 @@ async def _seed_persisted_ledger_state(
                     source_document_id=source_document.id,
                     import_job_id=import_job.id,
                     canonical_record_id=canonical_records["voo_dividend_1"].id,
-                    canonical_fingerprint=canonical_records["voo_dividend_1"].fingerprint,
+                    canonical_fingerprint=canonical_records[
+                        "voo_dividend_1"
+                    ].fingerprint,
                     event_date=date(2025, 2, 20),
                     instrument_symbol="VOO",
                     gross_amount_usd=Decimal("7.00"),
                     taxes_withheld_usd=Decimal("1.00"),
                     net_amount_usd=Decimal("6.00"),
                     accounting_policy_version="dataset_1_v1",
-                    canonical_payload=canonical_records["voo_dividend_1"].canonical_payload,
+                    canonical_payload=canonical_records[
+                        "voo_dividend_1"
+                    ].canonical_payload,
                 ),
             )
         )
         if include_market_data:
             if price_history_points < 1:
-                pytest.fail("price_history_points must be at least 1 for integration seeding.")
+                pytest.fail(
+                    "price_history_points must be at least 1 for integration seeding."
+                )
             market_snapshot = MarketDataSnapshot(
                 source_type="market_data_provider",
                 source_provider="yfinance",
                 snapshot_key="yf|d1|1d|3mo|aa1rp1|2025-02-20|s2|testseed000001",
                 snapshot_captured_at=datetime(2025, 2, 20, 21, 0, tzinfo=UTC),
-                snapshot_metadata={"provider": "yfinance", "seed": "portfolio_analytics_tests"},
+                snapshot_metadata={
+                    "provider": "yfinance",
+                    "seed": "portfolio_analytics_tests",
+                },
             )
             session.add(market_snapshot)
             await session.flush()
@@ -655,7 +683,8 @@ async def _seed_persisted_ledger_state(
                             snapshot_id=market_snapshot.id,
                             instrument_symbol="VOO",
                             trading_date=trading_day,
-                            price_value=Decimal("95.00") + (Decimal(day_offset) * Decimal("0.5")),
+                            price_value=Decimal("95.00")
+                            + (Decimal(day_offset) * Decimal("0.5")),
                             currency_code="USD",
                             source_payload={"seed": True, "series": "analytics"},
                         )
@@ -785,7 +814,9 @@ def test_lot_detail_endpoint_normalizes_symbol_and_returns_disposition_history(
     """Lot-detail route should normalize symbol input and return explainable lots."""
 
     path_template = _portfolio_lot_detail_route_template()
-    normalized_lot_detail_path = path_template.replace("{instrument_symbol}", "%20voo%20")
+    normalized_lot_detail_path = path_template.replace(
+        "{instrument_symbol}", "%20voo%20"
+    )
 
     _patch_forbidden_upstream_calls(monkeypatch)
     asyncio.run(_seed_persisted_ledger_state(test_db_engine))
@@ -899,7 +930,9 @@ def test_time_series_endpoint_returns_max_period_points_from_persisted_history(
             pytest.fail("Time-series points must include string 'captured_at'.")
         captured_at_values.append(captured_at)
         _assert_decimal_field(
-            point, "portfolio_value_usd", str(Decimal(str(point["portfolio_value_usd"])))
+            point,
+            "portfolio_value_usd",
+            str(Decimal(str(point["portfolio_value_usd"]))),
         )
         _assert_decimal_field(point, "pnl_usd", str(Decimal(str(point["pnl_usd"]))))
         assert "benchmark_sp500_value_usd" in point
@@ -1366,7 +1399,8 @@ def test_quant_report_artifact_retrieval_rejects_unavailable_report_id(
     """Quant-report artifact endpoint should reject unavailable report ids explicitly."""
 
     report_artifact_path = (
-        _portfolio_workspace_endpoint_path(suffix="quant-reports") + "/non-existent-report"
+        _portfolio_workspace_endpoint_path(suffix="quant-reports")
+        + "/non-existent-report"
     )
     _patch_forbidden_upstream_calls(monkeypatch)
 
@@ -1453,7 +1487,9 @@ def test_transactions_endpoint_returns_persisted_ledger_events(
             pytest.fail("Transaction event event_type must be a string.")
         event_types.add(event_type)
         _assert_decimal_field(event, "quantity", str(Decimal(str(event["quantity"]))))
-        _assert_decimal_field(event, "cash_amount_usd", str(Decimal(str(event["cash_amount_usd"]))))
+        _assert_decimal_field(
+            event, "cash_amount_usd", str(Decimal(str(event["cash_amount_usd"])))
+        )
 
     assert "buy" in event_types
     assert "sell" in event_types

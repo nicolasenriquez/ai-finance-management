@@ -55,7 +55,9 @@ def _load_service_error_type(
     return candidate
 
 
-def test_model_context_excluded_fields_contract_includes_private_payload_markers() -> None:
+def test_model_context_excluded_fields_contract_includes_private_payload_markers() -> (
+    None
+):
     """Model-context exclusion contract should include private/raw payload markers."""
 
     excluded_fields_candidate = _load_service_symbol(
@@ -66,7 +68,9 @@ def test_model_context_excluded_fields_contract_includes_private_payload_markers
     )
 
     if not isinstance(excluded_fields_candidate, (list, tuple, set, frozenset)):
-        pytest.fail("Fail-first baseline: MODEL_CONTEXT_EXCLUDED_FIELDS must be one iterable.")
+        pytest.fail(
+            "Fail-first baseline: MODEL_CONTEXT_EXCLUDED_FIELDS must be one iterable."
+        )
     typed_excluded_fields_candidate = cast(
         list[object] | tuple[object, ...] | set[object] | frozenset[object],
         excluded_fields_candidate,
@@ -91,7 +95,9 @@ def test_sanitize_model_context_payload_removes_raw_and_private_fields() -> None
         guidance="Task 2.2 should expose one explicit model-context sanitization helper.",
     )
     if not callable(sanitize_candidate):
-        pytest.fail("Fail-first baseline: sanitize_model_context_payload must be callable.")
+        pytest.fail(
+            "Fail-first baseline: sanitize_model_context_payload must be callable."
+        )
     sanitize_model_context_payload = cast(Any, sanitize_candidate)
 
     unsafe_context_payload: dict[str, object] = {
@@ -101,7 +107,9 @@ def test_sanitize_model_context_payload_removes_raw_and_private_fields() -> None
         "transaction_events": [{"id": "evt-001", "cash_amount_usd": "1800.00"}],
     }
 
-    sanitized_payload = sanitize_model_context_payload(context_payload=unsafe_context_payload)
+    sanitized_payload = sanitize_model_context_payload(
+        context_payload=unsafe_context_payload
+    )
     serialized_payload = json.dumps(sanitized_payload, default=str, sort_keys=True)
 
     assert "raw_payload" not in serialized_payload
@@ -110,7 +118,9 @@ def test_sanitize_model_context_payload_removes_raw_and_private_fields() -> None
     assert "portfolio_summary" in serialized_payload
 
 
-def test_boundary_classifier_rejects_execution_and_guarantee_requests_explicitly() -> None:
+def test_boundary_classifier_rejects_execution_and_guarantee_requests_explicitly() -> (
+    None
+):
     """Boundary classifier should block execution and guaranteed-return asks."""
 
     classify_candidate = _load_service_symbol(
@@ -129,7 +139,9 @@ def test_boundary_classifier_rejects_execution_and_guarantee_requests_explicitly
     assert violation_reason == "boundary_restricted"
 
 
-def test_boundary_classifier_returns_none_for_safe_read_only_analysis_requests() -> None:
+def test_boundary_classifier_returns_none_for_safe_read_only_analysis_requests() -> (
+    None
+):
     """Boundary classifier should allow scoped read-only analytical requests."""
 
     classify_candidate = _load_service_symbol(
@@ -148,7 +160,9 @@ def test_boundary_classifier_returns_none_for_safe_read_only_analysis_requests()
     assert violation_reason is None
 
 
-def test_boundary_enforcer_raises_typed_client_error_for_unsafe_execution_requests() -> None:
+def test_boundary_enforcer_raises_typed_client_error_for_unsafe_execution_requests() -> (
+    None
+):
     """Boundary enforcement should raise typed client errors for unsafe asks."""
 
     enforce_candidate = _load_service_symbol(
@@ -156,7 +170,9 @@ def test_boundary_enforcer_raises_typed_client_error_for_unsafe_execution_reques
         guidance="Task 2.2 should expose one explicit request-boundary enforcement callable.",
     )
     if not callable(enforce_candidate):
-        pytest.fail("Fail-first baseline: enforce_copilot_request_boundary must be callable.")
+        pytest.fail(
+            "Fail-first baseline: enforce_copilot_request_boundary must be callable."
+        )
     enforce_copilot_request_boundary = cast(Any, enforce_candidate)
 
     client_error_type = _load_service_error_type(

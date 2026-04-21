@@ -4,7 +4,15 @@ from __future__ import annotations
 
 from datetime import date
 
-from sqlalchemy import JSON, BigInteger, Date, ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy import (
+    JSON,
+    BigInteger,
+    Date,
+    ForeignKey,
+    Integer,
+    String,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -25,7 +33,9 @@ class SourceDocument(Base, TimestampMixin):
     file_size_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False)
     page_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
-    import_jobs: Mapped[list[ImportJob]] = relationship(back_populates="source_document")
+    import_jobs: Mapped[list[ImportJob]] = relationship(
+        back_populates="source_document"
+    )
     canonical_records: Mapped[list[CanonicalPdfRecord]] = relationship(
         back_populates="source_document"
     )
@@ -48,14 +58,18 @@ class ImportJob(Base, TimestampMixin):
     duplicate_records: Mapped[int] = mapped_column(Integer, nullable=False)
 
     source_document: Mapped[SourceDocument] = relationship(back_populates="import_jobs")
-    canonical_records: Mapped[list[CanonicalPdfRecord]] = relationship(back_populates="import_job")
+    canonical_records: Mapped[list[CanonicalPdfRecord]] = relationship(
+        back_populates="import_job"
+    )
 
 
 class CanonicalPdfRecord(Base, TimestampMixin):
     """Persisted canonical record plus JSON audit payload and provenance."""
 
     __tablename__ = "canonical_pdf_record"
-    __table_args__ = (UniqueConstraint("fingerprint", name="uq_canonical_pdf_record_fingerprint"),)
+    __table_args__ = (
+        UniqueConstraint("fingerprint", name="uq_canonical_pdf_record_fingerprint"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     source_document_id: Mapped[int] = mapped_column(
@@ -70,7 +84,9 @@ class CanonicalPdfRecord(Base, TimestampMixin):
     )
     event_type: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
     event_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
-    instrument_symbol: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    instrument_symbol: Mapped[str] = mapped_column(
+        String(64), nullable=False, index=True
+    )
     trade_side: Mapped[str | None] = mapped_column(String(8), nullable=True)
     fingerprint: Mapped[str] = mapped_column(String(128), nullable=False)
     fingerprint_version: Mapped[str] = mapped_column(String(32), nullable=False)
@@ -79,5 +95,7 @@ class CanonicalPdfRecord(Base, TimestampMixin):
     raw_values: Mapped[dict[str, str | None]] = mapped_column(JSON, nullable=False)
     provenance: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False)
 
-    source_document: Mapped[SourceDocument] = relationship(back_populates="canonical_records")
+    source_document: Mapped[SourceDocument] = relationship(
+        back_populates="canonical_records"
+    )
     import_job: Mapped[ImportJob] = relationship(back_populates="canonical_records")

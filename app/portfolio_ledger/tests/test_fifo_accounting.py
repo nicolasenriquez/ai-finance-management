@@ -13,7 +13,9 @@ import pytest
 
 AccountingCallable = Callable[..., object]
 
-_FINANCE_CASES_PATH = Path(__file__).parent / "fixtures" / "dataset_1_v1_finance_cases.json"
+_FINANCE_CASES_PATH = (
+    Path(__file__).parent / "fixtures" / "dataset_1_v1_finance_cases.json"
+)
 
 
 def _load_accounting_module() -> object:
@@ -74,7 +76,9 @@ def test_fifo_matching_consumes_oldest_open_lots_first() -> None:
     expected = cast(Mapping[str, object], case["expected"])
     expected_dispositions = cast(list[Mapping[str, object]], expected["dispositions"])
 
-    result = cast(Mapping[str, object], match_fifo(open_lots=open_lots, sell_trade=sell_trade))
+    result = cast(
+        Mapping[str, object], match_fifo(open_lots=open_lots, sell_trade=sell_trade)
+    )
     dispositions = cast(list[Mapping[str, object]], result["dispositions"])
 
     assert [item["lot_id"] for item in dispositions] == [
@@ -94,7 +98,9 @@ def test_fifo_matching_consumes_oldest_open_lots_first() -> None:
 def test_realized_gain_uses_fifo_matched_basis() -> None:
     """Realized gain should use sell proceeds minus FIFO-matched basis."""
 
-    calculate_realized_gain = _load_callable("calculate_realized_gain_from_fifo", task_hint="3.2")
+    calculate_realized_gain = _load_callable(
+        "calculate_realized_gain_from_fifo", task_hint="3.2"
+    )
     case = _load_finance_case("fifo_sell")
 
     sell_trade = cast(Mapping[str, object], case["sell_trade"])
@@ -121,7 +127,8 @@ def test_split_adjustment_preserves_total_basis_and_updates_unit_basis() -> None
     expected_open_lots = cast(list[Mapping[str, object]], expected["open_lots"])
 
     adjusted_lots = cast(
-        list[Mapping[str, object]], apply_split(open_lots=open_lots, split_event=split_event)
+        list[Mapping[str, object]],
+        apply_split(open_lots=open_lots, split_event=split_event),
     )
 
     assert adjusted_lots == expected_open_lots

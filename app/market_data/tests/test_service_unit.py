@@ -10,7 +10,10 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
-from app.market_data.providers.yfinance_adapter import YFinanceAdapterError, YFinanceNormalizedRow
+from app.market_data.providers.yfinance_adapter import (
+    YFinanceAdapterError,
+    YFinanceNormalizedRow,
+)
 from app.market_data.schemas import MarketDataPriceWrite, MarketDataSnapshotWriteRequest
 from app.market_data.service import (
     MarketDataClientError,
@@ -30,7 +33,9 @@ class _NeverCalledBeginContext:
     async def __aenter__(self) -> None:
         """Fail when the service attempts to enter DB transaction scope."""
 
-        pytest.fail("Fail-fast guard failed: DB transaction should not start for invalid input.")
+        pytest.fail(
+            "Fail-fast guard failed: DB transaction should not start for invalid input."
+        )
 
     async def __aexit__(
         self,
@@ -96,7 +101,9 @@ async def test_ingest_rejects_snapshot_timestamp_without_timezone() -> None:
         source_type="quote_feed",
         source_provider="provider_a",
         snapshot_key="snapshot-without-timezone",
-        snapshot_captured_at=datetime(2026, 3, 24, 10, 0, tzinfo=UTC).replace(tzinfo=None),
+        snapshot_captured_at=datetime(2026, 3, 24, 10, 0, tzinfo=UTC).replace(
+            tzinfo=None
+        ),
         prices=[
             MarketDataPriceWrite(
                 instrument_symbol="VOO",
@@ -154,7 +161,9 @@ async def test_ingest_rejects_duplicate_symbol_time_keys_in_one_payload() -> Non
         ],
     )
 
-    with pytest.raises(MarketDataClientError, match="duplicate symbol/time keys") as exc_info:
+    with pytest.raises(
+        MarketDataClientError, match="duplicate symbol/time keys"
+    ) as exc_info:
         await ingest_market_data_snapshot(
             db=cast(AsyncSession, _NeverCalledSession()),
             request=request,
@@ -166,7 +175,9 @@ async def test_ingest_rejects_duplicate_symbol_time_keys_in_one_payload() -> Non
 async def test_read_boundary_rejects_unsafe_symbol_shape_before_db_access() -> None:
     """Read boundary must reject unsafe symbol shapes before querying DB."""
 
-    with pytest.raises(MarketDataClientError, match="safe ticker-style symbol") as exc_info:
+    with pytest.raises(
+        MarketDataClientError, match="safe ticker-style symbol"
+    ) as exc_info:
         await list_price_history_for_symbol(
             db=cast(AsyncSession, _NeverCalledSession()),
             instrument_symbol="BRK/B",
@@ -217,8 +228,12 @@ async def test_provider_ingest_normalizes_dotted_symbol_and_builds_bounded_snaps
 
         return _FakeResult()
 
-    monkeypatch.setattr("app.market_data.service.fetch_yfinance_daily_close_rows", fake_fetch)
-    monkeypatch.setattr("app.market_data.service.ingest_market_data_snapshot", fake_ingest)
+    monkeypatch.setattr(
+        "app.market_data.service.fetch_yfinance_daily_close_rows", fake_fetch
+    )
+    monkeypatch.setattr(
+        "app.market_data.service.ingest_market_data_snapshot", fake_ingest
+    )
 
     result = await ingest_yfinance_daily_close_snapshot(
         db=cast(AsyncSession, _NeverCalledSession()),
@@ -253,9 +268,13 @@ async def test_provider_ingest_rejects_duplicate_symbols_before_fetch(
         del config
         pytest.fail("Provider fetch should not be called on duplicate symbol input.")
 
-    monkeypatch.setattr("app.market_data.service.fetch_yfinance_daily_close_rows", fake_fetch)
+    monkeypatch.setattr(
+        "app.market_data.service.fetch_yfinance_daily_close_rows", fake_fetch
+    )
 
-    with pytest.raises(MarketDataClientError, match="duplicates after normalization") as exc_info:
+    with pytest.raises(
+        MarketDataClientError, match="duplicates after normalization"
+    ) as exc_info:
         await ingest_yfinance_daily_close_snapshot(
             db=cast(AsyncSession, _NeverCalledSession()),
             symbols=["VOO", " voo "],
@@ -280,9 +299,13 @@ async def test_provider_ingest_surfaces_adapter_fail_fast_error(
         del config
         raise YFinanceAdapterError("Provider payload is malformed.", status_code=502)
 
-    monkeypatch.setattr("app.market_data.service.fetch_yfinance_daily_close_rows", fake_fetch)
+    monkeypatch.setattr(
+        "app.market_data.service.fetch_yfinance_daily_close_rows", fake_fetch
+    )
 
-    with pytest.raises(MarketDataClientError, match=r"Provider payload is malformed\.") as exc_info:
+    with pytest.raises(
+        MarketDataClientError, match=r"Provider payload is malformed\."
+    ) as exc_info:
         await ingest_yfinance_daily_close_snapshot(
             db=cast(AsyncSession, _NeverCalledSession()),
             symbols=["VOO"],
@@ -303,7 +326,9 @@ def test_list_supported_market_data_symbols_returns_stable_sorted_universe() -> 
     assert "VOO" in symbols
 
 
-def test_list_market_data_library_symbols_returns_100_and_200_with_portfolio_minimum() -> None:
+def test_list_market_data_library_symbols_returns_100_and_200_with_portfolio_minimum() -> (
+    None
+):
     """Starter symbol libraries should be deterministic and include supported portfolio symbols."""
 
     supported_symbols = list_supported_market_data_symbols()
@@ -346,9 +371,13 @@ async def test_refresh_supported_universe_rejects_invalid_scope_mode_before_inge
         del symbols
         del snapshot_captured_at
         del settings
-        pytest.fail("Provider ingest should not run for invalid refresh scope mode input.")
+        pytest.fail(
+            "Provider ingest should not run for invalid refresh scope mode input."
+        )
 
-    monkeypatch.setattr("app.market_data.service.ingest_yfinance_daily_close_snapshot", fake_ingest)
+    monkeypatch.setattr(
+        "app.market_data.service.ingest_yfinance_daily_close_snapshot", fake_ingest
+    )
 
     with pytest.raises(MarketDataClientError, match="refresh scope mode") as exc_info:
         await refresh_yfinance_supported_universe(
@@ -387,7 +416,9 @@ async def test_refresh_supported_universe_returns_structured_result(
 
         return _FakeResult()
 
-    monkeypatch.setattr("app.market_data.service.ingest_yfinance_daily_close_snapshot", fake_ingest)
+    monkeypatch.setattr(
+        "app.market_data.service.ingest_yfinance_daily_close_snapshot", fake_ingest
+    )
 
     result = await refresh_yfinance_supported_universe(
         db=cast(AsyncSession, _NeverCalledSession()),
@@ -435,7 +466,11 @@ async def test_refresh_supported_universe_uses_starter_100_scope_symbols(
                     trading_date=date(2026, 3, 24),
                     close_value=Decimal("100.000000000"),
                     currency_code="USD",
-                    source_payload={"provider": "yfinance", "field": "Close", "symbol": symbol},
+                    source_payload={
+                        "provider": "yfinance",
+                        "field": "Close",
+                        "symbol": symbol,
+                    },
                 )
             ],
             {
@@ -460,8 +495,12 @@ async def test_refresh_supported_universe_uses_starter_100_scope_symbols(
 
         return _FakeResult()
 
-    monkeypatch.setattr("app.market_data.service.fetch_yfinance_daily_close_rows", fake_fetch)
-    monkeypatch.setattr("app.market_data.service.ingest_market_data_snapshot", fake_ingest)
+    monkeypatch.setattr(
+        "app.market_data.service.fetch_yfinance_daily_close_rows", fake_fetch
+    )
+    monkeypatch.setattr(
+        "app.market_data.service.ingest_market_data_snapshot", fake_ingest
+    )
 
     result = await refresh_yfinance_supported_universe(
         db=cast(AsyncSession, _NeverCalledSession()),
@@ -511,7 +550,11 @@ async def test_refresh_supported_universe_applies_symbol_request_spacing(
                     trading_date=date(2026, 3, 24),
                     close_value=Decimal("100.000000000"),
                     currency_code="USD",
-                    source_payload={"provider": "yfinance", "field": "Close", "symbol": symbol},
+                    source_payload={
+                        "provider": "yfinance",
+                        "field": "Close",
+                        "symbol": symbol,
+                    },
                 )
             ],
             {
@@ -538,9 +581,13 @@ async def test_refresh_supported_universe_applies_symbol_request_spacing(
 
         return _FakeResult()
 
-    monkeypatch.setattr("app.market_data.service.fetch_yfinance_daily_close_rows", fake_fetch)
+    monkeypatch.setattr(
+        "app.market_data.service.fetch_yfinance_daily_close_rows", fake_fetch
+    )
     monkeypatch.setattr("app.market_data.service.asyncio.sleep", fake_sleep)
-    monkeypatch.setattr("app.market_data.service.ingest_market_data_snapshot", fake_ingest)
+    monkeypatch.setattr(
+        "app.market_data.service.ingest_market_data_snapshot", fake_ingest
+    )
 
     def fake_resolve_scope_symbols(
         *,
@@ -593,7 +640,9 @@ async def test_refresh_scope_100_allows_non_portfolio_failures_after_retry(
             non_portfolio_symbol = symbol
             break
     if non_portfolio_symbol is None:
-        pytest.fail("Starter-100 scope is expected to include at least one non-portfolio symbol.")
+        pytest.fail(
+            "Starter-100 scope is expected to include at least one non-portfolio symbol."
+        )
 
     attempts_by_symbol: dict[str, int] = {}
     captured_request: dict[str, MarketDataSnapshotWriteRequest] = {}
@@ -619,7 +668,11 @@ async def test_refresh_scope_100_allows_non_portfolio_failures_after_retry(
                     trading_date=date(2026, 3, 24),
                     close_value=Decimal("101.000000000"),
                     currency_code="USD",
-                    source_payload={"provider": "yfinance", "field": "Close", "symbol": symbol},
+                    source_payload={
+                        "provider": "yfinance",
+                        "field": "Close",
+                        "symbol": symbol,
+                    },
                 )
             ],
             {
@@ -644,8 +697,12 @@ async def test_refresh_scope_100_allows_non_portfolio_failures_after_retry(
 
         return _FakeResult()
 
-    monkeypatch.setattr("app.market_data.service.fetch_yfinance_daily_close_rows", fake_fetch)
-    monkeypatch.setattr("app.market_data.service.ingest_market_data_snapshot", fake_ingest)
+    monkeypatch.setattr(
+        "app.market_data.service.fetch_yfinance_daily_close_rows", fake_fetch
+    )
+    monkeypatch.setattr(
+        "app.market_data.service.ingest_market_data_snapshot", fake_ingest
+    )
 
     result = await refresh_yfinance_supported_universe(
         db=cast(AsyncSession, _NeverCalledSession()),
@@ -685,7 +742,9 @@ async def test_refresh_scope_100_emits_history_and_currency_recovery_evidence(
             non_portfolio_symbol = symbol
             break
     if non_portfolio_symbol is None:
-        pytest.fail("Starter-100 scope is expected to include at least one non-portfolio symbol.")
+        pytest.fail(
+            "Starter-100 scope is expected to include at least one non-portfolio symbol."
+        )
 
     attempts_by_symbol: dict[str, int] = {}
     captured_request: dict[str, MarketDataSnapshotWriteRequest] = {}
@@ -723,7 +782,11 @@ async def test_refresh_scope_100_emits_history_and_currency_recovery_evidence(
                     trading_date=date(2026, 3, 24),
                     close_value=Decimal("99.000000000"),
                     currency_code="USD",
-                    source_payload={"provider": "yfinance", "field": "Close", "symbol": symbol},
+                    source_payload={
+                        "provider": "yfinance",
+                        "field": "Close",
+                        "symbol": symbol,
+                    },
                 )
             ],
             symbol_metadata,
@@ -744,8 +807,12 @@ async def test_refresh_scope_100_emits_history_and_currency_recovery_evidence(
 
         return _FakeResult()
 
-    monkeypatch.setattr("app.market_data.service.fetch_yfinance_daily_close_rows", fake_fetch)
-    monkeypatch.setattr("app.market_data.service.ingest_market_data_snapshot", fake_ingest)
+    monkeypatch.setattr(
+        "app.market_data.service.fetch_yfinance_daily_close_rows", fake_fetch
+    )
+    monkeypatch.setattr(
+        "app.market_data.service.ingest_market_data_snapshot", fake_ingest
+    )
 
     result = await refresh_yfinance_supported_universe(
         db=cast(AsyncSession, _NeverCalledSession()),
@@ -763,7 +830,9 @@ async def test_refresh_scope_100_emits_history_and_currency_recovery_evidence(
     metadata = captured_request["request"].snapshot_metadata
     assert isinstance(metadata, dict)
     assert metadata["history_fallback_symbols"] == [non_portfolio_symbol]
-    assert metadata["history_fallback_periods_by_symbol"] == {non_portfolio_symbol: "1y"}
+    assert metadata["history_fallback_periods_by_symbol"] == {
+        non_portfolio_symbol: "1y"
+    }
     assert metadata["currency_assumed_symbols"] == [non_portfolio_symbol]
 
 
@@ -785,7 +854,9 @@ async def test_refresh_core_surfaces_exhausted_history_fallback_for_required_sym
             status_code=502,
         )
 
-    monkeypatch.setattr("app.market_data.service.fetch_yfinance_daily_close_rows", fake_fetch)
+    monkeypatch.setattr(
+        "app.market_data.service.fetch_yfinance_daily_close_rows", fake_fetch
+    )
 
     with pytest.raises(
         MarketDataClientError,
@@ -830,7 +901,11 @@ async def test_refresh_scope_100_fails_when_required_symbol_still_fails_after_re
                     trading_date=date(2026, 3, 24),
                     close_value=Decimal("102.000000000"),
                     currency_code="USD",
-                    source_payload={"provider": "yfinance", "field": "Close", "symbol": symbol},
+                    source_payload={
+                        "provider": "yfinance",
+                        "field": "Close",
+                        "symbol": symbol,
+                    },
                 )
             ],
             {
@@ -847,10 +922,16 @@ async def test_refresh_scope_100_fails_when_required_symbol_still_fails_after_re
     ) -> object:
         del db
         del request
-        pytest.fail("Refresh should fail before ingest when required symbols remain unavailable.")
+        pytest.fail(
+            "Refresh should fail before ingest when required symbols remain unavailable."
+        )
 
-    monkeypatch.setattr("app.market_data.service.fetch_yfinance_daily_close_rows", fake_fetch)
-    monkeypatch.setattr("app.market_data.service.ingest_market_data_snapshot", fake_ingest)
+    monkeypatch.setattr(
+        "app.market_data.service.fetch_yfinance_daily_close_rows", fake_fetch
+    )
+    monkeypatch.setattr(
+        "app.market_data.service.ingest_market_data_snapshot", fake_ingest
+    )
 
     with pytest.raises(
         MarketDataClientError,
@@ -884,7 +965,9 @@ async def test_refresh_supported_universe_fails_fast_on_incomplete_provider_cove
             status_code=502,
         )
 
-    monkeypatch.setattr("app.market_data.service.fetch_yfinance_daily_close_rows", fake_fetch)
+    monkeypatch.setattr(
+        "app.market_data.service.fetch_yfinance_daily_close_rows", fake_fetch
+    )
 
     with pytest.raises(
         MarketDataClientError,
@@ -916,7 +999,9 @@ async def test_refresh_supported_universe_surfaces_adapter_shape_error(
             status_code=502,
         )
 
-    monkeypatch.setattr("app.market_data.service.fetch_yfinance_daily_close_rows", fake_fetch)
+    monkeypatch.setattr(
+        "app.market_data.service.fetch_yfinance_daily_close_rows", fake_fetch
+    )
 
     with pytest.raises(
         MarketDataClientError,
@@ -948,7 +1033,11 @@ async def test_refresh_supported_universe_succeeds_through_provider_ingest_path(
                 trading_date=date(2026, 3, 24),
                 close_value=Decimal("100.000000000") + Decimal(index),
                 currency_code="USD",
-                source_payload={"provider": "yfinance", "field": "Close", "symbol": symbol},
+                source_payload={
+                    "provider": "yfinance",
+                    "field": "Close",
+                    "symbol": symbol,
+                },
             )
             for index, symbol in enumerate(symbols)
         ]
@@ -974,8 +1063,12 @@ async def test_refresh_supported_universe_succeeds_through_provider_ingest_path(
 
         return _FakeResult()
 
-    monkeypatch.setattr("app.market_data.service.fetch_yfinance_daily_close_rows", fake_fetch)
-    monkeypatch.setattr("app.market_data.service.ingest_market_data_snapshot", fake_ingest)
+    monkeypatch.setattr(
+        "app.market_data.service.fetch_yfinance_daily_close_rows", fake_fetch
+    )
+    monkeypatch.setattr(
+        "app.market_data.service.ingest_market_data_snapshot", fake_ingest
+    )
 
     result = await refresh_yfinance_supported_universe(
         db=cast(AsyncSession, _NeverCalledSession()),

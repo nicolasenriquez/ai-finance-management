@@ -6,6 +6,46 @@ import { WorkspaceStateBanner } from "../../components/workspace-layout/Workspac
 import { useRoutePrimaryModuleStateController } from "../../features/portfolio-workspace/route-module-state";
 import { HierarchyPivotTable } from "../../features/portfolio-hierarchy/HierarchyPivotTable";
 import { usePortfolioHomeRouteData } from "./hooks/usePortfolioHomeRouteData";
+import {
+  CartesianGrid,
+  Legend,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+
+type HomeEquityChartPoint = {
+  label: string;
+  portfolio: number;
+  benchmark: number;
+};
+
+type TooltipValue = number | string | ReadonlyArray<number | string> | undefined;
+
+const moneyFormatter = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+  maximumFractionDigits: 0,
+});
+
+function toChartDateLabel(capturedAt: string): string {
+  const normalized = capturedAt.slice(0, 10);
+  const [year, month, day] = normalized.split("-");
+  if (!year || !month || !day) {
+    return normalized;
+  }
+  return `${month}/${day}`;
+}
+
+function resolveTooltipNumber(value: TooltipValue): number {
+  if (Array.isArray(value)) {
+    return Number(value[0] ?? 0);
+  }
+  return Number(value ?? 0);
+}
 
 export function PortfolioHomePage() {
   const {
@@ -16,10 +56,8 @@ export function PortfolioHomePage() {
   } = useRoutePrimaryModuleStateController();
   const routeData = usePortfolioHomeRouteData();
 
-  const shouldRenderLoadingSkeleton =
-    isPrimaryModuleLoading || routeData.status === "loading";
-  const shouldRenderBlockingRouteFeedback =
-    shouldRenderBlockingFeedback || routeData.status === "error" || routeData.status === "empty";
+  const shouldRenderLoadingSkeleton = isPrimaryModuleLoading;
+  const shouldRenderBlockingRouteFeedback = shouldRenderBlockingFeedback;
   const routeModuleState =
     routeData.status === "error"
       ? "error"
@@ -29,6 +67,11 @@ export function PortfolioHomePage() {
           ? "ready"
           : moduleState;
   const shouldRenderSuccessFeedback = moduleState === "success" && routeData.status === "ready";
+  const equityChartSeries: HomeEquityChartPoint[] = routeData.equitySeries.map((point) => ({
+    label: toChartDateLabel(point.capturedAt),
+    portfolio: point.portfolioValue,
+    benchmark: point.benchmarkValue,
+  }));
 
   return (
     <CompactDashboardShell
@@ -67,28 +110,45 @@ export function PortfolioHomePage() {
             <>
               <article className="home-module-card primary-module-card">
                 <h3>Equity curve vs benchmark</h3>
-                <ul
-                  className="home-equity-curve"
-                  role="img"
-                  aria-label="Portfolio and benchmark equity curve comparison"
-                >
-                  {routeData.topMovers.map((point) => (
-                    <li key={point.ticker}>
-                      <p className="home-equity-curve__window">{point.ticker}</p>
-                      <div className="home-equity-curve__tracks">
-                        <div className="home-equity-curve__track">
-                          <span>{point.move}</span>
-                        </div>
-                        <div className="home-equity-curve__track home-equity-curve__track--benchmark">
-                          <span>{point.catalyst}</span>
-                        </div>
-                      </div>
-                      <p className="home-equity-curve__spread numeric-value">
-                        {point.catalyst}
-                      </p>
-                    </li>
-                  ))}
-                </ul>
+                <div className="route-primary-chart" role="img" aria-label="Portfolio and benchmark equity curve comparison">
+                  {equityChartSeries.length === 0 ? (
+                    <p className="route-chart-empty">Awaiting equity-curve points for selected scope.</p>
+                  ) : (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={equityChartSeries} margin={{ top: 8, right: 12, left: 8, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                        <XAxis dataKey="label" tick={{ fontSize: 11 }} minTickGap={18} />
+                        <YAxis
+                          tickFormatter={(value: number) => moneyFormatter.format(value)}
+                          tick={{ fontSize: 11 }}
+                          width={94}
+                        />
+                        <Tooltip
+                          formatter={(value: TooltipValue) =>
+                            moneyFormatter.format(resolveTooltipNumber(value))}
+                          labelFormatter={(label) => `Date: ${label}`}
+                        />
+                        <Legend />
+                        <Line
+                          type="monotone"
+                          dataKey="portfolio"
+                          stroke="var(--status-info)"
+                          strokeWidth={2}
+                          dot={false}
+                          name="Portfolio"
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="benchmark"
+                          stroke="var(--status-success)"
+                          strokeWidth={2}
+                          dot={false}
+                          name="Benchmark"
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  )}
+                </div>
                 <StoryContractBlock
                   what="Portfolio equity curve remains above benchmark across observed windows."
                   why="Relative leadership from the strongest holdings supports a modest spread advantage."

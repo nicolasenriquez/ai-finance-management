@@ -71,7 +71,9 @@ class PortfolioRebalancingScenarioConstraints(BaseModel):
     max_position_weight_pct: Decimal | None = Field(
         default=None, gt=Decimal("0"), le=Decimal("100")
     )
-    max_turnover_pct: Decimal | None = Field(default=None, ge=Decimal("0"), le=Decimal("100"))
+    max_turnover_pct: Decimal | None = Field(
+        default=None, ge=Decimal("0"), le=Decimal("100")
+    )
     excluded_symbols: list[str] = Field(default_factory=list[str], max_length=25)
 
     @model_validator(mode="after")

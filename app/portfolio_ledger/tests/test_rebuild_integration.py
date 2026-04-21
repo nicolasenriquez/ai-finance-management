@@ -16,11 +16,18 @@ from sqlalchemy import func, select, table, text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from app.pdf_persistence.models import CanonicalPdfRecord, ImportJob, SourceDocument
-from app.portfolio_ledger.models import DividendEvent, Lot, LotDisposition, PortfolioTransaction
+from app.portfolio_ledger.models import (
+    DividendEvent,
+    Lot,
+    LotDisposition,
+    PortfolioTransaction,
+)
 
 RebuildCallable = Callable[..., Awaitable[Mapping[str, object]]]
 
-_SEED_FIXTURE_PATH = Path(__file__).parent / "fixtures" / "dataset_1_v1_canonical_seed.json"
+_SEED_FIXTURE_PATH = (
+    Path(__file__).parent / "fixtures" / "dataset_1_v1_canonical_seed.json"
+)
 _LEDGER_TABLES: tuple[str, ...] = (
     "portfolio_transaction",
     "dividend_event",
@@ -95,12 +102,16 @@ async def _truncate_tables_if_present(db: AsyncSession) -> None:
     """Truncate known integration tables when they exist."""
 
     existing_tables = [
-        table_name for table_name in _TRUNCATE_CANDIDATES if await _table_exists(db, table_name)
+        table_name
+        for table_name in _TRUNCATE_CANDIDATES
+        if await _table_exists(db, table_name)
     ]
     if not existing_tables:
         return
 
-    truncate_sql = f"TRUNCATE TABLE {', '.join(existing_tables)} RESTART IDENTITY CASCADE"
+    truncate_sql = (
+        f"TRUNCATE TABLE {', '.join(existing_tables)} RESTART IDENTITY CASCADE"
+    )
     await db.execute(text(truncate_sql))
     await db.commit()
 
@@ -1026,7 +1037,9 @@ async def test_rebuild_autobegin_session_isolated_from_caller_transaction_state(
     source_document_id = await _seed_persisted_canonical_input(test_db_session)
 
     # Trigger SQLAlchemy autobegin before rebuild to mirror common pre-check usage.
-    await test_db_session.execute(select(func.count()).select_from(table("source_document")))
+    await test_db_session.execute(
+        select(func.count()).select_from(table("source_document"))
+    )
     assert test_db_session.in_transaction()
 
     await rebuild(source_document_id=source_document_id, db=test_db_session)
@@ -1086,8 +1099,9 @@ async def test_rebuild_fractional_buy_sell_keeps_basis_cent_consistent(
     assert lot_row.unit_cost_basis_usd == Decimal("33.333333333")
     assert lot_row.total_cost_basis_usd == Decimal("33.33")
     assert disposition_row.matched_cost_basis_usd == Decimal("66.67")
-    assert disposition_row.matched_cost_basis_usd + lot_row.total_cost_basis_usd == Decimal(
-        "100.00"
+    assert (
+        disposition_row.matched_cost_basis_usd + lot_row.total_cost_basis_usd
+        == Decimal("100.00")
     )
 
 
@@ -1103,9 +1117,13 @@ async def test_rebuild_fractional_three_partial_sells_preserves_basis_and_open_l
         task_hint="3.3",
     )
     await _truncate_tables_if_present(test_db_session)
-    source_document_id = await _seed_fractional_buy_three_partial_sells_input(test_db_session)
+    source_document_id = await _seed_fractional_buy_three_partial_sells_input(
+        test_db_session
+    )
 
-    rebuild_result = await rebuild(source_document_id=source_document_id, db=test_db_session)
+    rebuild_result = await rebuild(
+        source_document_id=source_document_id, db=test_db_session
+    )
     assert rebuild_result["open_lots"] == 0
 
     lot_result = await test_db_session.execute(
@@ -1154,7 +1172,9 @@ async def test_rebuild_same_day_split_before_sell_uses_canonical_event_order(
     await _truncate_tables_if_present(test_db_session)
     source_document_id = await _seed_same_day_split_before_sell_input(test_db_session)
 
-    rebuild_result = await rebuild(source_document_id=source_document_id, db=test_db_session)
+    rebuild_result = await rebuild(
+        source_document_id=source_document_id, db=test_db_session
+    )
     assert rebuild_result["open_lots"] == 0
     assert rebuild_result["lot_dispositions"] == 1
 

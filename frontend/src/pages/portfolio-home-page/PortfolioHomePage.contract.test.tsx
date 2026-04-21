@@ -8,18 +8,21 @@ import {
   it,
 } from "vitest";
 
+import { AppProviders } from "../../app/providers";
 import { PortfolioHomePage } from "./PortfolioHomePage";
 
 describe("PortfolioHomePage contract", () => {
-  it("4.1 exposes executive home modules with KPI, curve, attention, movers, allocation, and holdings table", () => {
+  it("4.1 exposes executive home modules with KPI, curve, attention, movers, allocation, and holdings table", async () => {
     render(
       <MemoryRouter initialEntries={["/portfolio/home"]}>
-        <PortfolioHomePage />
+        <AppProviders>
+          <PortfolioHomePage />
+        </AppProviders>
       </MemoryRouter>,
     );
 
     expect(
-      screen.getByRole("heading", { level: 2, name: "How is my portfolio doing right now?" }),
+      await screen.findByRole("heading", { level: 2, name: "How is my portfolio doing right now?" }),
     ).not.toBeNull();
     expect(
       screen.getByRole("heading", { level: 3, name: "Equity curve vs benchmark" }),

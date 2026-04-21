@@ -35,7 +35,10 @@ def parse_iso_datetime(value: str) -> datetime:
             "snapshot-captured-at must be an ISO datetime string."
         ) from exc
 
-    if parsed_value.tzinfo is None or parsed_value.tzinfo.utcoffset(parsed_value) is None:
+    if (
+        parsed_value.tzinfo is None
+        or parsed_value.tzinfo.utcoffset(parsed_value) is None
+    ):
         raise argparse.ArgumentTypeError(
             "snapshot-captured-at must include timezone information (for example +00:00 or Z)."
         )

@@ -70,20 +70,30 @@ async def get_portfolio_news_context_response(
             as_of_ledger_at=summary_response.as_of_ledger_at,
             as_of_market_at=summary_response.pricing_snapshot_captured_at,
             evaluated_at=evaluated_at,
-            freshness_policy=PortfolioNewsFreshnessPolicy(max_age_hours=_FRESHNESS_HOURS),
+            freshness_policy=PortfolioNewsFreshnessPolicy(
+                max_age_hours=_FRESHNESS_HOURS
+            ),
             rows=[],
         )
 
     top_rows = sorted(
         summary_response.rows,
-        key=lambda row: row.market_value_usd if row.market_value_usd is not None else zero,
+        key=lambda row: (
+            row.market_value_usd if row.market_value_usd is not None else zero
+        ),
         reverse=True,
     )[:5]
     context_rows: list[PortfolioNewsContextRow] = []
     for row in top_rows:
-        market_value = row.market_value_usd if row.market_value_usd is not None else zero
-        weight_pct = _quantize_weight((market_value / total_market_value) * Decimal("100"))
-        gain_pct = row.unrealized_gain_pct if row.unrealized_gain_pct is not None else zero
+        market_value = (
+            row.market_value_usd if row.market_value_usd is not None else zero
+        )
+        weight_pct = _quantize_weight(
+            (market_value / total_market_value) * Decimal("100")
+        )
+        gain_pct = (
+            row.unrealized_gain_pct if row.unrealized_gain_pct is not None else zero
+        )
         impact_bias = "positive" if gain_pct >= zero else "negative"
         context_rows.append(
             PortfolioNewsContextRow(

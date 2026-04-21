@@ -1,19 +1,34 @@
 import { useMemo } from "react";
 
+import { useQueries } from "@tanstack/react-query";
+
 import {
+  fetchPortfolioContributionResponse,
+  fetchPortfolioHierarchyResponse,
+  fetchPortfolioSummaryResponse,
+  fetchPortfolioTimeSeriesResponse,
   formatPortfolioMoney,
   formatPortfolioPercent,
   getPortfolioContributionRowsByImpact,
   getPortfolioSummaryRowsByMarketValue,
+  isPortfolioContributionEmpty,
+  isPortfolioHierarchyEmpty,
+  isPortfolioSummaryEmpty,
+  isPortfolioTimeSeriesEmpty,
   resolvePortfolioAssetDetailHref,
   resolveTickerActionState,
-  usePortfolioContributionResource,
-  usePortfolioHierarchyResource,
-  usePortfolioSummaryResource,
 } from "../../../core/api/portfolio";
+import {
+  buildPortfolioRouteQueryKey,
+  createPortfolioRouteQueryFn,
+  resolvePortfolioRouteErrorMessage,
+  resolvePortfolioRouteQueryResource,
+  resolvePortfolioRouteStatus,
+} from "../../../core/api/portfolio-route-query";
 
 export type AnalyticsContributionDriver = {
   ticker: string;
+  contributionValue: number;
   contribution: string;
   frame: string;
   consistency: string;
@@ -27,6 +42,12 @@ export type AnalyticsDrillDownRow = {
   posture: string;
 };
 
+export type AnalyticsPerformancePoint = {
+  capturedAt: string;
+  portfolioValue: number;
+  benchmarkValue: number;
+};
+
 export type PortfolioAnalyticsRouteData = {
   status: "loading" | "ready" | "empty" | "error";
   errorMessage: string | null;
@@ -34,6 +55,7 @@ export type PortfolioAnalyticsRouteData = {
   assetDetailHref: string;
   contributionDrivers: AnalyticsContributionDriver[];
   drillDownRows: AnalyticsDrillDownRow[];
+  performanceSeries: AnalyticsPerformancePoint[];
 };
 
 function resolveValue(value: string | number | null | undefined): number {
@@ -42,24 +64,83 @@ function resolveValue(value: string | number | null | undefined): number {
 }
 
 export function usePortfolioAnalyticsRouteData(): PortfolioAnalyticsRouteData {
-  const summary = usePortfolioSummaryResource();
-  const hierarchy = usePortfolioHierarchyResource();
-  const contribution = usePortfolioContributionResource("YTD");
+  const [
+    summaryQuery,
+    hierarchyQuery,
+    contributionQuery,
+    timeSeriesQuery,
+  ] = useQueries({
+    queries: [
+      {
+        queryKey: buildPortfolioRouteQueryKey("/portfolio/summary"),
+        queryFn: createPortfolioRouteQueryFn({
+          path: "/portfolio/summary",
+          loader: fetchPortfolioSummaryResponse,
+        }),
+        retry: false,
+      },
+      {
+        queryKey: buildPortfolioRouteQueryKey("/portfolio/hierarchy", {
+          group_by: "sector",
+        }),
+        queryFn: createPortfolioRouteQueryFn({
+          path: "/portfolio/hierarchy",
+          query: {
+            group_by: "sector",
+          },
+          loader: fetchPortfolioHierarchyResponse,
+        }),
+        retry: false,
+      },
+      {
+        queryKey: buildPortfolioRouteQueryKey("/portfolio/contribution", { period: "YTD" }),
+        queryFn: createPortfolioRouteQueryFn({
+          path: "/portfolio/contribution",
+          query: {
+            period: "YTD",
+          },
+          loader: () => fetchPortfolioContributionResponse("YTD"),
+        }),
+        retry: false,
+      },
+      {
+        queryKey: buildPortfolioRouteQueryKey("/portfolio/time-series", {
+          period: "90D",
+          scope: "portfolio",
+        }),
+        queryFn: createPortfolioRouteQueryFn({
+          path: "/portfolio/time-series",
+          query: {
+            period: "90D",
+            scope: "portfolio",
+          },
+          loader: () => fetchPortfolioTimeSeriesResponse("90D", "portfolio"),
+        }),
+        retry: false,
+      },
+    ],
+  });
 
-  const status = useMemo(() => {
-    if (summary.status === "loading" || hierarchy.status === "loading" || contribution.status === "loading") {
-      return "loading" as const;
-    }
-    if (summary.status === "error" || hierarchy.status === "error" || contribution.status === "error") {
-      return "error" as const;
-    }
-    if (summary.status === "empty" || hierarchy.status === "empty" || contribution.status === "empty") {
-      return "empty" as const;
-    }
-    return "ready" as const;
-  }, [contribution.status, hierarchy.status, summary.status]);
+  const summary = resolvePortfolioRouteQueryResource(
+    summaryQuery,
+    isPortfolioSummaryEmpty,
+  );
+  const hierarchy = resolvePortfolioRouteQueryResource(
+    hierarchyQuery,
+    isPortfolioHierarchyEmpty,
+  );
+  const contribution = resolvePortfolioRouteQueryResource(
+    contributionQuery,
+    isPortfolioContributionEmpty,
+  );
+  const timeSeries = resolvePortfolioRouteQueryResource(
+    timeSeriesQuery,
+    isPortfolioTimeSeriesEmpty,
+  );
 
-  const errorMessage = summary.errorMessage ?? hierarchy.errorMessage ?? contribution.errorMessage;
+  const resources = [summary, hierarchy, contribution, timeSeries];
+  const status = resolvePortfolioRouteStatus(resources);
+  const errorMessage = resolvePortfolioRouteErrorMessage(resources);
 
   const summaryRows = useMemo(
     () => getPortfolioSummaryRowsByMarketValue(summary.data?.rows ?? []),
@@ -82,13 +163,14 @@ export function usePortfolioAnalyticsRouteData(): PortfolioAnalyticsRouteData {
 
   const contributionDrivers = useMemo<AnalyticsContributionDriver[]>(
     () =>
-      contributionRows.slice(0, 3).map((row) => {
+      contributionRows.slice(0, 5).map((row) => {
         const summaryRow = summaryRows.find((candidate) => candidate.instrument_symbol === row.instrument_symbol);
-        const contributionValue = formatPortfolioMoney(row.contribution_pnl_usd);
+        const contributionValue = resolveValue(row.contribution_pnl_usd);
         const consistency = resolveValue(summaryRow?.unrealized_gain_pct) >= 0 ? "Positive" : "Negative";
         return {
           ticker: row.instrument_symbol,
-          contribution: contributionValue,
+          contributionValue,
+          contribution: formatPortfolioMoney(contributionValue),
           frame: sectorBySymbol.get(row.instrument_symbol) ?? "Portfolio contribution",
           consistency,
         };
@@ -98,7 +180,7 @@ export function usePortfolioAnalyticsRouteData(): PortfolioAnalyticsRouteData {
 
   const drillDownRows = useMemo<AnalyticsDrillDownRow[]>(
     () =>
-      summaryRows.slice(0, 3).map((row) => ({
+      summaryRows.slice(0, 6).map((row) => ({
         ticker: row.instrument_symbol,
         sector: sectorBySymbol.get(row.instrument_symbol) ?? "Unassigned",
         contribution: formatPortfolioPercent(row.unrealized_gain_pct, 1),
@@ -108,6 +190,18 @@ export function usePortfolioAnalyticsRouteData(): PortfolioAnalyticsRouteData {
     [sectorBySymbol, summaryRows],
   );
 
+  const performanceSeries = useMemo<AnalyticsPerformancePoint[]>(
+    () =>
+      (timeSeries.data?.points ?? []).slice(-40).map((point) => ({
+        capturedAt: point.captured_at,
+        portfolioValue: resolveValue(point.portfolio_value_usd),
+        benchmarkValue:
+          resolveValue(point.benchmark_sp500_value_usd) ||
+          resolveValue(point.benchmark_nasdaq100_value_usd),
+      })),
+    [timeSeries.data?.points],
+  );
+
   return {
     status,
     errorMessage,
@@ -115,9 +209,11 @@ export function usePortfolioAnalyticsRouteData(): PortfolioAnalyticsRouteData {
       summary.reload();
       hierarchy.reload();
       contribution.reload();
+      timeSeries.reload();
     },
     assetDetailHref: resolvePortfolioAssetDetailHref(summary.data),
     contributionDrivers,
     drillDownRows,
+    performanceSeries,
   };
 }

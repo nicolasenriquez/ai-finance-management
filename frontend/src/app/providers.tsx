@@ -1,4 +1,8 @@
-import type { PropsWithChildren } from "react";
+import {
+  type PropsWithChildren,
+  useEffect,
+  useState,
+} from "react";
 
 import {
   QueryClient,
@@ -7,16 +11,24 @@ import {
 
 import { ThemeProvider } from "./theme";
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      retry: false,
-      refetchOnWindowFocus: false,
-    },
-  },
-});
-
 export function AppProviders({ children }: PropsWithChildren) {
+  const [queryClient] = useState(
+    () =>
+      new QueryClient({
+        defaultOptions: {
+          queries: {
+            retry: false,
+            refetchOnWindowFocus: false,
+          },
+        },
+      }),
+  );
+
+  useEffect(() => () => {
+    void queryClient.cancelQueries();
+    queryClient.clear();
+  }, [queryClient]);
+
   return (
     <ThemeProvider>
       <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>

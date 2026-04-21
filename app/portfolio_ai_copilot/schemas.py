@@ -166,7 +166,9 @@ class PortfolioCopilotChatRequest(BaseModel):
     def validate_scope_constraints(self) -> Self:
         """Enforce scope/symbol symmetry for request safety."""
 
-        normalized_symbol = self.instrument_symbol.strip() if self.instrument_symbol else None
+        normalized_symbol = (
+            self.instrument_symbol.strip() if self.instrument_symbol else None
+        )
         if self.scope == PortfolioQuantReportScope.PORTFOLIO:
             if normalized_symbol:
                 raise ValueError(
@@ -211,7 +213,9 @@ class PortfolioCopilotChatResponse(BaseModel):
 
     state: CopilotResponseState
     answer: str = ""
-    evidence: list[CopilotEvidenceReference] = Field(default_factory=list[CopilotEvidenceReference])
+    evidence: list[CopilotEvidenceReference] = Field(
+        default_factory=list[CopilotEvidenceReference]
+    )
     assumptions: list[str] = Field(default_factory=list[str])
     caveats: list[str] = Field(default_factory=list[str])
     suggested_follow_ups: list[str] = Field(default_factory=list[str], max_length=6)
@@ -238,19 +242,23 @@ class PortfolioCopilotChatResponse(BaseModel):
         }
         answer_value = normalized.get("answer")
         answer_text_value = normalized.get("answer_text")
-        if (not isinstance(answer_value, str) or answer_value.strip() == "") and isinstance(
-            answer_text_value, str
-        ):
+        if (
+            not isinstance(answer_value, str) or answer_value.strip() == ""
+        ) and isinstance(answer_text_value, str):
             normalized["answer"] = answer_text_value
         caveats_value = normalized.get("caveats")
         limitations_value = normalized.get("limitations")
         follow_ups_value = normalized.get("suggested_follow_ups")
         prompt_suggestions_value = normalized.get("prompt_suggestions")
         caveats_count = (
-            len(cast(list[object], caveats_value)) if isinstance(caveats_value, list) else 0
+            len(cast(list[object], caveats_value))
+            if isinstance(caveats_value, list)
+            else 0
         )
         follow_ups_count = (
-            len(cast(list[object], follow_ups_value)) if isinstance(follow_ups_value, list) else 0
+            len(cast(list[object], follow_ups_value))
+            if isinstance(follow_ups_value, list)
+            else 0
         )
         if (caveats_count == 0) and isinstance(limitations_value, list):
             normalized["caveats"] = normalized["limitations"]
@@ -303,7 +311,9 @@ class PortfolioCopilotChatResponse(BaseModel):
             return self
 
         if self.reason_code is None:
-            raise ValueError("reason_code is required when state is 'blocked' or 'error'.")
+            raise ValueError(
+                "reason_code is required when state is 'blocked' or 'error'."
+            )
         self.answer = ""
         if len(self.caveats) == 0 and len(self.limitations) > 0:
             self.caveats = self.limitations
@@ -316,7 +326,10 @@ class PortfolioCopilotChatResponse(BaseModel):
             and self.reason_code not in _BLOCKED_REASON_CODES
         ):
             raise ValueError("Blocked responses must use one blocked reason code.")
-        if self.state == CopilotResponseState.ERROR and self.reason_code not in _ERROR_REASON_CODES:
+        if (
+            self.state == CopilotResponseState.ERROR
+            and self.reason_code not in _ERROR_REASON_CODES
+        ):
             raise ValueError("Error responses must use one error reason code.")
         return self
 

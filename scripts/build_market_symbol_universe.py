@@ -11,7 +11,9 @@ from typing import Final
 import yfinance as yf
 
 _SYMBOL_PATTERN: Final[str] = r"^[A-Z0-9][A-Z0-9.\-]*$"
-_DATASET_DEFAULT_PATH: Final[Path] = Path("app/golden_sets/dataset_1/202602_stocks.json")
+_DATASET_DEFAULT_PATH: Final[Path] = Path(
+    "app/golden_sets/dataset_1/202602_stocks.json"
+)
 _OUTPUT_DEFAULT_PATH: Final[Path] = Path("app/market_data/symbol_universe.v1.json")
 _EQUITY_SCREEN_QUERIES: Final[tuple[str, ...]] = (
     "aggressive_small_caps",
@@ -57,10 +59,14 @@ def _load_required_portfolio_symbols(*, dataset_json_path: Path) -> list[str]:
         raise ValueError("Dataset JSON is missing object field 'tables'.")
     trade_table = tables.get("compra_venta_activos")
     if not isinstance(trade_table, dict):
-        raise ValueError("Dataset JSON is missing object field 'tables.compra_venta_activos'.")
+        raise ValueError(
+            "Dataset JSON is missing object field 'tables.compra_venta_activos'."
+        )
     rows = trade_table.get("rows")
     if not isinstance(rows, list):
-        raise ValueError("Dataset JSON is missing array field 'tables.compra_venta_activos.rows'.")
+        raise ValueError(
+            "Dataset JSON is missing array field 'tables.compra_venta_activos.rows'."
+        )
 
     symbols: list[str] = []
     for row in rows:
@@ -79,7 +85,9 @@ def _load_required_portfolio_symbols(*, dataset_json_path: Path) -> list[str]:
     deduped_symbols = _dedupe_preserve_order(symbols)
     for symbol in deduped_symbols:
         if not _is_valid_symbol(symbol):
-            raise ValueError(f"Dataset symbol is not valid for market-data universe: {symbol}.")
+            raise ValueError(
+                f"Dataset symbol is not valid for market-data universe: {symbol}."
+            )
     return sorted(deduped_symbols)
 
 
@@ -128,7 +136,10 @@ def _collect_etf_candidates() -> list[str]:
         if not isinstance(index_symbol, str):
             continue
         raw_exchange = row.get("exchange")
-        if not isinstance(raw_exchange, str) or raw_exchange not in _LIQUID_US_EXCHANGES:
+        if (
+            not isinstance(raw_exchange, str)
+            or raw_exchange not in _LIQUID_US_EXCHANGES
+        ):
             continue
         symbol = index_symbol.strip().upper()
         if not symbol or not _is_valid_symbol(symbol):
@@ -188,13 +199,17 @@ def _build_symbol_universe_payload(*, dataset_json_path: Path) -> dict[str, obje
     )
     starter_100_symbols = starter_200_symbols[:_STARTER_100_COUNT]
 
-    missing_required_from_100 = sorted(set(required_portfolio_symbols) - set(starter_100_symbols))
+    missing_required_from_100 = sorted(
+        set(required_portfolio_symbols) - set(starter_100_symbols)
+    )
     if missing_required_from_100:
         raise ValueError(
             "starter_100_symbols is missing required portfolio symbols: "
             f"{', '.join(missing_required_from_100)}."
         )
-    missing_required_from_200 = sorted(set(required_portfolio_symbols) - set(starter_200_symbols))
+    missing_required_from_200 = sorted(
+        set(required_portfolio_symbols) - set(starter_200_symbols)
+    )
     if missing_required_from_200:
         raise ValueError(
             "starter_200_symbols is missing required portfolio symbols: "

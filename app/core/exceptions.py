@@ -30,7 +30,9 @@ class ValidationError(DatabaseError):
 
 
 # Global exception handlers
-async def database_exception_handler(request: Request, exc: DatabaseError) -> JSONResponse:
+async def database_exception_handler(
+    request: Request, exc: DatabaseError
+) -> JSONResponse:
     """Handle database exceptions globally.
 
     Args:

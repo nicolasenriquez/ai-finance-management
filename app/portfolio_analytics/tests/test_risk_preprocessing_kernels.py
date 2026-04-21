@@ -111,7 +111,9 @@ def test_risk_quant_kernels_return_deterministic_metrics_for_same_input() -> Non
         task_hint="2.6",
     )
 
-    aligned_timestamps, price_series_by_symbol, open_quantity_by_symbol = _build_aligned_inputs()
+    aligned_timestamps, price_series_by_symbol, open_quantity_by_symbol = (
+        _build_aligned_inputs()
+    )
     price_frame = build_frame(
         aligned_timestamps=aligned_timestamps,
         price_series_by_symbol=price_series_by_symbol,
@@ -183,7 +185,10 @@ def test_risk_preprocessing_rejects_unsorted_timestamps() -> None:
             price_series_by_symbol=price_series_by_symbol,
         )
 
-    assert "sorted" in str(exc_info.value).lower() or "monotonic" in str(exc_info.value).lower()
+    assert (
+        "sorted" in str(exc_info.value).lower()
+        or "monotonic" in str(exc_info.value).lower()
+    )
 
 
 def test_risk_preprocessing_rejects_missing_symbol_alignment_points() -> None:
@@ -220,7 +225,9 @@ def test_risk_quant_kernels_reject_non_positive_price_history() -> None:
         task_hint="2.6",
     )
     client_error_type = _load_client_error_type()
-    aligned_timestamps, price_series_by_symbol, open_quantity_by_symbol = _build_aligned_inputs()
+    aligned_timestamps, price_series_by_symbol, open_quantity_by_symbol = (
+        _build_aligned_inputs()
+    )
 
     price_series_by_symbol["AAPL"][aligned_timestamps[1]] = Decimal("0")
     price_frame = build_frame(
@@ -250,8 +257,8 @@ def test_risk_regression_fixtures_match_default_windows_with_tolerance() -> None
         task_hint="2.9",
     )
 
-    aligned_timestamps, price_series_by_symbol, open_quantity_by_symbol = _build_aligned_inputs(
-        points=300
+    aligned_timestamps, price_series_by_symbol, open_quantity_by_symbol = (
+        _build_aligned_inputs(points=300)
     )
     price_frame = build_frame(
         aligned_timestamps=aligned_timestamps,
@@ -287,8 +294,8 @@ def test_risk_quant_kernels_fail_explicitly_when_scipy_regression_errors(
         task_hint="2.9",
     )
     client_error_type = _load_client_error_type()
-    aligned_timestamps, price_series_by_symbol, open_quantity_by_symbol = _build_aligned_inputs(
-        points=120
+    aligned_timestamps, price_series_by_symbol, open_quantity_by_symbol = (
+        _build_aligned_inputs(points=120)
     )
     price_frame = build_frame(
         aligned_timestamps=aligned_timestamps,
@@ -327,8 +334,8 @@ def test_risk_quant_kernels_fail_explicitly_when_scipy_slope_is_non_finite(
         task_hint="2.9",
     )
     client_error_type = _load_client_error_type()
-    aligned_timestamps, price_series_by_symbol, open_quantity_by_symbol = _build_aligned_inputs(
-        points=120
+    aligned_timestamps, price_series_by_symbol, open_quantity_by_symbol = (
+        _build_aligned_inputs(points=120)
     )
     price_frame = build_frame(
         aligned_timestamps=aligned_timestamps,
@@ -366,7 +373,8 @@ def test_risk_quant_kernels_fail_when_proxy_variance_is_zero() -> None:
     )
     client_error_type = _load_client_error_type()
     aligned_timestamps = [
-        datetime(2025, 1, 1, tzinfo=UTC) + timedelta(days=day_offset) for day_offset in range(120)
+        datetime(2025, 1, 1, tzinfo=UTC) + timedelta(days=day_offset)
+        for day_offset in range(120)
     ]
     price_series_by_symbol = {
         "ONLY": {timestamp: Decimal("100.00") for timestamp in aligned_timestamps}

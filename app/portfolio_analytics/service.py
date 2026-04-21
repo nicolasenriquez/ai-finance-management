@@ -100,7 +100,12 @@ from app.portfolio_analytics.schemas import (
     PortfolioTransactionEvent,
     PortfolioTransactionsResponse,
 )
-from app.portfolio_ledger.models import DividendEvent, Lot, LotDisposition, PortfolioTransaction
+from app.portfolio_ledger.models import (
+    DividendEvent,
+    Lot,
+    LotDisposition,
+    PortfolioTransaction,
+)
 from app.shared.models import utcnow
 
 logger = get_logger(__name__)
@@ -335,7 +340,9 @@ def normalize_chart_period(*, period_value: object) -> PortfolioChartPeriod:
     )
 
 
-def _resolve_period_minimum_timestamp(*, period: PortfolioChartPeriod) -> datetime | None:
+def _resolve_period_minimum_timestamp(
+    *, period: PortfolioChartPeriod
+) -> datetime | None:
     """Return optional period floor timestamp used for aligned-series selection."""
 
     if period != PortfolioChartPeriod.YTD:
@@ -357,7 +364,11 @@ def normalize_chart_scope(
     elif isinstance(scope_value, str):
         normalized_scope_text = scope_value.strip().lower()
         matched_scope: PortfolioQuantReportScope | None = next(
-            (scope for scope in PortfolioQuantReportScope if normalized_scope_text == scope.value),
+            (
+                scope
+                for scope in PortfolioQuantReportScope
+                if normalized_scope_text == scope.value
+            ),
             None,
         )
         if matched_scope is None:
@@ -399,7 +410,9 @@ def normalize_chart_scope(
     return normalized_scope, normalized_instrument_symbol
 
 
-async def get_portfolio_summary_response(*, db: AsyncSession) -> PortfolioSummaryResponse:
+async def get_portfolio_summary_response(
+    *, db: AsyncSession
+) -> PortfolioSummaryResponse:
     """Return grouped portfolio summary computed from persisted ledger truth."""
 
     logger.info("portfolio_analytics.summary_started")
@@ -415,7 +428,9 @@ async def get_portfolio_summary_response(*, db: AsyncSession) -> PortfolioSummar
             )
             dividend_events_result = await db.execute(select(DividendEvent))
 
-            serialized_lots = [_serialize_lot_row(row) for row in lots_result.scalars().all()]
+            serialized_lots = [
+                _serialize_lot_row(row) for row in lots_result.scalars().all()
+            ]
             serialized_lot_dispositions = [
                 _serialize_lot_disposition_row(row)
                 for row in lot_dispositions_result.scalars().all()
@@ -425,17 +440,22 @@ async def get_portfolio_summary_response(*, db: AsyncSession) -> PortfolioSummar
                 for row in sell_transactions_result.scalars().all()
             ]
             serialized_dividends = [
-                _serialize_dividend_event_row(row) for row in dividend_events_result.scalars().all()
+                _serialize_dividend_event_row(row)
+                for row in dividend_events_result.scalars().all()
             ]
 
-            open_position_symbols = collect_open_position_symbols_from_lots(lots=serialized_lots)
+            open_position_symbols = collect_open_position_symbols_from_lots(
+                lots=serialized_lots
+            )
             latest_close_price_usd_by_symbol: dict[str, Decimal] = {}
             pricing_snapshot_key: str | None = None
             pricing_snapshot_captured_at: datetime | None = None
             if open_position_symbols:
-                snapshot_coverage = await resolve_latest_consistent_snapshot_coverage_for_symbols(
-                    db=db,
-                    required_symbols=open_position_symbols,
+                snapshot_coverage = (
+                    await resolve_latest_consistent_snapshot_coverage_for_symbols(
+                        db=db,
+                        required_symbols=open_position_symbols,
+                    )
                 )
                 if snapshot_coverage is None:
                     missing_symbols_csv = ", ".join(sorted(open_position_symbols))
@@ -448,7 +468,9 @@ async def get_portfolio_summary_response(*, db: AsyncSession) -> PortfolioSummar
 
                 validate_open_position_price_coverage(
                     open_position_symbols=open_position_symbols,
-                    priced_symbols=set(snapshot_coverage.latest_close_price_usd_by_symbol),
+                    priced_symbols=set(
+                        snapshot_coverage.latest_close_price_usd_by_symbol
+                    ),
                     snapshot_key=snapshot_coverage.snapshot_key,
                 )
                 latest_close_price_usd_by_symbol = (
@@ -470,7 +492,8 @@ async def get_portfolio_summary_response(*, db: AsyncSession) -> PortfolioSummar
                 pricing_snapshot_key=pricing_snapshot_key,
                 pricing_snapshot_captured_at=pricing_snapshot_captured_at,
                 rows=[
-                    PortfolioSummaryRow.model_validate(row_payload) for row_payload in rows_payload
+                    PortfolioSummaryRow.model_validate(row_payload)
+                    for row_payload in rows_payload
                 ],
             )
     except MarketDataClientError as exc:
@@ -514,14 +537,20 @@ async def get_portfolio_lot_detail_response(
 ) -> PortfolioLotDetailResponse:
     """Return lot-detail analytics for one instrument symbol from persisted ledger truth."""
 
-    normalized_symbol = _normalize_symbol(symbol_value=instrument_symbol, field="instrument_symbol")
-    logger.info("portfolio_analytics.lot_detail_started", instrument_symbol=normalized_symbol)
+    normalized_symbol = _normalize_symbol(
+        symbol_value=instrument_symbol, field="instrument_symbol"
+    )
+    logger.info(
+        "portfolio_analytics.lot_detail_started", instrument_symbol=normalized_symbol
+    )
 
     try:
         async with db.begin():
             await _set_repeatable_read_snapshot(db=db)
             lots_result = await db.execute(
-                select(Lot).where(func.upper(Lot.instrument_symbol) == normalized_symbol),
+                select(Lot).where(
+                    func.upper(Lot.instrument_symbol) == normalized_symbol
+                ),
             )
             lots = lots_result.scalars().all()
             lot_ids = [lot.id for lot in lots]
@@ -557,9 +586,12 @@ async def get_portfolio_lot_detail_response(
             detail_payload = build_lot_detail_from_ledger(
                 instrument_symbol=normalized_symbol,
                 lots=[_serialize_lot_row(row) for row in lots],
-                lot_dispositions=[_serialize_lot_disposition_row(row) for row in lot_dispositions],
+                lot_dispositions=[
+                    _serialize_lot_disposition_row(row) for row in lot_dispositions
+                ],
                 portfolio_transactions=[
-                    _serialize_portfolio_transaction_row(row) for row in sell_transactions
+                    _serialize_portfolio_transaction_row(row)
+                    for row in sell_transactions
                 ],
             )
             as_of_ledger_at = await _fetch_as_of_ledger_at(db=db)
@@ -568,7 +600,9 @@ async def get_portfolio_lot_detail_response(
                 instrument_symbol=cast(str, detail_payload["instrument_symbol"]),
                 lots=[
                     PortfolioLotDetailRow.model_validate(lot_payload)
-                    for lot_payload in cast(list[dict[str, object]], detail_payload["lots"])
+                    for lot_payload in cast(
+                        list[dict[str, object]], detail_payload["lots"]
+                    )
                 ],
             )
     except SQLAlchemyError as exc:
@@ -797,9 +831,12 @@ async def get_portfolio_risk_estimators_response(
     """Return bounded v1 risk estimators with explicit methodology metadata."""
 
     if window_days not in _SUPPORTED_RISK_WINDOWS:
-        supported_windows_csv = ", ".join(str(window) for window in sorted(_SUPPORTED_RISK_WINDOWS))
+        supported_windows_csv = ", ".join(
+            str(window) for window in sorted(_SUPPORTED_RISK_WINDOWS)
+        )
         raise PortfolioAnalyticsClientError(
-            "Unsupported risk window value. " f"Supported windows are: {supported_windows_csv}.",
+            "Unsupported risk window value. "
+            f"Supported windows are: {supported_windows_csv}.",
             status_code=422,
         )
 
@@ -862,12 +899,14 @@ async def get_portfolio_risk_estimators_response(
                     price_series_by_symbol={instrument_symbol: scoped_series},
                 )
                 risk_quantity_by_symbol = {instrument_symbol: Decimal("1")}
-                _benchmark_symbol, benchmark_returns = _select_quantstats_benchmark_returns(
-                    aligned_timestamps=aligned_timestamps,
-                    benchmark_price_series_by_id=_resolve_benchmark_price_series_by_id(
+                _benchmark_symbol, benchmark_returns = (
+                    _select_quantstats_benchmark_returns(
                         aligned_timestamps=aligned_timestamps,
-                        candidate_price_series_by_symbol=candidate_price_series_by_symbol,
-                    ),
+                        benchmark_price_series_by_id=_resolve_benchmark_price_series_by_id(
+                            aligned_timestamps=aligned_timestamps,
+                            candidate_price_series_by_symbol=candidate_price_series_by_symbol,
+                        ),
+                    )
                 )
                 if benchmark_returns is None:
                     raise PortfolioAnalyticsClientError(
@@ -920,7 +959,9 @@ async def get_portfolio_risk_estimators_response(
                 ),
                 PortfolioRiskEstimatorMetric(
                     estimator_id="downside_deviation_annualized",
-                    value=_quantize_ratio(computed_metrics["downside_deviation_annualized"]),
+                    value=_quantize_ratio(
+                        computed_metrics["downside_deviation_annualized"]
+                    ),
                     window_days=window_days,
                     return_basis="simple",
                     annualization_basis=annualization_basis,
@@ -952,11 +993,15 @@ async def get_portfolio_risk_estimators_response(
                 (
                     health_contribution_direction,
                     health_contribution_severity,
-                ) = _resolve_risk_band_health_contribution(interpretation_band=interpretation_band)
+                ) = _resolve_risk_band_health_contribution(
+                    interpretation_band=interpretation_band
+                )
                 metrics.append(
                     metric.model_copy(
                         update={
-                            "unit": _resolve_risk_metric_unit(estimator_id=metric.estimator_id),
+                            "unit": _resolve_risk_metric_unit(
+                                estimator_id=metric.estimator_id
+                            ),
                             "interpretation_band": interpretation_band,
                             "timeline_series_id": metric.estimator_id,
                             "health_contribution_direction": health_contribution_direction,
@@ -1254,7 +1299,8 @@ async def get_portfolio_return_distribution_response(
                     ),
                     count=int(histogram_counts[bucket_index]),
                     frequency=_quantize_ratio(
-                        Decimal(int(histogram_counts[bucket_index])) / Decimal(sample_size)
+                        Decimal(int(histogram_counts[bucket_index]))
+                        / Decimal(sample_size)
                     ),
                 )
                 for bucket_index in range(bin_count)
@@ -1454,7 +1500,9 @@ async def get_portfolio_efficient_frontier_response(
                     "Efficient frontier requires at least one open-position symbol.",
                     status_code=409,
                 )
-            expected_returns_by_symbol = returns_frame.mean().to_numpy(dtype=np.float64) * 252.0
+            expected_returns_by_symbol = (
+                returns_frame.mean().to_numpy(dtype=np.float64) * 252.0
+            )
             covariance_matrix = returns_frame.cov().to_numpy(dtype=np.float64) * 252.0
             if (
                 not np.isfinite(expected_returns_by_symbol).all()
@@ -1587,7 +1635,9 @@ async def get_portfolio_efficient_frontier_response(
             )
             sampled_variances = np.clip(sampled_variances, a_min=1e-12, a_max=None)
             sampled_volatility = np.sqrt(sampled_variances)
-            sampled_sharpe = (sampled_expected_returns - risk_free_rate_annual) / sampled_volatility
+            sampled_sharpe = (
+                sampled_expected_returns - risk_free_rate_annual
+            ) / sampled_volatility
             finite_mask = (
                 np.isfinite(sampled_expected_returns)
                 & np.isfinite(sampled_volatility)
@@ -1667,7 +1717,9 @@ async def get_portfolio_efficient_frontier_response(
                 scope=normalized_scope,
                 instrument_symbol=normalized_instrument_symbol,
                 period=period,
-                risk_free_rate_annual=_quantize_ratio(_EFFICIENT_FRONTIER_RISK_FREE_RATE_ANNUAL),
+                risk_free_rate_annual=_quantize_ratio(
+                    _EFFICIENT_FRONTIER_RISK_FREE_RATE_ANNUAL
+                ),
                 methodology=PortfolioEfficientFrontierMethodology(
                     optimization_model="mean_variance_long_only",
                     sampling_method="dirichlet_mc",
@@ -1857,9 +1909,13 @@ async def generate_portfolio_monte_carlo_response(
     requested_horizon_days = request.horizon_days
     default_horizon_days = _DEFAULT_MONTE_CARLO_HORIZON_BY_PERIOD[request.period]
     effective_horizon_days = (
-        requested_horizon_days if requested_horizon_days is not None else default_horizon_days
+        requested_horizon_days
+        if requested_horizon_days is not None
+        else default_horizon_days
     )
-    effective_seed = request.seed if request.seed is not None else _MONTE_CARLO_DEFAULT_SEED
+    effective_seed = (
+        request.seed if request.seed is not None else _MONTE_CARLO_DEFAULT_SEED
+    )
     logger.info(
         "portfolio_analytics.monte_carlo_started",
         scope=normalized_scope.value,
@@ -1897,7 +1953,9 @@ async def generate_portfolio_monte_carlo_response(
                     status_code=409,
                 )
             if requested_horizon_days is None:
-                effective_horizon_days = min(default_horizon_days, available_return_days)
+                effective_horizon_days = min(
+                    default_horizon_days, available_return_days
+                )
             if effective_horizon_days > available_return_days:
                 raise PortfolioAnalyticsClientError(
                     "Insufficient persisted history for Monte Carlo horizon "
@@ -1905,7 +1963,9 @@ async def generate_portfolio_monte_carlo_response(
                     f"Available return days for scope/period: {available_return_days}.",
                     status_code=409,
                 )
-            simulation_returns = scoped_series.returns_series.tail(effective_horizon_days)
+            simulation_returns = scoped_series.returns_series.tail(
+                effective_horizon_days
+            )
             start_value = _quantize_money(
                 _decimal_from_float(
                     value=float(scoped_series.value_series.iloc[-1]),
@@ -1936,11 +1996,13 @@ async def generate_portfolio_monte_carlo_response(
                 monte_carlo_result=monte_carlo_result,
                 field_name="goal_probability",
             )
-            profile_thresholds_by_id, calibration_context = _resolve_monte_carlo_profile_thresholds(
-                returns_series=scoped_series.returns_series,
-                calibration_basis=request.calibration_basis,
-                manual_bust_threshold=request.bust_threshold,
-                manual_goal_threshold=request.goal_threshold,
+            profile_thresholds_by_id, calibration_context = (
+                _resolve_monte_carlo_profile_thresholds(
+                    returns_series=scoped_series.returns_series,
+                    calibration_basis=request.calibration_basis,
+                    manual_bust_threshold=request.bust_threshold,
+                    manual_goal_threshold=request.goal_threshold,
+                )
             )
             profile_scenarios = (
                 _build_monte_carlo_profile_scenarios(
@@ -2005,7 +2067,9 @@ async def generate_portfolio_monte_carlo_response(
                             )
                         ),
                     )
-                    for percentile, percentile_value in sorted(percentile_values.items())
+                    for percentile, percentile_value in sorted(
+                        percentile_values.items()
+                    )
                 ],
                 profile_comparison_enabled=request.enable_profile_comparison,
                 calibration_context=calibration_context,
@@ -2111,7 +2175,9 @@ async def get_portfolio_quant_metrics_response(
                 ),
             )
             if benchmark_returns is not None:
-                shared_index = returns_series.index.intersection(benchmark_returns.index)
+                shared_index = returns_series.index.intersection(
+                    benchmark_returns.index
+                )
                 if len(shared_index) >= 2:
                     returns_series = returns_series.loc[shared_index]
                     benchmark_returns = benchmark_returns.loc[shared_index]
@@ -2227,7 +2293,9 @@ async def generate_portfolio_quant_report_response(
                 value_series=synthetic_value_series,
                 returns_series=returns_series,
             )
-            health_pillar_scores = {pillar.pillar_id: pillar.score for pillar in health_pillars}
+            health_pillar_scores = {
+                pillar.pillar_id: pillar.score for pillar in health_pillars
+            }
             health_profile_posture = PortfolioHealthProfilePosture.BALANCED
             health_score = _compute_health_score_from_pillar_scores(
                 pillar_scores=health_pillar_scores,
@@ -2447,7 +2515,9 @@ async def get_portfolio_transactions_response(
             event_rows: list[PortfolioTransactionEvent] = []
             for trade_row in trade_rows_result.scalars().all():
                 normalized_trade_side = (
-                    trade_row.trade_side.strip().lower() if trade_row.trade_side else "trade"
+                    trade_row.trade_side.strip().lower()
+                    if trade_row.trade_side
+                    else "trade"
                 )
                 posted_at = datetime.combine(trade_row.event_date, time.min, tzinfo=UTC)
                 event_rows.append(
@@ -2477,7 +2547,9 @@ async def get_portfolio_transactions_response(
                 )
 
             for dividend_row in dividend_rows_result.scalars().all():
-                posted_at = datetime.combine(dividend_row.event_date, time.min, tzinfo=UTC)
+                posted_at = datetime.combine(
+                    dividend_row.event_date, time.min, tzinfo=UTC
+                )
                 event_rows.append(
                     PortfolioTransactionEvent(
                         id=f"dividend:{dividend_row.id}",
@@ -2560,9 +2632,11 @@ async def get_portfolio_hierarchy_response(
             open_position_symbols = collect_open_position_symbols_from_lots(
                 lots=serialized_open_lots
             )
-            snapshot_coverage = await resolve_latest_consistent_snapshot_coverage_for_symbols(
-                db=db,
-                required_symbols=open_position_symbols,
+            snapshot_coverage = (
+                await resolve_latest_consistent_snapshot_coverage_for_symbols(
+                    db=db,
+                    required_symbols=open_position_symbols,
+                )
             )
             if snapshot_coverage is None:
                 missing_symbols_csv = ", ".join(sorted(open_position_symbols))
@@ -2642,10 +2716,12 @@ def build_portfolio_hierarchy_groups(
             symbol_value=raw_symbol,
             field="latest_close_price_usd_by_symbol",
         )
-        normalized_latest_close_price_usd_by_symbol[normalized_symbol] = _coerce_decimal(
-            value=raw_price,
-            field="latest_close_price_usd_by_symbol",
-            context="market_data_price",
+        normalized_latest_close_price_usd_by_symbol[normalized_symbol] = (
+            _coerce_decimal(
+                value=raw_price,
+                field="latest_close_price_usd_by_symbol",
+                context="market_data_price",
+            )
         )
 
     for lot in open_lots:
@@ -2664,17 +2740,23 @@ def build_portfolio_hierarchy_groups(
             context=lot_context,
         )
         opened_on = _coerce_date(
-            value=_read_required_field(record=lot, field="opened_on", context=lot_context),
+            value=_read_required_field(
+                record=lot, field="opened_on", context=lot_context
+            ),
             field="opened_on",
             context=lot_context,
         )
         original_qty = _coerce_decimal(
-            value=_read_required_field(record=lot, field="original_qty", context=lot_context),
+            value=_read_required_field(
+                record=lot, field="original_qty", context=lot_context
+            ),
             field="original_qty",
             context=lot_context,
         )
         remaining_qty = _coerce_decimal(
-            value=_read_required_field(record=lot, field="remaining_qty", context=lot_context),
+            value=_read_required_field(
+                record=lot, field="remaining_qty", context=lot_context
+            ),
             field="remaining_qty",
             context=lot_context,
         )
@@ -2716,9 +2798,9 @@ def build_portfolio_hierarchy_groups(
             }
 
         asset_builder = asset_builder_by_symbol[symbol]
-        asset_builder["open_quantity_raw"] = cast(Decimal, asset_builder["open_quantity_raw"]) + (
-            remaining_qty
-        )
+        asset_builder["open_quantity_raw"] = cast(
+            Decimal, asset_builder["open_quantity_raw"]
+        ) + (remaining_qty)
         asset_builder["open_cost_basis_raw"] = (
             cast(Decimal, asset_builder["open_cost_basis_raw"]) + total_cost_basis_usd
         )
@@ -2846,10 +2928,12 @@ def build_grouped_portfolio_summary_from_ledger(
                 symbol_value=raw_symbol,
                 field="latest_close_price_usd_by_symbol",
             )
-            normalized_latest_close_price_usd_by_symbol[normalized_symbol] = _coerce_decimal(
-                value=raw_price,
-                field="latest_close_price_usd_by_symbol",
-                context="market_data_price",
+            normalized_latest_close_price_usd_by_symbol[normalized_symbol] = (
+                _coerce_decimal(
+                    value=raw_price,
+                    field="latest_close_price_usd_by_symbol",
+                    context="market_data_price",
+                )
             )
 
     open_quantity_by_symbol: dict[str, Decimal] = defaultdict(lambda: Decimal("0"))
@@ -2874,7 +2958,9 @@ def build_grouped_portfolio_summary_from_ledger(
         )
         lot_id_to_symbol[lot_id] = symbol
         remaining_qty = _coerce_decimal(
-            value=_read_required_field(record=lot, field="remaining_qty", context=lot_context),
+            value=_read_required_field(
+                record=lot, field="remaining_qty", context=lot_context
+            ),
             field="remaining_qty",
             context=lot_context,
         )
@@ -2891,7 +2977,9 @@ def build_grouped_portfolio_summary_from_ledger(
             open_cost_basis_by_symbol[symbol] += total_cost_basis_usd
             open_lot_count_by_symbol[symbol] += 1
 
-    realized_cost_basis_by_symbol: dict[str, Decimal] = defaultdict(lambda: Decimal("0"))
+    realized_cost_basis_by_symbol: dict[str, Decimal] = defaultdict(
+        lambda: Decimal("0")
+    )
     disposition_sell_ids_by_symbol: dict[str, set[int]] = defaultdict(set)
 
     for disposition in lot_dispositions:
@@ -2967,7 +3055,9 @@ def build_grouped_portfolio_summary_from_ledger(
             field="instrument_symbol",
         )
         transaction_id = _coerce_positive_int(
-            value=_read_required_field(record=transaction, field="id", context=transaction_context),
+            value=_read_required_field(
+                record=transaction, field="id", context=transaction_context
+            ),
             field="id",
             context=transaction_context,
         )
@@ -3049,14 +3139,18 @@ def build_grouped_portfolio_summary_from_ledger(
     summary_rows: list[dict[str, object]] = []
     for symbol in active_symbols:
         open_quantity = _quantize_qty(open_quantity_by_symbol.get(symbol, Decimal("0")))
-        open_cost_basis_usd = _quantize_money(open_cost_basis_by_symbol.get(symbol, Decimal("0")))
+        open_cost_basis_usd = _quantize_money(
+            open_cost_basis_by_symbol.get(symbol, Decimal("0"))
+        )
         open_lot_count = open_lot_count_by_symbol.get(symbol, 0)
 
         realized_proceeds_usd = _quantize_money(
             sum(
                 (
                     sell_proceeds_by_symbol_and_tx[(symbol, sell_transaction_id)]
-                    for sell_transaction_id in sell_transaction_ids_by_symbol.get(symbol, set())
+                    for sell_transaction_id in sell_transaction_ids_by_symbol.get(
+                        symbol, set()
+                    )
                     if (symbol, sell_transaction_id) in sell_proceeds_by_symbol_and_tx
                 ),
                 start=Decimal("0"),
@@ -3065,17 +3159,27 @@ def build_grouped_portfolio_summary_from_ledger(
         realized_cost_basis_usd = _quantize_money(
             realized_cost_basis_by_symbol.get(symbol, Decimal("0")),
         )
-        realized_gain_usd = _quantize_money(realized_proceeds_usd - realized_cost_basis_usd)
+        realized_gain_usd = _quantize_money(
+            realized_proceeds_usd - realized_cost_basis_usd
+        )
 
-        dividend_gross_usd = _quantize_money(dividend_gross_by_symbol.get(symbol, Decimal("0")))
-        dividend_taxes_usd = _quantize_money(dividend_taxes_by_symbol.get(symbol, Decimal("0")))
-        dividend_net_usd = _quantize_money(dividend_net_by_symbol.get(symbol, Decimal("0")))
+        dividend_gross_usd = _quantize_money(
+            dividend_gross_by_symbol.get(symbol, Decimal("0"))
+        )
+        dividend_taxes_usd = _quantize_money(
+            dividend_taxes_by_symbol.get(symbol, Decimal("0"))
+        )
+        dividend_net_usd = _quantize_money(
+            dividend_net_by_symbol.get(symbol, Decimal("0"))
+        )
         latest_close_price_usd: Decimal | None = None
         market_value_usd: Decimal | None = None
         unrealized_gain_usd: Decimal | None = None
         unrealized_gain_pct: Decimal | None = None
         if open_quantity > Decimal("0"):
-            latest_close_candidate = normalized_latest_close_price_usd_by_symbol.get(symbol)
+            latest_close_candidate = normalized_latest_close_price_usd_by_symbol.get(
+                symbol
+            )
             if latest_close_candidate is not None:
                 latest_close_price_usd = _quantize_money(latest_close_candidate)
                 raw_market_value_usd = open_quantity * latest_close_candidate
@@ -3122,7 +3226,9 @@ def build_grouped_portfolio_summary_from_ledger(
     return summary_rows
 
 
-def collect_open_position_symbols_from_lots(*, lots: Sequence[Mapping[str, object]]) -> set[str]:
+def collect_open_position_symbols_from_lots(
+    *, lots: Sequence[Mapping[str, object]]
+) -> set[str]:
     """Return normalized symbols with positive remaining quantity from lot rows."""
 
     open_position_symbols: set[str] = set()
@@ -3137,7 +3243,9 @@ def collect_open_position_symbols_from_lots(*, lots: Sequence[Mapping[str, objec
             field="instrument_symbol",
         )
         remaining_qty = _coerce_decimal(
-            value=_read_required_field(record=lot, field="remaining_qty", context=lot_context),
+            value=_read_required_field(
+                record=lot, field="remaining_qty", context=lot_context
+            ),
             field="remaining_qty",
             context=lot_context,
         )
@@ -3217,7 +3325,8 @@ async def _load_open_position_price_inputs(
                 status_code=409,
             )
         raise PortfolioAnalyticsClientError(
-            "No open positions are available for requested symbol " f"'{instrument_symbol}'.",
+            "No open positions are available for requested symbol "
+            f"'{instrument_symbol}'.",
             status_code=409,
         )
 
@@ -3310,7 +3419,9 @@ def _build_price_series_by_symbol(
         series_by_symbol[normalized_symbol][captured_at] = price_value
 
     missing_symbols = [
-        symbol for symbol, symbol_series in series_by_symbol.items() if not symbol_series
+        symbol
+        for symbol, symbol_series in series_by_symbol.items()
+        if not symbol_series
     ]
     if missing_symbols:
         missing_symbols_csv = ", ".join(sorted(missing_symbols))
@@ -3350,7 +3461,9 @@ def _build_optional_price_series_by_symbol(
         series_by_symbol[normalized_symbol][captured_at] = price_value
 
     return {
-        symbol: symbol_series for symbol, symbol_series in series_by_symbol.items() if symbol_series
+        symbol: symbol_series
+        for symbol, symbol_series in series_by_symbol.items()
+        if symbol_series
     }
 
 
@@ -3398,7 +3511,9 @@ def _select_aligned_timestamps(
     ordered_timestamps: list[datetime] = sorted(common_timestamps)
     if minimum_timestamp is not None:
         ordered_timestamps = [
-            timestamp for timestamp in ordered_timestamps if timestamp >= minimum_timestamp
+            timestamp
+            for timestamp in ordered_timestamps
+            if timestamp >= minimum_timestamp
         ]
 
     if required_points is not None:
@@ -3711,7 +3826,9 @@ def _compute_risk_metrics_from_price_frame(
     }
 
 
-def _validate_aligned_timestamp_index(*, aligned_timestamps: Sequence[datetime]) -> None:
+def _validate_aligned_timestamp_index(
+    *, aligned_timestamps: Sequence[datetime]
+) -> None:
     """Validate UTC-aware monotonic event-time index without implicit calendar coercion."""
 
     if not aligned_timestamps:
@@ -3753,7 +3870,10 @@ def _resolve_benchmark_price_series_by_id(
     if not aligned_timestamps:
         return resolved_series_by_id
 
-    for benchmark_field, candidate_symbols in _BENCHMARK_CANDIDATE_SYMBOLS_BY_ID.items():
+    for (
+        benchmark_field,
+        candidate_symbols,
+    ) in _BENCHMARK_CANDIDATE_SYMBOLS_BY_ID.items():
         for candidate_symbol in candidate_symbols:
             symbol_series = candidate_price_series_by_symbol.get(candidate_symbol)
             if symbol_series is None:
@@ -3835,7 +3955,9 @@ def build_portfolio_time_series_points(
         }
 
         for benchmark_field, normalized_series in benchmark_value_series_by_id.items():
-            point_payload[benchmark_field] = _quantize_money(normalized_series[captured_at])
+            point_payload[benchmark_field] = _quantize_money(
+                normalized_series[captured_at]
+            )
 
         points.append(point_payload)
     return points
@@ -3879,7 +4001,9 @@ def build_portfolio_contribution_rows(
         contribution_pnl_usd = contribution_pnl_usd_by_symbol[symbol]
         contribution_pct = Decimal("0")
         if total_contribution_pnl != Decimal("0"):
-            contribution_pct = (contribution_pnl_usd / total_contribution_pnl) * Decimal("100")
+            contribution_pct = (
+                contribution_pnl_usd / total_contribution_pnl
+            ) * Decimal("100")
         rows.append(
             {
                 "instrument_symbol": symbol,
@@ -3930,7 +4054,9 @@ def _build_portfolio_returns_series(
         positive_values_error_detail=(
             "Quant metrics require positive historical portfolio values to compute returns."
         ),
-        non_finite_values_error_detail=("Quant metrics require finite aligned return values."),
+        non_finite_values_error_detail=(
+            "Quant metrics require finite aligned return values."
+        ),
     )
 
 
@@ -4291,7 +4417,9 @@ def _resolve_risk_interpretation_band(
 def _resolve_risk_band_health_contribution(
     *,
     interpretation_band: Literal["favorable", "caution", "elevated_risk"],
-) -> tuple[Literal["supporting", "neutral", "penalizing"], Literal["low", "moderate", "high"]]:
+) -> tuple[
+    Literal["supporting", "neutral", "penalizing"], Literal["low", "moderate", "high"]
+]:
     """Map one risk interpretation band into health-contribution metadata."""
 
     if interpretation_band == "favorable":
@@ -4301,7 +4429,9 @@ def _resolve_risk_band_health_contribution(
     return ("neutral", "moderate")
 
 
-def _score_positive_metric(value: float, thresholds: tuple[float, float, float, float]) -> int:
+def _score_positive_metric(
+    value: float, thresholds: tuple[float, float, float, float]
+) -> int:
     """Score one higher-is-better metric into bounded 0..100 band."""
 
     high, medium_high, medium_low, low = thresholds
@@ -4534,7 +4664,9 @@ def _build_health_pillars_and_drivers(
     three_year_annualized_return: float | None = None
     if len(returns_values) >= 756:
         compounded_three_year = float(np.prod(1.0 + returns_values[-756:]) - 1.0)
-        three_year_annualized_return = (1.0 + compounded_three_year) ** (252.0 / 756.0) - 1.0
+        three_year_annualized_return = (1.0 + compounded_three_year) ** (
+            252.0 / 756.0
+        ) - 1.0
     else:
         caveats.append(
             "Three-year annualized return is omitted because fewer than 756 return days are available."
@@ -4552,21 +4684,33 @@ def _build_health_pillars_and_drivers(
     mean_return = float(np.mean(returns_values))
     volatility_daily = float(np.std(returns_values, ddof=1))
     sharpe_ratio = (
-        0.0 if volatility_daily <= 0 else (mean_return / volatility_daily) * np.sqrt(252.0)
+        0.0
+        if volatility_daily <= 0
+        else (mean_return / volatility_daily) * np.sqrt(252.0)
     )
     downside_values = returns_values[returns_values < 0.0]
-    downside_deviation = float(np.std(downside_values, ddof=1)) if downside_values.size > 1 else 0.0
+    downside_deviation = (
+        float(np.std(downside_values, ddof=1)) if downside_values.size > 1 else 0.0
+    )
     sortino_ratio = (
-        0.0 if downside_deviation <= 0.0 else (mean_return / downside_deviation) * np.sqrt(252.0)
+        0.0
+        if downside_deviation <= 0.0
+        else (mean_return / downside_deviation) * np.sqrt(252.0)
     )
     calmar_ratio = 0.0 if max_drawdown == 0 else cagr / abs(max_drawdown)
 
-    recovery_factor = 0.0 if max_drawdown == 0 else cumulative_return / abs(max_drawdown)
-    longest_drawdown_days = _calculate_longest_drawdown_days(drawdown_series=drawdown_series)
+    recovery_factor = (
+        0.0 if max_drawdown == 0 else cumulative_return / abs(max_drawdown)
+    )
+    longest_drawdown_days = _calculate_longest_drawdown_days(
+        drawdown_series=drawdown_series
+    )
     monthly_returns = returns_series.add(1.0).resample("ME").prod().sub(1.0).dropna()
     if len(monthly_returns) == 0:
         win_month = float(np.mean(returns_values > 0.0))
-        caveats.append("Monthly win rate used daily fallback due to sparse month-end observations.")
+        caveats.append(
+            "Monthly win rate used daily fallback due to sparse month-end observations."
+        )
     else:
         win_month = float(np.mean(monthly_returns.to_numpy(dtype=np.float64) > 0.0))
 
@@ -4649,21 +4793,27 @@ def _build_health_pillars_and_drivers(
             metric_id="volatility_annualized",
             label="Volatility (Ann.)",
             raw_value=volatility_annualized,
-            score=_score_negative_metric(volatility_annualized, (0.15, 0.25, 0.35, 0.50)),
+            score=_score_negative_metric(
+                volatility_annualized, (0.15, 0.25, 0.35, 0.50)
+            ),
             display_as="percent",
         ),
         _metric(
             metric_id="expected_shortfall_95",
             label="Expected Shortfall (95%)",
             raw_value=expected_shortfall_95,
-            score=_score_negative_metric(abs(expected_shortfall_95), (0.03, 0.06, 0.10, 0.15)),
+            score=_score_negative_metric(
+                abs(expected_shortfall_95), (0.03, 0.06, 0.10, 0.15)
+            ),
             display_as="percent",
         ),
         _metric(
             metric_id="value_at_risk_95",
             label="Value at Risk (95%)",
             raw_value=value_at_risk_95,
-            score=_score_negative_metric(abs(value_at_risk_95), (0.02, 0.05, 0.08, 0.12)),
+            score=_score_negative_metric(
+                abs(value_at_risk_95), (0.02, 0.05, 0.08, 0.12)
+            ),
             display_as="percent",
         ),
     ]
@@ -4722,7 +4872,9 @@ def _build_health_pillars_and_drivers(
     def _pillar_score(metrics: Sequence[_HealthMetricEvaluation]) -> int:
         if not metrics:
             return 0
-        score_value = float(sum(metric.score for metric in metrics)) / float(len(metrics))
+        score_value = float(sum(metric.score for metric in metrics)) / float(
+            len(metrics)
+        )
         return max(0, min(100, round(score_value)))
 
     pillars_input: list[tuple[str, str, list[_HealthMetricEvaluation]]] = [
@@ -4880,7 +5032,9 @@ def _run_quantstats_monte_carlo(
         )
 
     runtime_module = (
-        quantstats_module if quantstats_module is not None else _load_quantstats_module()
+        quantstats_module
+        if quantstats_module is not None
+        else _load_quantstats_module()
     )
     stats_module = getattr(runtime_module, "stats", None)
     if stats_module is None:
@@ -5002,7 +5156,11 @@ def _resolve_monte_carlo_signal_label(
 def _to_utc_datetime_or_none(timestamp: object) -> datetime | None:
     """Normalize optional pandas timestamps to timezone-aware UTC datetime."""
 
-    if timestamp is None or not isinstance(timestamp, pd.Timestamp) or pd.isna(timestamp):
+    if (
+        timestamp is None
+        or not isinstance(timestamp, pd.Timestamp)
+        or pd.isna(timestamp)
+    ):
         return None
     normalized = timestamp.to_pydatetime()
     if normalized.tzinfo is None:
@@ -5024,7 +5182,9 @@ def _aggregate_returns_for_calibration(
     else:
         return pd.Series(dtype=np.float64)
 
-    compounded_returns = returns_series.add(1.0).resample(frequency).prod().sub(1.0).dropna()
+    compounded_returns = (
+        returns_series.add(1.0).resample(frequency).prod().sub(1.0).dropna()
+    )
     if compounded_returns.empty:
         return pd.Series(dtype=np.float64)
     if not np.isfinite(compounded_returns.to_numpy(dtype=np.float64)).all():
@@ -5073,10 +5233,14 @@ def _resolve_monte_carlo_profile_thresholds(
             PortfolioMonteCarloProfileId.BALANCED
         ]
         base_bust = (
-            manual_bust_threshold if manual_bust_threshold is not None else balanced_defaults[0]
+            manual_bust_threshold
+            if manual_bust_threshold is not None
+            else balanced_defaults[0]
         )
         base_goal = (
-            manual_goal_threshold if manual_goal_threshold is not None else balanced_defaults[1]
+            manual_goal_threshold
+            if manual_goal_threshold is not None
+            else balanced_defaults[1]
         )
         profile_thresholds = {
             PortfolioMonteCarloProfileId.CONSERVATIVE: _coerce_threshold_pair(
@@ -5225,7 +5389,9 @@ def _extract_probability_from_terminal_distribution(
 def _build_monte_carlo_profile_scenarios(
     *,
     terminal_series: pd.Series,
-    profile_thresholds_by_id: Mapping[PortfolioMonteCarloProfileId, tuple[Decimal, Decimal]],
+    profile_thresholds_by_id: Mapping[
+        PortfolioMonteCarloProfileId, tuple[Decimal, Decimal]
+    ],
 ) -> list[PortfolioMonteCarloProfileScenario]:
     """Build deterministic profile scenario rows from one terminal return distribution."""
 
@@ -5506,7 +5672,9 @@ def _build_quant_report_id(
     period_token = _slugify_identifier(period.value)
     as_of_token = as_of_ledger_at.astimezone(UTC).strftime("%Y%m%dt%H%M%SZ").lower()
     generated_token = generated_at.astimezone(UTC).strftime("%Y%m%dt%H%M%SZ").lower()
-    return f"{scope_token}-{symbol_token}-{period_token}-{as_of_token}-{generated_token}"
+    return (
+        f"{scope_token}-{symbol_token}-{period_token}-{as_of_token}-{generated_token}"
+    )
 
 
 def _resolve_quant_report_output_path(*, report_id: str) -> Path:
@@ -5521,7 +5689,9 @@ def _resolve_quant_report_output_path(*, report_id: str) -> Path:
 def _slugify_identifier(value: str) -> str:
     """Normalize text into a deterministic lowercase slug for identifiers."""
 
-    normalized = "".join(character.lower() if character.isalnum() else "-" for character in value)
+    normalized = "".join(
+        character.lower() if character.isalnum() else "-" for character in value
+    )
     collapsed = "-".join(part for part in normalized.split("-") if part)
     return collapsed or "report"
 
@@ -5689,7 +5859,9 @@ def _build_quantstats_metric_rows(
         )
     stats_module = stats_module_raw
 
-    metric_definitions: list[tuple[str, str, str, Literal["percent", "number"], str]] = [
+    metric_definitions: list[
+        tuple[str, str, str, Literal["percent", "number"], str]
+    ] = [
         (
             "total_return",
             "Total Return",
@@ -5786,7 +5958,8 @@ def _build_quantstats_metric_rows(
     if benchmark_returns is None:
         benchmark_context.omitted_metric_ids = ["alpha", "beta"]
         benchmark_context.omission_reason = (
-            "No compatible benchmark return series was available for benchmark-relative " "metrics."
+            "No compatible benchmark return series was available for benchmark-relative "
+            "metrics."
         )
         return rows, benchmark_context
 
@@ -5848,7 +6021,9 @@ def _build_quantstats_optional_benchmark_metric_rows(
         )
 
     rows: list[PortfolioQuantMetric] = []
-    benchmark_metric_definitions: list[tuple[str, str, str, Literal["percent", "number"]]] = [
+    benchmark_metric_definitions: list[
+        tuple[str, str, str, Literal["percent", "number"]]
+    ] = [
         (
             "alpha",
             "Alpha",
@@ -5948,7 +6123,9 @@ def _build_equal_weight_proxy_returns(
                 )
             symbol_returns.append((current_price / previous_price) - Decimal("1"))
 
-        proxy_returns.append(sum(symbol_returns, start=Decimal("0")) / Decimal(len(symbol_returns)))
+        proxy_returns.append(
+            sum(symbol_returns, start=Decimal("0")) / Decimal(len(symbol_returns))
+        )
 
     return proxy_returns
 
@@ -6012,7 +6189,9 @@ def _compute_beta(
     if len(portfolio_returns) != len(proxy_returns) or len(portfolio_returns) < 2:
         return Decimal("0")
 
-    portfolio_mean = sum(portfolio_returns, start=Decimal("0")) / Decimal(len(portfolio_returns))
+    portfolio_mean = sum(portfolio_returns, start=Decimal("0")) / Decimal(
+        len(portfolio_returns)
+    )
     proxy_mean = sum(proxy_returns, start=Decimal("0")) / Decimal(len(proxy_returns))
     covariance = sum(
         (
@@ -6071,7 +6250,9 @@ def build_lot_detail_from_ledger(
             {
                 "lot_id": lot_id,
                 "opened_on": _coerce_date(
-                    value=_read_required_field(record=lot, field="opened_on", context=lot_context),
+                    value=_read_required_field(
+                        record=lot, field="opened_on", context=lot_context
+                    ),
                     field="opened_on",
                     context=lot_context,
                 ),
@@ -6129,12 +6310,16 @@ def build_lot_detail_from_ledger(
             status_code=404,
         )
 
-    lots_by_id = {cast(int, lot_payload["lot_id"]): lot_payload for lot_payload in selected_lots}
+    lots_by_id = {
+        cast(int, lot_payload["lot_id"]): lot_payload for lot_payload in selected_lots
+    }
     sell_gross_amount_by_transaction_id: dict[int, Decimal] = {}
     for transaction in portfolio_transactions:
         transaction_context = "portfolio_transaction"
         transaction_id = _coerce_positive_int(
-            value=_read_required_field(record=transaction, field="id", context=transaction_context),
+            value=_read_required_field(
+                record=transaction, field="id", context=transaction_context
+            ),
             field="id",
             context=transaction_context,
         )
@@ -6173,7 +6358,9 @@ def build_lot_detail_from_ledger(
             field="sell_transaction_id",
             context=disposition_context,
         )
-        sell_gross_amount_usd = sell_gross_amount_by_transaction_id.get(sell_transaction_id)
+        sell_gross_amount_usd = sell_gross_amount_by_transaction_id.get(
+            sell_transaction_id
+        )
         if sell_gross_amount_usd is None:
             raise PortfolioAnalyticsClientError(
                 "Lot disposition references a sell transaction that is missing from ledger input.",
@@ -6215,10 +6402,14 @@ def build_lot_detail_from_ledger(
             ),
             "sell_gross_amount_usd": sell_gross_amount_usd,
         }
-        cast(list[dict[str, object]], lot_payload["dispositions"]).append(disposition_payload)
+        cast(list[dict[str, object]], lot_payload["dispositions"]).append(
+            disposition_payload
+        )
 
     for lot_payload in selected_lots:
-        lot_disposition_payloads = cast(list[dict[str, object]], lot_payload["dispositions"])
+        lot_disposition_payloads = cast(
+            list[dict[str, object]], lot_payload["dispositions"]
+        )
         lot_disposition_payloads.sort(
             key=lambda item: (
                 cast(date, item["disposition_date"]).isoformat(),
@@ -6281,7 +6472,9 @@ def _serialize_lot_row(lot: Lot) -> dict[str, object]:
     }
 
 
-def _serialize_lot_disposition_row(lot_disposition: LotDisposition) -> dict[str, object]:
+def _serialize_lot_disposition_row(
+    lot_disposition: LotDisposition,
+) -> dict[str, object]:
     """Serialize one lot-disposition ORM row for analytics builders."""
 
     return {
@@ -6500,7 +6693,9 @@ def _compute_unrealized_gain_pct(
 
     if open_cost_basis_usd <= Decimal("0"):
         return None
-    return ((unrealized_gain_usd / open_cost_basis_usd) * Decimal("100")).quantize(_PCT_SCALE)
+    return ((unrealized_gain_usd / open_cost_basis_usd) * Decimal("100")).quantize(
+        _PCT_SCALE
+    )
 
 
 async def get_portfolio_command_center_response(
@@ -6585,7 +6780,9 @@ async def get_portfolio_command_center_response(
         as_of_ledger_at=summary_response.as_of_ledger_at,
         as_of_market_at=summary_response.pricing_snapshot_captured_at,
         evaluated_at=evaluated_at,
-        freshness_policy=PortfolioDecisionFreshnessPolicy(max_age_hours=_DECISION_FRESHNESS_HOURS),
+        freshness_policy=PortfolioDecisionFreshnessPolicy(
+            max_age_hours=_DECISION_FRESHNESS_HOURS
+        ),
         net_worth_usd=_quantize_money(total_market_value),
         total_market_value_usd=_quantize_money(total_market_value),
         daily_pnl_usd=_quantize_money(daily_pnl),
@@ -6638,8 +6835,12 @@ async def get_portfolio_exposure_response(
     exposure_by_bucket: dict[str, Decimal] = {}
     for row in summary_response.rows:
         symbol = row.instrument_symbol.strip().upper()
-        market_value = row.market_value_usd if row.market_value_usd is not None else zero
-        bucket_label = _resolve_exposure_bucket_label(dimension=dimension, symbol=symbol)
+        market_value = (
+            row.market_value_usd if row.market_value_usd is not None else zero
+        )
+        bucket_label = _resolve_exposure_bucket_label(
+            dimension=dimension, symbol=symbol
+        )
         previous_value = exposure_by_bucket.get(bucket_label, zero)
         exposure_by_bucket[bucket_label] = previous_value + market_value
 
@@ -6687,7 +6888,9 @@ async def get_portfolio_exposure_response(
         as_of_ledger_at=summary_response.as_of_ledger_at,
         as_of_market_at=summary_response.pricing_snapshot_captured_at,
         evaluated_at=evaluated_at,
-        freshness_policy=PortfolioDecisionFreshnessPolicy(max_age_hours=_DECISION_FRESHNESS_HOURS),
+        freshness_policy=PortfolioDecisionFreshnessPolicy(
+            max_age_hours=_DECISION_FRESHNESS_HOURS
+        ),
         rows=rows,
     )
 
@@ -6733,9 +6936,15 @@ async def get_portfolio_contribution_to_risk_response(
 
     risk_proxy_rows: list[tuple[str, Decimal, Decimal]] = []
     for row in summary_response.rows:
-        market_value = row.market_value_usd if row.market_value_usd is not None else zero
-        weight = market_value / total_market_value if total_market_value > zero else zero
-        raw_gain_pct = row.unrealized_gain_pct if row.unrealized_gain_pct is not None else zero
+        market_value = (
+            row.market_value_usd if row.market_value_usd is not None else zero
+        )
+        weight = (
+            market_value / total_market_value if total_market_value > zero else zero
+        )
+        raw_gain_pct = (
+            row.unrealized_gain_pct if row.unrealized_gain_pct is not None else zero
+        )
         volatility_proxy = (abs(raw_gain_pct) / Decimal("100")) + Decimal("0.10")
         risk_proxy = weight * volatility_proxy
         risk_proxy_rows.append((row.instrument_symbol, risk_proxy, volatility_proxy))
@@ -6767,7 +6976,9 @@ async def get_portfolio_contribution_to_risk_response(
         as_of_ledger_at=summary_response.as_of_ledger_at,
         as_of_market_at=summary_response.pricing_snapshot_captured_at,
         evaluated_at=evaluated_at,
-        freshness_policy=PortfolioDecisionFreshnessPolicy(max_age_hours=_DECISION_FRESHNESS_HOURS),
+        freshness_policy=PortfolioDecisionFreshnessPolicy(
+            max_age_hours=_DECISION_FRESHNESS_HOURS
+        ),
         methodology=methodology,
         rows=normalized_rows,
     )
@@ -6805,7 +7016,9 @@ async def get_portfolio_correlation_response(
         for row in sorted(
             summary_response.rows,
             key=lambda candidate: (
-                candidate.market_value_usd if candidate.market_value_usd is not None else zero
+                candidate.market_value_usd
+                if candidate.market_value_usd is not None
+                else zero
             ),
             reverse=True,
         )
@@ -6849,7 +7062,9 @@ async def get_portfolio_correlation_response(
         as_of_ledger_at=summary_response.as_of_ledger_at,
         as_of_market_at=summary_response.pricing_snapshot_captured_at,
         evaluated_at=evaluated_at,
-        freshness_policy=PortfolioDecisionFreshnessPolicy(max_age_hours=_DECISION_FRESHNESS_HOURS),
+        freshness_policy=PortfolioDecisionFreshnessPolicy(
+            max_age_hours=_DECISION_FRESHNESS_HOURS
+        ),
         symbols=symbols,
         guardrail_max_symbols=_CORRELATION_MAX_SYMBOLS,
         rows=correlation_rows,

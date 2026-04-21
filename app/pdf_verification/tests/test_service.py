@@ -75,7 +75,9 @@ def test_verify_pdf_from_storage_returns_successful_report(tmp_path: Path) -> No
 def test_build_verification_report_includes_mismatch_evidence() -> None:
     """Verification report should include actionable mismatch evidence fields."""
 
-    build_verification_report = _load_callable("build_verification_report", task_hint="3.2")
+    build_verification_report = _load_callable(
+        "build_verification_report", task_hint="3.2"
+    )
 
     expected_records = [
         {

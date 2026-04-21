@@ -46,12 +46,17 @@ def test_settings_defaults() -> None:
         assert settings.market_data_yfinance_max_retries == 1
         assert settings.market_data_yfinance_retry_backoff_seconds == 0.5
         assert settings.market_data_yfinance_request_spacing_seconds == 1.0
-        assert settings.market_data_yfinance_history_fallback_periods == ["3y", "1y", "6mo"]
+        assert settings.market_data_yfinance_history_fallback_periods == [
+            "3y",
+            "1y",
+            "6mo",
+        ]
         assert settings.market_data_yfinance_default_currency == "USD"
         assert settings.market_data_yfinance_auto_adjust is False
         assert settings.market_data_yfinance_repair is False
         assert (
-            settings.market_data_symbol_universe_path == "app/market_data/symbol_universe.v1.json"
+            settings.market_data_symbol_universe_path
+            == "app/market_data/symbol_universe.v1.json"
         )
         assert "http://localhost:3000" in settings.allowed_origins
         assert "http://localhost:8123" in settings.allowed_origins
@@ -102,7 +107,11 @@ def test_settings_from_environment() -> None:
         assert settings.market_data_yfinance_max_retries == 3
         assert settings.market_data_yfinance_retry_backoff_seconds == 1.25
         assert settings.market_data_yfinance_request_spacing_seconds == 0.75
-        assert settings.market_data_yfinance_history_fallback_periods == ["6mo", "3mo", "1mo"]
+        assert settings.market_data_yfinance_history_fallback_periods == [
+            "6mo",
+            "3mo",
+            "1mo",
+        ]
         assert settings.market_data_yfinance_default_currency == "cad"
         assert settings.market_data_yfinance_auto_adjust is False
         assert settings.market_data_yfinance_repair is False

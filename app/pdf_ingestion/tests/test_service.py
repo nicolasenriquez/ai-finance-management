@@ -86,7 +86,9 @@ def test_ingest_pdf_bytes_stores_file_and_returns_metadata(tmp_path: Path) -> No
     assert result.preflight.status == "extractable"
 
 
-def test_load_ingestion_result_from_storage_returns_manifest_metadata(tmp_path: Path) -> None:
+def test_load_ingestion_result_from_storage_returns_manifest_metadata(
+    tmp_path: Path,
+) -> None:
     """Stored ingestion metadata should be recoverable by storage key."""
 
     ingested_result = ingest_pdf_bytes(
@@ -107,14 +109,18 @@ def test_load_ingestion_result_from_storage_returns_manifest_metadata(tmp_path: 
     assert loaded_result == ingested_result
 
 
-def test_load_ingestion_result_from_storage_rejects_missing_manifest(tmp_path: Path) -> None:
+def test_load_ingestion_result_from_storage_rejects_missing_manifest(
+    tmp_path: Path,
+) -> None:
     """Missing metadata manifests should fail explicitly."""
 
     storage_key = "statement.pdf"
     (tmp_path / storage_key).write_bytes(_load_text_pdf_bytes())
 
     with pytest.raises(PdfIngestionClientError) as exc_info:
-        load_ingestion_result_from_storage(storage_key=storage_key, storage_root=tmp_path)
+        load_ingestion_result_from_storage(
+            storage_key=storage_key, storage_root=tmp_path
+        )
 
     assert exc_info.value.status_code == 404
 

@@ -199,7 +199,9 @@ def test_chat_endpoint_contract_surfaces_blocked_state_with_reason_code(
             endpoint_path,
             json={
                 "operation": "chat",
-                "messages": [{"role": "user", "content": "Buy TSLA now and guarantee gains."}],
+                "messages": [
+                    {"role": "user", "content": "Buy TSLA now and guarantee gains."}
+                ],
             },
         )
 
@@ -246,7 +248,9 @@ def test_chat_endpoint_contract_surfaces_error_state_with_reason_code(
             endpoint_path,
             json={
                 "operation": "chat",
-                "messages": [{"role": "user", "content": "Summarize current risk posture."}],
+                "messages": [
+                    {"role": "user", "content": "Summarize current risk posture."}
+                ],
             },
         )
 

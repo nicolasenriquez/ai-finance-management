@@ -21,6 +21,7 @@ import {
   it,
 } from "vitest";
 
+import { AppProviders } from "./providers";
 import { PortfolioAnalyticsPage } from "../pages/portfolio-analytics-page/PortfolioAnalyticsPage";
 import { PortfolioAssetDetailPage } from "../pages/portfolio-asset-detail-page/PortfolioAssetDetailPage";
 import { PortfolioHomePage } from "../pages/portfolio-home-page/PortfolioHomePage";
@@ -37,7 +38,9 @@ describe("accessibility contract", () => {
 
     render(
       <MemoryRouter initialEntries={["/portfolio/home"]}>
-        <PortfolioHomePage />
+        <AppProviders>
+          <PortfolioHomePage />
+        </AppProviders>
       </MemoryRouter>,
     );
 
@@ -64,7 +67,9 @@ describe("accessibility contract", () => {
   it("4.13 keeps non-color-only state cues and semantic heading flow on all five routes", () => {
     render(
       <MemoryRouter initialEntries={["/portfolio/analytics"]}>
-        <PortfolioAnalyticsPage />
+        <AppProviders>
+          <PortfolioAnalyticsPage />
+        </AppProviders>
       </MemoryRouter>,
     );
 
@@ -77,7 +82,9 @@ describe("accessibility contract", () => {
   it("4.13 preserves keyboard/semantic shell structure across risk, signals, and asset detail routes", () => {
     render(
       <MemoryRouter initialEntries={["/portfolio/risk"]}>
-        <PortfolioRiskPage />
+        <AppProviders>
+          <PortfolioRiskPage />
+        </AppProviders>
       </MemoryRouter>,
     );
     expect(screen.getByRole("heading", { level: 2, name: "How fragile is the portfolio?" })).not.toBeNull();
@@ -87,7 +94,9 @@ describe("accessibility contract", () => {
 
     render(
       <MemoryRouter initialEntries={["/portfolio/signals"]}>
-        <PortfolioSignalsPage />
+        <AppProviders>
+          <PortfolioSignalsPage />
+        </AppProviders>
       </MemoryRouter>,
     );
     expect(screen.getByRole("heading", { level: 2, name: "Which opportunities deserve review?" })).not.toBeNull();
@@ -97,12 +106,14 @@ describe("accessibility contract", () => {
 
     render(
       <MemoryRouter initialEntries={["/portfolio/asset-detail/msft"]}>
-        <Routes>
-          <Route
-            path="/portfolio/asset-detail/:ticker"
-            element={<PortfolioAssetDetailPage />}
-          />
-        </Routes>
+        <AppProviders>
+          <Routes>
+            <Route
+              path="/portfolio/asset-detail/:ticker"
+              element={<PortfolioAssetDetailPage />}
+            />
+          </Routes>
+        </AppProviders>
       </MemoryRouter>,
     );
     expect(screen.getByRole("heading", { level: 2, name: "MSFT deep dive" })).not.toBeNull();

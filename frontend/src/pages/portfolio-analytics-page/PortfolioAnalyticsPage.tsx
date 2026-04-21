@@ -5,52 +5,20 @@ import { PrimaryModuleStateFeedback } from "../../components/workspace-layout/Pr
 import { WorkspaceStateBanner } from "../../components/workspace-layout/WorkspaceStateBanner";
 import { useRoutePrimaryModuleStateController } from "../../features/portfolio-workspace/route-module-state";
 import { usePortfolioAnalyticsRouteData } from "./hooks/usePortfolioAnalyticsRouteData";
-
-type PerformanceCurvePoint = {
-  period: string;
-  portfolio: string;
-  benchmark: string;
-  portfolioWidth: string;
-  benchmarkWidth: string;
-};
-
-const PERFORMANCE_CURVE_POINTS: PerformanceCurvePoint[] = [
-  {
-    period: "Q1",
-    portfolio: "+5.1%",
-    benchmark: "+3.9%",
-    portfolioWidth: "76%",
-    benchmarkWidth: "62%",
-  },
-  {
-    period: "Q2",
-    portfolio: "+4.2%",
-    benchmark: "+3.1%",
-    portfolioWidth: "72%",
-    benchmarkWidth: "58%",
-  },
-  {
-    period: "Q3",
-    portfolio: "+3.3%",
-    benchmark: "+2.4%",
-    portfolioWidth: "68%",
-    benchmarkWidth: "53%",
-  },
-];
-
-type AttributionWaterfallStep = {
-  bucket: string;
-  impact: string;
-  width: string;
-  tone: "positive" | "negative";
-};
-
-const ATTRIBUTION_WATERFALL_STEPS: AttributionWaterfallStep[] = [
-  { bucket: "Sector selection", impact: "+96 bps", width: "82%", tone: "positive" },
-  { bucket: "Stock selection", impact: "+128 bps", width: "92%", tone: "positive" },
-  { bucket: "FX drag", impact: "-24 bps", width: "38%", tone: "negative" },
-  { bucket: "Fees", impact: "-8 bps", width: "26%", tone: "negative" },
-];
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  ComposedChart,
+  Legend,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 
 type MonthlyHeatmapCell = {
   month: string;
@@ -81,6 +49,62 @@ const ROLLING_RETURN_WINDOWS: RollingReturnPoint[] = [
   { window: "180D", portfolio: "+9.5%", benchmark: "+7.0%", spread: "+250 bps" },
 ];
 
+type PerformanceChartPoint = {
+  label: string;
+  portfolio: number;
+  benchmark: number;
+};
+
+type ContributionRankPoint = {
+  ticker: string;
+  impact: number;
+};
+
+type WaterfallPoint = {
+  label: string;
+  delta: number;
+  cumulative: number;
+};
+
+type TooltipValue = number | string | ReadonlyArray<number | string> | undefined;
+
+const moneyFormatter = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+  maximumFractionDigits: 0,
+});
+
+function toChartDateLabel(capturedAt: string): string {
+  const normalized = capturedAt.slice(0, 10);
+  const [year, month, day] = normalized.split("-");
+  if (!year || !month || !day) {
+    return normalized;
+  }
+  return `${month}/${day}`;
+}
+
+function buildAttributionWaterfallSeries(
+  points: ContributionRankPoint[],
+): WaterfallPoint[] {
+  let cumulative = 0;
+  const rows = points.map((point) => {
+    cumulative += point.impact;
+    return {
+      label: point.ticker,
+      delta: point.impact,
+      cumulative,
+    };
+  });
+  return rows;
+}
+
+function resolveTooltipNumber(value: TooltipValue): number {
+  if (Array.isArray(value)) {
+    return Number(value[0] ?? 0);
+  }
+  return Number(value ?? 0);
+}
+
 export function PortfolioAnalyticsPage() {
   const {
     moduleState,
@@ -89,10 +113,8 @@ export function PortfolioAnalyticsPage() {
     retryModuleLoad,
   } = useRoutePrimaryModuleStateController();
   const routeData = usePortfolioAnalyticsRouteData();
-  const shouldRenderLoadingSkeleton =
-    isPrimaryModuleLoading || routeData.status === "loading";
-  const shouldRenderBlockingRouteFeedback =
-    shouldRenderBlockingFeedback || routeData.status === "error" || routeData.status === "empty";
+  const shouldRenderLoadingSkeleton = isPrimaryModuleLoading;
+  const shouldRenderBlockingRouteFeedback = shouldRenderBlockingFeedback;
   const routeModuleState =
     routeData.status === "error"
       ? "error"
@@ -106,6 +128,23 @@ export function PortfolioAnalyticsPage() {
     .slice(0, 2)
     .map((driver) => driver.ticker)
     .join(" and ");
+  const performanceChartSeries: PerformanceChartPoint[] = routeData.performanceSeries.map((point) => ({
+    label: toChartDateLabel(point.capturedAt),
+    portfolio: point.portfolioValue,
+    benchmark: point.benchmarkValue,
+  }));
+  const contributionRankSeries: ContributionRankPoint[] = routeData.contributionDrivers
+    .slice(0, 5)
+    .map((driver) => ({
+      ticker: driver.ticker,
+      impact: driver.contributionValue,
+    }));
+  const attributionWaterfallSeries = buildAttributionWaterfallSeries(
+    routeData.contributionDrivers.slice(0, 4).map((driver) => ({
+      ticker: driver.ticker,
+      impact: driver.contributionValue,
+    })),
+  );
 
   return (
     <CompactDashboardShell
@@ -137,29 +176,34 @@ export function PortfolioAnalyticsPage() {
             <>
               <article className="analytics-module-card primary-module-card">
                 <h3>Performance curve</h3>
-                <ul
-                  className="analytics-performance-curve"
-                  role="img"
-                  aria-label="Portfolio and benchmark performance curve"
-                >
-                  {PERFORMANCE_CURVE_POINTS.map((point) => (
-                    <li key={point.period}>
-                      <p className="analytics-performance-curve__period">{point.period}</p>
-                      <div className="analytics-performance-curve__bars">
-                        <div className="analytics-performance-curve__bar">
-                          <span style={{ width: point.portfolioWidth }}>
-                            Portfolio {point.portfolio}
-                          </span>
-                        </div>
-                        <div className="analytics-performance-curve__bar analytics-performance-curve__bar--benchmark">
-                          <span style={{ width: point.benchmarkWidth }}>
-                            Benchmark {point.benchmark}
-                          </span>
-                        </div>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
+                <div className="route-primary-chart" role="img" aria-label="Portfolio and benchmark performance curve">
+                  {performanceChartSeries.length === 0 ? (
+                    <p className="route-chart-empty">Awaiting relative-performance points for selected scope.</p>
+                  ) : (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart
+                        data={performanceChartSeries}
+                        margin={{ top: 8, right: 12, left: 8, bottom: 0 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                        <XAxis dataKey="label" tick={{ fontSize: 11 }} minTickGap={18} />
+                        <YAxis
+                          tickFormatter={(value: number) => moneyFormatter.format(value)}
+                          tick={{ fontSize: 11 }}
+                          width={94}
+                        />
+                        <Tooltip
+                          formatter={(value: TooltipValue) =>
+                            moneyFormatter.format(resolveTooltipNumber(value))}
+                          labelFormatter={(label) => `Date: ${label}`}
+                        />
+                        <Legend />
+                        <Line type="monotone" dataKey="portfolio" stroke="var(--status-info)" strokeWidth={2} dot={false} name="Portfolio" />
+                        <Line type="monotone" dataKey="benchmark" stroke="var(--status-success)" strokeWidth={2} dot={false} name="Benchmark" />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  )}
+                </div>
                 <StoryContractBlock
                   what="Portfolio return stays above benchmark across the visible periods."
                   why="Relative leadership from the highest-conviction holdings supports the spread."
@@ -170,19 +214,49 @@ export function PortfolioAnalyticsPage() {
 
               <article className="analytics-module-card primary-module-card">
                 <h3>Attribution waterfall</h3>
-                <ol className="analytics-waterfall-list">
-                  {ATTRIBUTION_WATERFALL_STEPS.map((step) => (
-                    <li key={step.bucket} data-tone={step.tone}>
-                      <p className="analytics-waterfall-list__row">
-                        <span>{step.bucket}</span>
-                        <span className="numeric-value">{step.impact}</span>
-                      </p>
-                      <div className="analytics-waterfall-list__bar">
-                        <span style={{ width: step.width }} />
-                      </div>
-                    </li>
-                  ))}
-                </ol>
+                <div className="route-primary-chart" role="img" aria-label="Portfolio attribution waterfall chart">
+                  {attributionWaterfallSeries.length === 0 ? (
+                    <p className="route-chart-empty">Attribution waterfall pending contribution payload.</p>
+                  ) : (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <ComposedChart
+                        data={attributionWaterfallSeries}
+                        margin={{ top: 8, right: 12, left: 8, bottom: 0 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                        <XAxis dataKey="label" tick={{ fontSize: 11 }} />
+                        <YAxis
+                          tickFormatter={(value: number) => moneyFormatter.format(value)}
+                          tick={{ fontSize: 11 }}
+                          width={90}
+                        />
+                        <Tooltip
+                          formatter={(value: TooltipValue, name) => [
+                            moneyFormatter.format(resolveTooltipNumber(value)),
+                            name === "delta" ? "Impact" : "Cumulative",
+                          ]}
+                        />
+                        <Legend />
+                        <Bar dataKey="delta" name="Impact">
+                          {attributionWaterfallSeries.map((point) => (
+                            <Cell
+                              key={point.label}
+                              fill={point.delta >= 0 ? "var(--status-success)" : "var(--status-error)"}
+                            />
+                          ))}
+                        </Bar>
+                        <Line
+                          dataKey="cumulative"
+                          type="monotone"
+                          stroke="var(--status-info)"
+                          strokeWidth={2}
+                          dot={false}
+                          name="Cumulative"
+                        />
+                      </ComposedChart>
+                    </ResponsiveContainer>
+                  )}
+                </div>
                 <StoryContractBlock
                   what="Attribution remains net positive after sector and stock-selection effects."
                   why="Selection alpha offsets smaller FX and fee drags."
@@ -193,26 +267,39 @@ export function PortfolioAnalyticsPage() {
 
               <article className="analytics-module-card primary-module-card">
                 <h3>Contribution leaders</h3>
-                <table className="route-metric-table">
-                  <thead>
-                    <tr>
-                      <th scope="col">Ticker</th>
-                      <th scope="col">Contribution</th>
-                      <th scope="col">Driver</th>
-                      <th scope="col">Consistency</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {routeData.contributionDrivers.map((driver) => (
-                      <tr key={driver.ticker}>
-                        <td>{driver.ticker}</td>
-                        <td>{driver.contribution}</td>
-                        <td>{driver.frame}</td>
-                        <td>{driver.consistency}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <div className="route-primary-chart" role="img" aria-label="Portfolio contribution ranking chart">
+                  {contributionRankSeries.length === 0 ? (
+                    <p className="route-chart-empty">Contribution ranking pending contribution payload.</p>
+                  ) : (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart
+                        data={contributionRankSeries}
+                        layout="vertical"
+                        margin={{ top: 8, right: 12, left: 8, bottom: 0 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                        <XAxis
+                          type="number"
+                          tickFormatter={(value: number) => moneyFormatter.format(value)}
+                          tick={{ fontSize: 11 }}
+                        />
+                        <YAxis type="category" dataKey="ticker" tick={{ fontSize: 11 }} width={52} />
+                        <Tooltip
+                          formatter={(value: TooltipValue) =>
+                            moneyFormatter.format(resolveTooltipNumber(value))}
+                        />
+                        <Bar dataKey="impact" name="Contribution">
+                          {contributionRankSeries.map((point) => (
+                            <Cell
+                              key={point.ticker}
+                              fill={point.impact >= 0 ? "var(--status-success)" : "var(--status-error)"}
+                            />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  )}
+                </div>
                 <StoryContractBlock
                   what={`${topContributorLabels} remain the strongest contribution leaders.`}
                   why="Contribution breadth is still concentrated in a small number of sleeves."

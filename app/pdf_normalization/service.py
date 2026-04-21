@@ -9,7 +9,10 @@ from typing import NoReturn
 
 from app.core.logging import get_logger
 from app.pdf_extraction.schemas import PdfExtractedRow
-from app.pdf_extraction.service import PdfExtractionClientError, extract_pdf_from_storage
+from app.pdf_extraction.service import (
+    PdfExtractionClientError,
+    extract_pdf_from_storage,
+)
 from app.pdf_normalization.schemas import (
     CanonicalDividendRecord,
     CanonicalRecord,
@@ -108,7 +111,10 @@ def parse_decimal_comma_value(
         )
 
     ascii_value = (
-        normalized_value.replace("US $", "").replace("US$", "").replace("$", "").replace(" ", "")
+        normalized_value.replace("US $", "")
+        .replace("US$", "")
+        .replace("$", "")
+        .replace(" ", "")
     )
     integer_part, comma, decimal_part = ascii_value.partition(",")
     normalized_numeric = integer_part.replace(".", "")
@@ -347,7 +353,9 @@ def normalize_split_row(
     )
 
 
-def normalize_pdf_from_storage(*, storage_key: str, storage_root: Path) -> PdfNormalizationResult:
+def normalize_pdf_from_storage(
+    *, storage_key: str, storage_root: Path
+) -> PdfNormalizationResult:
     """Normalize extracted dataset 1 rows into canonical records."""
 
     logger.info("pdf_normalization.execution_started", storage_key=storage_key)

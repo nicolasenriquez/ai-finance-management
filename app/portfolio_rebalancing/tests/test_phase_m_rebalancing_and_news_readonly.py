@@ -11,7 +11,10 @@ from fastapi.testclient import TestClient
 from app.core.config import get_settings
 from app.core.database import get_db
 from app.main import app
-from app.portfolio_analytics.schemas import PortfolioSummaryResponse, PortfolioSummaryRow
+from app.portfolio_analytics.schemas import (
+    PortfolioSummaryResponse,
+    PortfolioSummaryRow,
+)
 
 
 class _FakeDbSession:

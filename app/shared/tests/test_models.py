@@ -35,7 +35,9 @@ def test_timestamp_mixin_creates_columns() -> None:
 
 @pytest.mark.asyncio
 @pytest.mark.integration
-async def test_timestamp_mixin_sets_timestamps_on_creation(db_session: AsyncSession) -> None:
+async def test_timestamp_mixin_sets_timestamps_on_creation(
+    db_session: AsyncSession,
+) -> None:
     """Test that timestamps are automatically set on model creation."""
     # Create test instance
     before = datetime.now(UTC)
@@ -50,8 +52,12 @@ async def test_timestamp_mixin_sets_timestamps_on_creation(db_session: AsyncSess
     assert test_instance.updated_at is not None
 
     # Verify timestamps are within expected range
-    assert before <= test_instance.created_at <= after  # pyright: ignore[reportGeneralTypeIssues]
-    assert before <= test_instance.updated_at <= after  # pyright: ignore[reportGeneralTypeIssues]
+    assert (
+        before <= test_instance.created_at <= after
+    )  # pyright: ignore[reportGeneralTypeIssues]
+    assert (
+        before <= test_instance.updated_at <= after
+    )  # pyright: ignore[reportGeneralTypeIssues]
 
     # Verify created_at and updated_at are approximately the same (within 1ms)
     time_diff = abs(

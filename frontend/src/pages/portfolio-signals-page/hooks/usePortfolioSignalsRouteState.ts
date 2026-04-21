@@ -1,14 +1,25 @@
 import { useMemo } from "react";
 
+import { useQueries } from "@tanstack/react-query";
+
 import {
+  fetchPortfolioHierarchyResponse,
+  fetchPortfolioSummaryResponse,
   formatPortfolioMoney,
   formatPortfolioPercent,
   getPortfolioSummaryRowsByContribution,
   getPortfolioSummaryRowsByMarketValue,
+  isPortfolioHierarchyEmpty,
+  isPortfolioSummaryEmpty,
   resolvePortfolioAssetDetailHref,
-  usePortfolioHierarchyResource,
-  usePortfolioSummaryResource,
 } from "../../../core/api/portfolio";
+import {
+  buildPortfolioRouteQueryKey,
+  createPortfolioRouteQueryFn,
+  resolvePortfolioRouteErrorMessage,
+  resolvePortfolioRouteQueryResource,
+  resolvePortfolioRouteStatus,
+} from "../../../core/api/portfolio-route-query";
 import { RESEARCH_METRIC_AVAILABILITY } from "../../../features/portfolio-workspace/research-metric-availability";
 import {
   getDashboardResearchControls,
@@ -21,6 +32,7 @@ import {
   formatSourceContractEvidence,
   listSourceContracts,
   resolveSourceContractHealth,
+  type SourceContractCategory,
   type SourceContractHealth,
   type SourceContractRegistry,
 } from "../../../features/portfolio-workspace/source-contracts";
@@ -36,31 +48,18 @@ type TrendRegimeRow = {
   sleeve: string;
   regime: string;
   posture: string;
+  reasonCode: string;
 };
-
-const TREND_REGIME_SUMMARY: TrendRegimeRow[] = [
-  {
-    sleeve: "Portfolio leadership",
-    regime: "Uptrend intact",
-    posture: "Hold winners",
-  },
-  {
-    sleeve: "Defensive basket",
-    regime: "Rotation stabilizing",
-    posture: "Watch for add",
-  },
-  {
-    sleeve: "Cyclical pocket",
-    regime: "Range-bound",
-    posture: "Wait for breakout",
-  },
-];
 
 type MomentumRankedCandidate = {
   ticker: string;
   momentumScore: number;
   trend: string;
   setup: string;
+  reasonCode: string;
+  actionState: RouteDecisionState;
+  freshnessCue: string;
+  confidenceCue: string;
 };
 
 type TechnicalSignalRow = {
@@ -69,12 +68,19 @@ type TechnicalSignalRow = {
   atr: string;
   trigger: string;
   requestedState: RouteDecisionState;
+  reasonCode: string;
+  freshnessCue: string;
+  confidenceCue: string;
 };
 
 type WatchlistCandidate = {
   ticker: string;
   note: string;
   valuation: string;
+  reasonCode: string;
+  actionState: RouteDecisionState;
+  freshnessCue: string;
+  confidenceCue: string;
 };
 
 // research data pending: fundamental contract is not connected for this metric.
@@ -157,6 +163,14 @@ const SAMPLE_YFINANCE_TECHNICAL_PAYLOAD: YFinanceTechnicalPayload = {
   ],
 };
 
+function requireSignalsContract(category: SourceContractCategory) {
+  const contract = SIGNALS_SOURCE_CONTRACTS[category];
+  if (!contract) {
+    throw new Error(`signals source contract missing: ${category}`);
+  }
+  return contract;
+}
+
 function resolveValue(value: string | number | null | undefined): number {
   const normalized = Number(value);
   return Number.isFinite(normalized) ? normalized : 0;
@@ -216,7 +230,36 @@ function resolveRequestedState(
   return "wait";
 }
 
+function resolveTrendRegimePosture(totalChangePct: number): {
+  regime: string;
+  posture: string;
+  reasonCode: string;
+} {
+  if (totalChangePct >= 8) {
+    return {
+      regime: "Trend extension",
+      posture: "Hold / selective add",
+      reasonCode: "trend_extension_above_8pct",
+    };
+  }
+  if (totalChangePct >= 0) {
+    return {
+      regime: "Constructive range",
+      posture: "Watch for continuation",
+      reasonCode: "range_constructive_non_negative",
+    };
+  }
+  return {
+    regime: "Pressure regime",
+    posture: "De-risk / wait",
+    reasonCode: "downside_pressure_negative_change",
+  };
+}
+
 export type PortfolioSignalsRouteState = {
+  status: "loading" | "ready" | "empty" | "error";
+  errorMessage: string | null;
+  reload: () => void;
   trendRegimeSummary: TrendRegimeRow[];
   momentumRanking: MomentumRankedCandidate[];
   technicalSignalRows: Array<TechnicalSignalRow & { decisionState: RouteDecisionState }>;
@@ -245,8 +288,43 @@ export type PortfolioSignalsRouteState = {
 export function usePortfolioSignalsRouteState(): PortfolioSignalsRouteState {
   const isPrimaryModuleLoading = useIsPrimaryModuleLoading();
   const researchControls = getDashboardResearchControls();
-  const summary = usePortfolioSummaryResource();
-  const hierarchy = usePortfolioHierarchyResource();
+  const [summaryQuery, hierarchyQuery] = useQueries({
+    queries: [
+      {
+        queryKey: buildPortfolioRouteQueryKey("/portfolio/summary"),
+        queryFn: createPortfolioRouteQueryFn({
+          path: "/portfolio/summary",
+          loader: fetchPortfolioSummaryResponse,
+        }),
+        retry: false,
+      },
+      {
+        queryKey: buildPortfolioRouteQueryKey("/portfolio/hierarchy", {
+          group_by: "sector",
+        }),
+        queryFn: createPortfolioRouteQueryFn({
+          path: "/portfolio/hierarchy",
+          query: {
+            group_by: "sector",
+          },
+          loader: fetchPortfolioHierarchyResponse,
+        }),
+        retry: false,
+      },
+    ],
+  });
+
+  const summary = resolvePortfolioRouteQueryResource(
+    summaryQuery,
+    isPortfolioSummaryEmpty,
+  );
+  const hierarchy = resolvePortfolioRouteQueryResource(
+    hierarchyQuery,
+    isPortfolioHierarchyEmpty,
+  );
+  const resources = [summary, hierarchy];
+  const status = resolvePortfolioRouteStatus(resources);
+  const errorMessage = resolvePortfolioRouteErrorMessage(resources);
 
   const summaryRowsByMarketValue = useMemo(
     () => getPortfolioSummaryRowsByMarketValue(summary.data?.rows ?? []),
@@ -303,6 +381,9 @@ export function usePortfolioSignalsRouteState(): PortfolioSignalsRouteState {
     "reference_metadata",
     "derived_signals",
   ]);
+  const derivedSignalsContract = requireSignalsContract("derived_signals");
+  const marketPricesContract = requireSignalsContract("market_prices");
+  const fundamentalsContract = requireSignalsContract("fundamentals");
 
   const routeDegradeReasons: string[] = [];
   if (!technicalSignalsGate.enabled) {
@@ -316,17 +397,37 @@ export function usePortfolioSignalsRouteState(): PortfolioSignalsRouteState {
   }
 
   const routeMessage =
-    routeDegradeReasons.length > 0
-      ? `signals route readiness capped: ${routeDegradeReasons[0]}`
-      : summaryRowsByMarketValue.length > 0
-        ? `signals route is ready with ${summaryRowsByMarketValue.length} live holdings from the portfolio ledger.`
-        : "signals route waiting for live holdings from the portfolio ledger.";
+    status === "loading"
+      ? "Signals route is loading tactical context from portfolio summary and hierarchy contracts."
+      : status === "error"
+        ? `Signals route failed to load: ${errorMessage ?? "unknown error."}`
+        : status === "empty"
+          ? "No holdings available for tactical opportunity ranking in the selected scope."
+          : routeDegradeReasons.length > 0
+            ? `signals route readiness capped: ${routeDegradeReasons[0]}`
+            : summaryRowsByMarketValue.length > 0
+              ? `signals route is ready with ${summaryRowsByMarketValue.length} live holdings from the portfolio ledger.`
+              : "signals route waiting for live holdings from the portfolio ledger.";
+
+  const trendRegimeSummary: TrendRegimeRow[] = (hierarchy.data?.groups ?? []).slice(0, 3).map((group) => {
+    const posture = resolveTrendRegimePosture(resolveValue(group.total_change_pct));
+    return {
+      sleeve: group.group_label,
+      regime: posture.regime,
+      posture: posture.posture,
+      reasonCode: posture.reasonCode,
+    };
+  });
 
   const momentumRanking = summaryRowsByContribution.slice(0, 3).map((row, index) => ({
     ticker: row.instrument_symbol,
     momentumScore: resolveMomentumScore(row.unrealized_gain_pct, index),
     trend: resolveTrendLabel(row.unrealized_gain_pct),
     setup: resolveSetupLabel(row.unrealized_gain_pct),
+    reasonCode: `momentum_rank_${index + 1}_${resolveRequestedState(row.unrealized_gain_pct)}`,
+    actionState: resolveRequestedState(row.unrealized_gain_pct),
+    freshnessCue: `freshness: ${derivedSignalsContract.freshness_state}`,
+    confidenceCue: `confidence: ${derivedSignalsContract.confidence_state}`,
   }));
 
   const technicalSignalRows = summaryRowsByMarketValue.slice(0, 4).map((row) => {
@@ -343,6 +444,9 @@ export function usePortfolioSignalsRouteState(): PortfolioSignalsRouteState {
         ? "Trend continuation"
         : "Wait for recovery",
       requestedState,
+      reasonCode: `technical_${requestedState}_${resolveValue(row.unrealized_gain_pct) >= 0 ? "positive" : "negative"}_pnl`,
+      freshnessCue: `freshness: ${marketPricesContract.freshness_state}`,
+      confidenceCue: `confidence: ${derivedSignalsContract.confidence_state}`,
       decisionState: decisionResolution.state,
     };
   });
@@ -354,6 +458,10 @@ export function usePortfolioSignalsRouteState(): PortfolioSignalsRouteState {
     ticker: row.instrument_symbol,
     note: `${sectorBySymbol.get(row.instrument_symbol) ?? "Portfolio"} sleeve with ${formatPortfolioMoney(row.market_value_usd)} market value.`,
     valuation: `Unrealized ${formatPortfolioPercent(row.unrealized_gain_pct, 1)}`,
+    reasonCode: `watchlist_${resolveRequestedState(row.unrealized_gain_pct)}_${resolveValue(row.unrealized_gain_pct) >= 0 ? "leader" : "laggard"}`,
+    actionState: resolveRequestedState(row.unrealized_gain_pct),
+    freshnessCue: `freshness: ${fundamentalsContract.freshness_state}`,
+    confidenceCue: `confidence: ${fundamentalsContract.confidence_state}`,
   }));
 
   const valuationRows = extractYFinanceValuationAdapterRows({
@@ -372,7 +480,13 @@ export function usePortfolioSignalsRouteState(): PortfolioSignalsRouteState {
   );
 
   return {
-    trendRegimeSummary: TREND_REGIME_SUMMARY,
+    status,
+    errorMessage,
+    reload: () => {
+      summary.reload();
+      hierarchy.reload();
+    },
+    trendRegimeSummary,
     momentumRanking,
     technicalSignalRows,
     watchlistCandidates,

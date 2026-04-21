@@ -61,14 +61,18 @@ def _build_strategy_rows(
     symbols = list(current_weights.keys())
 
     mvo_raw = {
-        symbol: (current_weights[symbol] / Decimal("100")) * Decimal("1.20") for symbol in symbols
+        symbol: (current_weights[symbol] / Decimal("100")) * Decimal("1.20")
+        for symbol in symbols
     }
     hrp_raw = {
-        symbol: Decimal("1") / max(volatility_proxy_by_symbol[symbol], Decimal("0.0001"))
+        symbol: Decimal("1")
+        / max(volatility_proxy_by_symbol[symbol], Decimal("0.0001"))
         for symbol in symbols
     }
     black_litterman_raw = {
-        symbol: ((mvo_raw[symbol] * Decimal("0.40")) + (hrp_raw[symbol] * Decimal("0.60")))
+        symbol: (
+            (mvo_raw[symbol] * Decimal("0.40")) + (hrp_raw[symbol] * Decimal("0.60"))
+        )
         for symbol in symbols
     }
 
@@ -99,7 +103,10 @@ def _build_strategy_rows(
                 sum(
                     [
                         (suggested_weights[symbol] / Decimal("100"))
-                        * max(Decimal("0.02"), Decimal("0.20") - volatility_proxy_by_symbol[symbol])
+                        * max(
+                            Decimal("0.02"),
+                            Decimal("0.20") - volatility_proxy_by_symbol[symbol],
+                        )
                         for symbol in symbols
                     ],
                     zero,
@@ -118,7 +125,9 @@ def _build_strategy_rows(
             )
         )
         expected_sharpe = _quantize_metric(
-            expected_return / expected_volatility if expected_volatility > zero else zero
+            expected_return / expected_volatility
+            if expected_volatility > zero
+            else zero
         )
         label = {
             PortfolioRebalancingStrategyId.MVO: "Mean-Variance Optimization",
@@ -148,7 +157,9 @@ def _strategy_weight_map(
     suggested_weights: dict[str, Decimal] = {}
     for weight_row in strategy_row.weights:
         current_weights[weight_row.instrument_symbol] = weight_row.current_weight_pct
-        suggested_weights[weight_row.instrument_symbol] = weight_row.suggested_weight_pct
+        suggested_weights[weight_row.instrument_symbol] = (
+            weight_row.suggested_weight_pct
+        )
     return current_weights, suggested_weights
 
 
@@ -203,7 +214,9 @@ def _apply_position_cap(
             constrained[symbol] = equal_weight
     else:
         for symbol in uncapped_symbols:
-            constrained[symbol] = (working[symbol] / uncapped_weight_sum) * remaining_budget
+            constrained[symbol] = (
+                working[symbol] / uncapped_weight_sum
+            ) * remaining_budget
 
     return (
         {symbol: _quantize_weight(weight) for symbol, weight in constrained.items()},
@@ -227,7 +240,10 @@ def _apply_turnover_cap(
     symbols = sorted(set(current_weights.keys()) | set(constrained_weights.keys()))
     turnover = sum(
         [
-            abs(constrained_weights.get(symbol, zero) - current_weights.get(symbol, zero))
+            abs(
+                constrained_weights.get(symbol, zero)
+                - current_weights.get(symbol, zero)
+            )
             for symbol in symbols
         ],
         zero,
@@ -290,7 +306,9 @@ def _apply_scenario_constraints_to_strategy(
     current_weights, suggested_weights = _strategy_weight_map(strategy_row=strategy_row)
     excluded_symbols = constraints.excluded_symbols
     eligible_symbols = [
-        symbol for symbol in suggested_weights.keys() if symbol not in set(excluded_symbols)
+        symbol
+        for symbol in suggested_weights.keys()
+        if symbol not in set(excluded_symbols)
     ]
     if len(eligible_symbols) == 0:
         return (None, [], "all_symbols_excluded")
@@ -373,7 +391,9 @@ async def get_portfolio_rebalancing_strategies_response(
             as_of_ledger_at=summary_response.as_of_ledger_at,
             as_of_market_at=as_of_market_at,
             evaluated_at=evaluated_at,
-            freshness_policy=PortfolioRebalancingFreshnessPolicy(max_age_hours=_FRESHNESS_HOURS),
+            freshness_policy=PortfolioRebalancingFreshnessPolicy(
+                max_age_hours=_FRESHNESS_HOURS
+            ),
             strategies=[],
             caveats=[
                 "Rebalancing comparisons require non-empty holdings and market values.",
@@ -416,7 +436,9 @@ async def get_portfolio_rebalancing_strategies_response(
         as_of_ledger_at=summary_response.as_of_ledger_at,
         as_of_market_at=as_of_market_at,
         evaluated_at=evaluated_at,
-        freshness_policy=PortfolioRebalancingFreshnessPolicy(max_age_hours=_FRESHNESS_HOURS),
+        freshness_policy=PortfolioRebalancingFreshnessPolicy(
+            max_age_hours=_FRESHNESS_HOURS
+        ),
         strategies=strategy_rows,
         caveats=[
             "Outputs are deterministic approximations for comparison workflows only.",

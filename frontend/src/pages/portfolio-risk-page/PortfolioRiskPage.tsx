@@ -3,98 +3,34 @@ import { PrimaryModuleSkeleton } from "../../components/skeletons/PrimaryModuleS
 import { StoryContractBlock } from "../../components/storytelling/StoryContractBlock";
 import { PrimaryModuleStateFeedback } from "../../components/workspace-layout/PrimaryModuleStateFeedback";
 import { WorkspaceStateBanner } from "../../components/workspace-layout/WorkspaceStateBanner";
-import {
-  formatPortfolioPercent,
-  getPortfolioSummaryRowsByMarketValue,
-  resolvePortfolioAssetDetailHref,
-  usePortfolioCommandCenterResource,
-  usePortfolioSummaryResource,
-} from "../../core/api/portfolio";
 import { useRoutePrimaryModuleStateController } from "../../features/portfolio-workspace/route-module-state";
+import { usePortfolioRiskRouteData } from "./hooks/usePortfolioRiskRouteData";
+import {
+  Area,
+  AreaChart,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Legend,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 
-type RiskMetric = {
-  label: string;
-  value: string;
-  why: string;
-};
+const percentFormatter = new Intl.NumberFormat("en-US", {
+  maximumFractionDigits: 1,
+});
 
-const RISK_METRICS: RiskMetric[] = [
-  {
-    label: "30D realized volatility",
-    value: "18.4%",
-    why: "Above 12M baseline by 210 bps.",
-  },
-  {
-    label: "Max drawdown (252D)",
-    value: "-12.8%",
-    why: "Recovery pace improved vs prior quarter.",
-  },
-  {
-    label: "1D 95% VaR",
-    value: "-2.1%",
-    why: "Tail risk mostly from concentrated tech names.",
-  },
-];
+type TooltipValue = number | string | ReadonlyArray<number | string> | undefined;
 
-type DrawdownPoint = {
-  window: string;
-  drawdown: string;
-  recoveryDays: string;
-};
-
-const DRAWDOWN_TIMELINE: DrawdownPoint[] = [
-  { window: "2025-11", drawdown: "-6.2%", recoveryDays: "19d" },
-  { window: "2026-01", drawdown: "-9.4%", recoveryDays: "27d" },
-  { window: "2026-04", drawdown: "-4.1%", recoveryDays: "ongoing" },
-];
-
-type DistributionBucket = {
-  bucket: string;
-  probability: string;
-  note: string;
-};
-
-const RETURN_DISTRIBUTION: DistributionBucket[] = [
-  { bucket: "< -2%", probability: "14%", note: "Left-tail stress" },
-  { bucket: "-2% to +2%", probability: "61%", note: "Normal regime" },
-  { bucket: "> +2%", probability: "25%", note: "Upside bursts" },
-];
-
-type ScatterRow = {
-  sleeve: string;
-  return: string;
-  volatility: string;
-  stance: string;
-};
-
-const RISK_RETURN_SCATTER: ScatterRow[] = [
-  { sleeve: "Technology", return: "+16.8%", volatility: "24.1%", stance: "High beta" },
-  { sleeve: "Healthcare", return: "+6.4%", volatility: "15.2%", stance: "Balanced" },
-  { sleeve: "Industrials", return: "+7.9%", volatility: "17.6%", stance: "Moderate" },
-  { sleeve: "Cash", return: "+0.4%", volatility: "0.1%", stance: "Buffer" },
-];
-
-type CorrelationRow = {
-  pair: string;
-  correlation: string;
-  riskState: string;
-};
-
-const CORRELATION_ROWS: CorrelationRow[] = [
-  { pair: "Tech vs Growth ETF", correlation: "0.83", riskState: "High cluster" },
-  { pair: "Healthcare vs S&P 500", correlation: "0.58", riskState: "Moderate" },
-  { pair: "Industrials vs Bond proxy", correlation: "0.31", riskState: "Diversifying" },
-];
-
-type ConcentrationRow = {
-  exposure: string;
-  weight: string;
-  posture: string;
-};
-
-function resolveValue(value: string | number | null | undefined): number {
-  const normalized = Number(value);
-  return Number.isFinite(normalized) ? normalized : 0;
+function resolveTooltipNumber(value: TooltipValue): number {
+  if (Array.isArray(value)) {
+    return Number(value[0] ?? 0);
+  }
+  return Number(value ?? 0);
 }
 
 export function PortfolioRiskPage() {
@@ -104,50 +40,25 @@ export function PortfolioRiskPage() {
     shouldRenderBlockingFeedback,
     retryModuleLoad,
   } = useRoutePrimaryModuleStateController();
-  const summary = usePortfolioSummaryResource();
-  const commandCenter = usePortfolioCommandCenterResource();
+  const routeData = usePortfolioRiskRouteData();
 
-  const shouldRenderLoadingSkeleton =
-    isPrimaryModuleLoading || summary.status === "loading" || commandCenter.status === "loading";
-  const shouldRenderBlockingRouteFeedback =
-    shouldRenderBlockingFeedback || summary.status === "error" || commandCenter.status === "error" || summary.status === "empty";
+  const shouldRenderLoadingSkeleton = isPrimaryModuleLoading;
+  const shouldRenderBlockingRouteFeedback = shouldRenderBlockingFeedback;
   const routeModuleState =
-    summary.status === "error" || commandCenter.status === "error"
+    routeData.status === "error"
       ? "error"
-      : summary.status === "empty"
+      : routeData.status === "empty"
         ? "empty"
         : moduleState === "success"
           ? "ready"
           : moduleState;
-  const shouldRenderSuccessFeedback = moduleState === "success" && summary.status === "ready";
-  const topHolding = getPortfolioSummaryRowsByMarketValue(summary.data?.rows ?? [])[0];
-  const concentrationRows: ConcentrationRow[] = [
-    {
-      exposure: "Technology",
-      weight: commandCenter.data
-        ? formatPortfolioPercent(commandCenter.data.concentration_top5_pct, 1)
-        : "31%",
-      posture: "Elevated",
-    },
-    {
-      exposure: `Top holding (${topHolding?.instrument_symbol ?? "n/a"})`,
-      weight: topHolding?.market_value_usd ? `${formatPortfolioPercent((resolveValue(topHolding.market_value_usd) / Math.max(resolveValue(commandCenter.data?.total_market_value_usd), 1)) * 100, 1)}` : "n/a",
-      posture: "Watch",
-    },
-    {
-      exposure: "Top 5 holdings",
-      weight: commandCenter.data
-        ? `${formatPortfolioPercent(commandCenter.data.concentration_top5_pct, 1)}`
-        : "37.4%",
-      posture: "De-risk if >40%",
-    },
-  ];
+  const shouldRenderSuccessFeedback = moduleState === "success" && routeData.status === "ready";
 
   return (
     <CompactDashboardShell
       title="Portfolio Risk"
       subtitle="Fragility route for downside, concentration, and distribution context."
-      assetDetailHref={resolvePortfolioAssetDetailHref(summary.data)}
+      assetDetailHref={routeData.assetDetailHref}
     >
       <section className="panel workspace-panel workspace-panel--hero">
         <p className="route-kicker">Risk · Downside control</p>
@@ -174,7 +85,7 @@ export function PortfolioRiskPage() {
               <article className="risk-module-card primary-module-card">
                 <h3>Risk posture</h3>
                 <ul className="risk-stat-list">
-                  {RISK_METRICS.map((metric) => (
+                  {routeData.riskMetrics.map((metric) => (
                     <li key={metric.label}>
                       <p className="risk-stat-list__label">{metric.label}</p>
                       <p className="risk-stat-list__value numeric-value">{metric.value}</p>
@@ -182,58 +93,132 @@ export function PortfolioRiskPage() {
                     </li>
                   ))}
                 </ul>
+                <div className="route-primary-chart" role="img" aria-label="Rolling volatility and VaR risk chart">
+                  {routeData.rollingRiskSeries.length === 0 ? (
+                    <p className="route-chart-empty">Rolling risk estimate awaits enough return observations.</p>
+                  ) : (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart
+                        data={routeData.rollingRiskSeries}
+                        margin={{ top: 8, right: 12, left: 8, bottom: 0 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                        <XAxis dataKey="label" tick={{ fontSize: 11 }} minTickGap={18} />
+                        <YAxis
+                          tickFormatter={(value: number) => `${percentFormatter.format(value)}%`}
+                          tick={{ fontSize: 11 }}
+                          width={68}
+                        />
+                        <Tooltip
+                          formatter={(value: TooltipValue, name) => [
+                            `${percentFormatter.format(resolveTooltipNumber(value))}%`,
+                            name === "var95Pct" ? "VaR 95%" : "Rolling volatility",
+                          ]}
+                        />
+                        <Legend />
+                        <Line
+                          dataKey="volatilityPct"
+                          type="monotone"
+                          stroke="var(--status-info)"
+                          strokeWidth={2}
+                          dot={false}
+                          name="Rolling volatility"
+                        />
+                        <Line
+                          dataKey="var95Pct"
+                          type="monotone"
+                          stroke="var(--status-error)"
+                          strokeWidth={2}
+                          dot={false}
+                          name="VaR 95%"
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  )}
+                </div>
                 <StoryContractBlock
-                  what="Drawdown and volatility stay elevated versus baseline."
-                  why="Risk expansion is concentrated in higher-beta equity sleeves."
-                  action="Action state: de-risk concentration"
-                  evidence="Risk telemetry remains summary-backed and ledger sourced."
+                  what="Drawdown and volatility are computed from contract-backed route time series."
+                  why="Risk expansion remains concentrated when leadership sleeves drive returns."
+                  action="Action state: de-risk concentration when drawdown and VaR worsen together."
+                  evidence="Risk posture values are derived from `/portfolio/time-series`, `/portfolio/summary`, and `/portfolio/command-center`."
                 />
               </article>
 
               <article className="risk-module-card primary-module-card">
                 <h3>Drawdown timeline</h3>
-                <ol className="risk-drawdown-list">
-                  {DRAWDOWN_TIMELINE.map((point) => (
-                    <li key={point.window}>
-                      <span>{point.window}</span>
-                      <span className="numeric-value">{point.drawdown}</span>
-                      <span>Recovery {point.recoveryDays}</span>
-                    </li>
-                  ))}
-                </ol>
+                <div className="route-primary-chart" role="img" aria-label="Portfolio drawdown timeline chart">
+                  {routeData.drawdownSeries.length === 0 ? (
+                    <p className="route-chart-empty">Drawdown timeline awaits route time-series points.</p>
+                  ) : (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart
+                        data={routeData.drawdownSeries}
+                        margin={{ top: 8, right: 12, left: 8, bottom: 0 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                        <XAxis dataKey="label" tick={{ fontSize: 11 }} minTickGap={18} />
+                        <YAxis
+                          tickFormatter={(value: number) => `${percentFormatter.format(value)}%`}
+                          tick={{ fontSize: 11 }}
+                          width={68}
+                        />
+                        <Tooltip
+                          formatter={(value: TooltipValue) =>
+                            `${percentFormatter.format(resolveTooltipNumber(value))}%`}
+                          labelFormatter={(label) => `Date: ${label}`}
+                        />
+                        <Area
+                          dataKey="drawdownPct"
+                          type="monotone"
+                          stroke="var(--status-error)"
+                          fill="var(--risk-drawdown-fill)"
+                          strokeWidth={2}
+                          name="Drawdown"
+                        />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  )}
+                </div>
                 <StoryContractBlock
-                  what="Recent drawdowns recover slower as concentration rises."
-                  why="Recovery speed weakens when the same sleeves drive downside."
-                  action="Action state: hold new adds until drawdown slope improves."
-                  evidence="Drawdown windows are maintained as bounded risk context."
+                  what="Drawdown windows now track the worst points in the selected route window."
+                  why="Peak-to-trough context is required before adding tactical risk."
+                  action="Action state: wait on aggressive adds while drawdown slope remains negative."
+                  evidence="Timeline rows are derived from route-level 90D time series values."
                 />
               </article>
 
               <article className="risk-module-card risk-module-card--profile primary-module-card">
                 <h3>Return distribution</h3>
-                <table className="route-metric-table">
-                  <thead>
-                    <tr>
-                      <th scope="col">Bucket</th>
-                      <th scope="col">Probability</th>
-                      <th scope="col">Interpretation</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {RETURN_DISTRIBUTION.map((bucket) => (
-                      <tr key={bucket.bucket}>
-                        <td>{bucket.bucket}</td>
-                        <td>{bucket.probability}</td>
-                        <td>{bucket.note}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <div className="route-primary-chart" role="img" aria-label="Portfolio return distribution chart">
+                  {routeData.distributionSeries.length === 0 ? (
+                    <p className="route-chart-empty">Distribution buckets are unavailable for selected scope.</p>
+                  ) : (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart
+                        data={routeData.distributionSeries}
+                        margin={{ top: 8, right: 12, left: 8, bottom: 0 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                        <XAxis dataKey="bucket" tick={{ fontSize: 11 }} />
+                        <YAxis
+                          tickFormatter={(value: number) => `${percentFormatter.format(value)}%`}
+                          tick={{ fontSize: 11 }}
+                          width={64}
+                        />
+                        <Tooltip
+                          formatter={(value: TooltipValue) =>
+                            `${percentFormatter.format(resolveTooltipNumber(value))}%`}
+                        />
+                        <Bar dataKey="probabilityPct" fill="var(--status-success)" name="Probability" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  )}
+                </div>
                 <StoryContractBlock
-                  what="Left-tail probability remains above acceptable policy limits."
-                  why="Distribution skew widened after clustered earnings volatility."
-                  action="Action state: keep sizing disciplined until tails compress."
-                  evidence="Distribution remains intentionally compact to protect first-viewport readability."
+                  what="Distribution buckets are generated from realized route return observations."
+                  why="Left-tail share and central tendency guide downside pacing decisions."
+                  action="Action state: keep sizing disciplined until left-tail frequency contracts."
+                  evidence="Distribution is derived from contract-backed return series, not static placeholders."
                 />
               </article>
             </>
@@ -257,7 +242,7 @@ export function PortfolioRiskPage() {
               </tr>
             </thead>
             <tbody>
-              {RISK_RETURN_SCATTER.map((row) => (
+              {routeData.riskReturnScatter.map((row) => (
                 <tr key={row.sleeve}>
                   <td>{row.sleeve}</td>
                   <td>{row.return}</td>
@@ -280,7 +265,7 @@ export function PortfolioRiskPage() {
               </tr>
             </thead>
             <tbody>
-              {CORRELATION_ROWS.map((row) => (
+              {routeData.correlationRows.map((row) => (
                 <tr key={row.pair}>
                   <td>{row.pair}</td>
                   <td>{row.correlation}</td>
@@ -302,7 +287,7 @@ export function PortfolioRiskPage() {
               </tr>
             </thead>
             <tbody>
-              {concentrationRows.map((row) => (
+              {routeData.concentrationRows.map((row) => (
                 <tr key={row.exposure}>
                   <td>{row.exposure}</td>
                   <td>{row.weight}</td>
@@ -312,17 +297,17 @@ export function PortfolioRiskPage() {
             </tbody>
           </table>
           <StoryContractBlock
-            what="Concentration is now tied to the live ledger instead of a hardcoded symbol."
-            why="The risk route should identify the actual top holding and top-5 weight."
-            action="Action state: review concentration first."
-            evidence={`Top holding resolves from ${topHolding?.instrument_symbol ?? "the portfolio summary"}.`}
+            what="Concentration table reflects live top-holding and top-5 exposure context."
+            why="Concentration drift is the fastest path to hidden portfolio fragility."
+            action="Action state: review concentration before promoting tactical adds."
+            evidence="Concentration rows use command-center and summary contracts from the current scope."
           />
         </article>
       </section>
 
       <details className="panel disclosure-panel">
         <summary>Advanced risk disclosure</summary>
-        <p>Deeper diagnostics remain available without turning the route into a lab.</p>
+        <p>Secondary risk diagnostics remain bounded and cannot displace first-viewport fragility interpretation.</p>
       </details>
 
       <WorkspaceStateBanner
@@ -336,10 +321,10 @@ export function PortfolioRiskPage() {
         hierarchy="standard"
         message={
           shouldRenderLoadingSkeleton
-            ? "Risk route loading skeletons preserve module geometry while data contracts resolve."
-            : summary.status === "error" || commandCenter.status === "error"
-              ? summary.errorMessage ?? commandCenter.errorMessage ?? "Failed to load risk route portfolio data."
-              : "Risk route answers fragility, drawdown, and concentration context."
+            ? "Risk route loading skeletons preserve module geometry while contracts resolve."
+            : routeData.status === "error"
+              ? routeData.errorMessage ?? "Failed to load risk route portfolio data."
+              : "Risk route answers fragility using contract-backed drawdown, distribution, and concentration context."
         }
       />
     </CompactDashboardShell>

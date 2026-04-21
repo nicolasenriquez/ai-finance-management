@@ -16,6 +16,7 @@ import {
   it,
 } from "vitest";
 
+import { AppProviders } from "./providers";
 import { PortfolioAnalyticsPage } from "../pages/portfolio-analytics-page/PortfolioAnalyticsPage";
 import { PortfolioAssetDetailPage } from "../pages/portfolio-asset-detail-page/PortfolioAssetDetailPage";
 import { PortfolioHomePage } from "../pages/portfolio-home-page/PortfolioHomePage";
@@ -37,36 +38,46 @@ describe("primary module skeleton contract", () => {
       () =>
         render(
           <MemoryRouter initialEntries={["/portfolio/home?module_state=loading"]}>
-            <PortfolioHomePage />
+            <AppProviders>
+              <PortfolioHomePage />
+            </AppProviders>
           </MemoryRouter>,
         ),
       () =>
         render(
           <MemoryRouter initialEntries={["/portfolio/analytics?module_state=loading"]}>
-            <PortfolioAnalyticsPage />
+            <AppProviders>
+              <PortfolioAnalyticsPage />
+            </AppProviders>
           </MemoryRouter>,
         ),
       () =>
         render(
           <MemoryRouter initialEntries={["/portfolio/risk?module_state=loading"]}>
-            <PortfolioRiskPage />
+            <AppProviders>
+              <PortfolioRiskPage />
+            </AppProviders>
           </MemoryRouter>,
         ),
       () =>
         render(
           <MemoryRouter initialEntries={["/portfolio/signals?module_state=loading"]}>
-            <PortfolioSignalsPage />
+            <AppProviders>
+              <PortfolioSignalsPage />
+            </AppProviders>
           </MemoryRouter>,
         ),
       () =>
         render(
           <MemoryRouter initialEntries={["/portfolio/asset-detail/aapl?module_state=loading"]}>
-            <Routes>
-              <Route
-                path="/portfolio/asset-detail/:ticker"
-                element={<PortfolioAssetDetailPage />}
-              />
-            </Routes>
+            <AppProviders>
+              <Routes>
+                <Route
+                  path="/portfolio/asset-detail/:ticker"
+                  element={<PortfolioAssetDetailPage />}
+                />
+              </Routes>
+            </AppProviders>
           </MemoryRouter>,
         ),
     ];

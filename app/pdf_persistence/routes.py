@@ -12,7 +12,10 @@ from app.core.config import get_settings
 from app.core.database import get_db
 from app.core.logging import get_logger
 from app.pdf_persistence.schemas import PdfPersistenceRequest, PdfPersistenceResult
-from app.pdf_persistence.service import PdfPersistenceClientError, persist_pdf_from_storage
+from app.pdf_persistence.service import (
+    PdfPersistenceClientError,
+    persist_pdf_from_storage,
+)
 
 logger = get_logger(__name__)
 settings = get_settings()
@@ -26,7 +29,9 @@ DbSession = Annotated[AsyncSession, Depends(get_db)]
 
 
 @router.post("/persist", response_model=PdfPersistenceResult)
-async def persist_pdf(request: PdfPersistenceRequest, db: DbSession) -> PdfPersistenceResult:
+async def persist_pdf(
+    request: PdfPersistenceRequest, db: DbSession
+) -> PdfPersistenceResult:
     """Persist canonical dataset 1 records for a stored PDF upload."""
 
     logger.info("pdf_persistence.request_started", storage_key=request.storage_key)

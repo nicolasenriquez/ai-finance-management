@@ -44,11 +44,15 @@ class SymbolUniversePayload(TypedDict):
 def _load_dataset_trade_symbols() -> list[str]:
     """Load distinct trade symbols from canonical dataset_1 JSON."""
 
-    payload = cast(DatasetPayload, json.loads(_DATASET_PATH.read_text(encoding="utf-8")))
+    payload = cast(
+        DatasetPayload, json.loads(_DATASET_PATH.read_text(encoding="utf-8"))
+    )
     dataset_payload = payload
     trade_rows = dataset_payload["tables"]["compra_venta_activos"]["rows"]
     symbols = {
-        str(row["simbolo_activo"]).strip().upper() for row in trade_rows if row["simbolo_activo"]
+        str(row["simbolo_activo"]).strip().upper()
+        for row in trade_rows
+        if row["simbolo_activo"]
     }
     return sorted(symbols)
 
@@ -56,7 +60,9 @@ def _load_dataset_trade_symbols() -> list[str]:
 def _load_symbol_universe_payload() -> SymbolUniversePayload:
     """Load market symbol-universe artifact from repository."""
 
-    payload = cast(SymbolUniversePayload, json.loads(_UNIVERSE_PATH.read_text(encoding="utf-8")))
+    payload = cast(
+        SymbolUniversePayload, json.loads(_UNIVERSE_PATH.read_text(encoding="utf-8"))
+    )
     return payload
 
 

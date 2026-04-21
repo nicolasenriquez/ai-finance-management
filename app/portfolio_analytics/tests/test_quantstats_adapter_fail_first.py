@@ -136,7 +136,10 @@ def _build_returns_series() -> pd.Series:
     """Build deterministic UTC-indexed daily return series for adapter tests."""
 
     index = pd.DatetimeIndex(
-        [datetime(2025, 1, 1, tzinfo=UTC) + timedelta(days=offset) for offset in range(6)]
+        [
+            datetime(2025, 1, 1, tzinfo=UTC) + timedelta(days=offset)
+            for offset in range(6)
+        ]
     )
     return pd.Series(
         [0.01, -0.004, 0.006, 0.002, -0.001, 0.005],
@@ -292,7 +295,9 @@ def test_quantstats_monte_carlo_adapter_calls_pinned_runtime_with_explicit_param
     assert hasattr(result, "goal_probability")
 
 
-def test_quantstats_monte_carlo_adapter_fails_explicitly_when_callable_missing() -> None:
+def test_quantstats_monte_carlo_adapter_fails_explicitly_when_callable_missing() -> (
+    None
+):
     """Fail-first: Monte Carlo adapter should fail explicitly when runtime callable is absent."""
 
     run_monte_carlo = _load_callable(
@@ -335,7 +340,9 @@ def test_monte_carlo_request_accepts_short_horizon_and_rejects_sub_minimum() -> 
         )
 
 
-def test_monte_carlo_profile_thresholds_fallback_explicitly_when_sample_is_insufficient() -> None:
+def test_monte_carlo_profile_thresholds_fallback_explicitly_when_sample_is_insufficient() -> (
+    None
+):
     """Calibration helper should emit explicit fallback metadata when sample size is insufficient."""
 
     resolve_thresholds = _load_callable(
@@ -372,12 +379,20 @@ def test_monte_carlo_profile_thresholds_fallback_explicitly_when_sample_is_insuf
     assert PortfolioMonteCarloProfileId.CONSERVATIVE in thresholds_by_profile
     assert PortfolioMonteCarloProfileId.BALANCED in thresholds_by_profile
     assert PortfolioMonteCarloProfileId.GROWTH in thresholds_by_profile
-    assert calibration_context.requested_basis == PortfolioMonteCarloCalibrationBasis.ANNUAL
+    assert (
+        calibration_context.requested_basis
+        == PortfolioMonteCarloCalibrationBasis.ANNUAL
+    )
     assert calibration_context.used_fallback is True
-    assert "insufficient historical sample" in str(calibration_context.fallback_reason).lower()
+    assert (
+        "insufficient historical sample"
+        in str(calibration_context.fallback_reason).lower()
+    )
 
 
-def test_monte_carlo_profile_scenarios_keep_fixed_order_for_panoramic_comparison() -> None:
+def test_monte_carlo_profile_scenarios_keep_fixed_order_for_panoramic_comparison() -> (
+    None
+):
     """Profile scenario rows should stay in conservative/balanced/growth order for stable reading."""
 
     build_scenarios = _load_callable(
@@ -414,7 +429,9 @@ def test_monte_carlo_profile_scenarios_keep_fixed_order_for_panoramic_comparison
     assert profile_ids == ["conservative", "balanced", "growth"]
 
 
-def test_risk_metric_computation_uses_external_proxy_override_for_single_symbol_beta() -> None:
+def test_risk_metric_computation_uses_external_proxy_override_for_single_symbol_beta() -> (
+    None
+):
     """Single-symbol beta should use provided proxy returns rather than self-regression."""
 
     compute_risk_metrics = cast(

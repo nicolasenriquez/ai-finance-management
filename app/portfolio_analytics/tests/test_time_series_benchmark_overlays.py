@@ -17,7 +17,9 @@ ResolveBenchmarkSeriesCallable = Callable[
 _RESOLVER_ATTRIBUTE_NAME = "_resolve_benchmark_price_series_by_id"
 
 
-def test_time_series_points_include_benchmark_overlay_when_series_is_available() -> None:
+def test_time_series_points_include_benchmark_overlay_when_series_is_available() -> (
+    None
+):
     """Time-series points should expose normalized benchmark overlays when available."""
 
     first_timestamp = datetime(2025, 1, 1, tzinfo=UTC)
@@ -85,5 +87,9 @@ def test_resolve_benchmark_price_series_prefers_first_full_coverage_candidate() 
     }
     assert resolved["benchmark_sp500_value_usd"][first_timestamp] == Decimal("100.00")
     assert resolved["benchmark_sp500_value_usd"][second_timestamp] == Decimal("101.00")
-    assert resolved["benchmark_nasdaq100_value_usd"][first_timestamp] == Decimal("200.00")
-    assert resolved["benchmark_nasdaq100_value_usd"][second_timestamp] == Decimal("210.00")
+    assert resolved["benchmark_nasdaq100_value_usd"][first_timestamp] == Decimal(
+        "200.00"
+    )
+    assert resolved["benchmark_nasdaq100_value_usd"][second_timestamp] == Decimal(
+        "210.00"
+    )

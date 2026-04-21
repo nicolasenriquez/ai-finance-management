@@ -44,7 +44,9 @@ def analyze_pdf(document_bytes: bytes, *, min_text_chars: int) -> PdfPreflightRe
         reader = PdfReader(BytesIO(document_bytes))
     except PdfReadError as exc:
         logger.error("pdf_preflight.analysis_failed", error=str(exc), exc_info=True)
-        raise PdfPreflightError("Submitted content is not a valid PDF document.") from exc
+        raise PdfPreflightError(
+            "Submitted content is not a valid PDF document."
+        ) from exc
 
     document_is_encrypted = reader.is_encrypted
     if document_is_encrypted:

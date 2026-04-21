@@ -8,18 +8,21 @@ import {
   it,
 } from "vitest";
 
+import { AppProviders } from "../../app/providers";
 import { PortfolioAnalyticsPage } from "./PortfolioAnalyticsPage";
 
 describe("PortfolioAnalyticsPage contract", () => {
-  it("4.2 exposes explainability modules with curve, waterfall, leaders, heatmap, rolling chart, and drill-down table", () => {
+  it("4.2 exposes explainability modules with curve, waterfall, leaders, heatmap, rolling chart, and drill-down table", async () => {
     render(
       <MemoryRouter initialEntries={["/portfolio/analytics"]}>
-        <PortfolioAnalyticsPage />
+        <AppProviders>
+          <PortfolioAnalyticsPage />
+        </AppProviders>
       </MemoryRouter>,
     );
 
     expect(
-      screen.getByRole("heading", { level: 2, name: "Why did the portfolio move?" }),
+      await screen.findByRole("heading", { level: 2, name: "Why did the portfolio move?" }),
     ).not.toBeNull();
     expect(
       screen.getByRole("heading", { level: 3, name: "Performance curve" }),

@@ -116,7 +116,9 @@ def test_setup_exception_handlers_registers_handlers():
     assert mock_app.add_exception_handler.call_count == 3
 
     # Verify the exception types that were registered
-    call_args_list = [call[0][0] for call in mock_app.add_exception_handler.call_args_list]
+    call_args_list = [
+        call[0][0] for call in mock_app.add_exception_handler.call_args_list
+    ]
     assert DatabaseError in call_args_list
     assert NotFoundError in call_args_list
     assert ValidationError in call_args_list

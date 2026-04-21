@@ -48,27 +48,33 @@ type PortfolioResourceOptions<T> = {
   isEmpty?: (data: T) => boolean;
 };
 
-function isPortfolioSummaryEmpty(response: PortfolioSummaryResponse): boolean {
+export function isPortfolioSummaryEmpty(response: PortfolioSummaryResponse): boolean {
   return response.rows.length === 0;
 }
 
-function isPortfolioHierarchyEmpty(response: PortfolioHierarchyResponse): boolean {
+export function isPortfolioCommandCenterEmpty(
+  _response: PortfolioCommandCenterResponse,
+): boolean {
+  return false;
+}
+
+export function isPortfolioHierarchyEmpty(response: PortfolioHierarchyResponse): boolean {
   return response.groups.length === 0;
 }
 
-function isPortfolioContributionEmpty(response: PortfolioContributionResponse): boolean {
+export function isPortfolioContributionEmpty(response: PortfolioContributionResponse): boolean {
   return response.rows.length === 0;
 }
 
-function isPortfolioTimeSeriesEmpty(response: PortfolioTimeSeriesResponse): boolean {
+export function isPortfolioTimeSeriesEmpty(response: PortfolioTimeSeriesResponse): boolean {
   return response.points.length === 0;
 }
 
-function isPortfolioLotDetailEmpty(response: PortfolioLotDetailResponse): boolean {
+export function isPortfolioLotDetailEmpty(response: PortfolioLotDetailResponse): boolean {
   return response.lots.length === 0;
 }
 
-function isPortfolioHealthSynthesisEmpty(
+export function isPortfolioHealthSynthesisEmpty(
   response: PortfolioHealthSynthesisResponse,
 ): boolean {
   return response.pillars.length === 0;
@@ -186,6 +192,78 @@ async function sendPortfolioJsonRequest<T>(
     path,
     schema,
   });
+}
+
+export async function fetchPortfolioCommandCenterResponse(): Promise<PortfolioCommandCenterResponse> {
+  return sendPortfolioJsonRequest(
+    buildPortfolioApiPath("/portfolio/command-center"),
+    portfolioCommandCenterResponseSchema,
+  );
+}
+
+export async function fetchPortfolioSummaryResponse(): Promise<PortfolioSummaryResponse> {
+  return sendPortfolioJsonRequest(
+    buildPortfolioApiPath("/portfolio/summary"),
+    portfolioSummaryResponseSchema,
+  );
+}
+
+export async function fetchPortfolioHierarchyResponse(): Promise<PortfolioHierarchyResponse> {
+  return sendPortfolioJsonRequest(
+    buildPortfolioApiPath("/portfolio/hierarchy", { group_by: "sector" }),
+    portfolioHierarchyResponseSchema,
+  );
+}
+
+export async function fetchPortfolioContributionResponse(
+  period: PortfolioChartPeriod,
+): Promise<PortfolioContributionResponse> {
+  return sendPortfolioJsonRequest(
+    buildPortfolioApiPath("/portfolio/contribution", { period }),
+    portfolioContributionResponseSchema,
+  );
+}
+
+export async function fetchPortfolioTimeSeriesResponse(
+  period: PortfolioChartPeriod,
+  scope: PortfolioQuantReportScope,
+  instrumentSymbol?: string,
+): Promise<PortfolioTimeSeriesResponse> {
+  return sendPortfolioJsonRequest(
+    buildPortfolioApiPath("/portfolio/time-series", {
+      period,
+      scope,
+      instrument_symbol: instrumentSymbol,
+    }),
+    portfolioTimeSeriesResponseSchema,
+  );
+}
+
+export async function fetchPortfolioLotDetailResponse(
+  ticker: string,
+): Promise<PortfolioLotDetailResponse> {
+  const normalizedTicker = ticker.trim().toUpperCase();
+  return sendPortfolioJsonRequest(
+    buildPortfolioApiPath(`/portfolio/lots/${normalizedTicker}`),
+    portfolioLotDetailResponseSchema,
+  );
+}
+
+export async function fetchPortfolioHealthSynthesisResponse(
+  period: PortfolioChartPeriod,
+  scope: PortfolioQuantReportScope,
+  instrumentSymbol?: string,
+  profilePosture: PortfolioHealthProfilePosture = "balanced",
+): Promise<PortfolioHealthSynthesisResponse> {
+  return sendPortfolioJsonRequest(
+    buildPortfolioApiPath("/portfolio/health-synthesis", {
+      period,
+      scope,
+      instrument_symbol: instrumentSymbol,
+      profile_posture: profilePosture,
+    }),
+    portfolioHealthSynthesisResponseSchema,
+  );
 }
 
 function usePortfolioResource<T>({

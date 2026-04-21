@@ -64,14 +64,18 @@ def test_service_exposes_phase_m_clustering_and_anomaly_builders() -> None:
 
     service_module = _load_portfolio_ml_service_module()
 
-    cluster_builder = getattr(service_module, "build_deterministic_cluster_payload", None)
+    cluster_builder = getattr(
+        service_module, "build_deterministic_cluster_payload", None
+    )
     if cluster_builder is None or not callable(cluster_builder):
         pytest.fail(
             "Fail-first baseline: missing callable build_deterministic_cluster_payload(). "
             "Implement task 4.1 before this test can pass.",
         )
 
-    anomaly_builder = getattr(service_module, "build_deterministic_anomaly_payload", None)
+    anomaly_builder = getattr(
+        service_module, "build_deterministic_anomaly_payload", None
+    )
     if anomaly_builder is None or not callable(anomaly_builder):
         pytest.fail(
             "Fail-first baseline: missing callable build_deterministic_anomaly_payload(). "
@@ -79,13 +83,19 @@ def test_service_exposes_phase_m_clustering_and_anomaly_builders() -> None:
         )
 
 
-def test_clustering_and_anomaly_payloads_are_deterministic_for_equivalent_snapshot_input() -> None:
+def test_clustering_and_anomaly_payloads_are_deterministic_for_equivalent_snapshot_input() -> (
+    None
+):
     """Equivalent snapshot inputs should produce equivalent cluster and anomaly outputs."""
 
     service_module = _load_portfolio_ml_service_module()
 
-    cluster_builder_obj = getattr(service_module, "build_deterministic_cluster_payload", None)
-    anomaly_builder_obj = getattr(service_module, "build_deterministic_anomaly_payload", None)
+    cluster_builder_obj = getattr(
+        service_module, "build_deterministic_cluster_payload", None
+    )
+    anomaly_builder_obj = getattr(
+        service_module, "build_deterministic_anomaly_payload", None
+    )
     if (
         cluster_builder_obj is None
         or anomaly_builder_obj is None
@@ -105,8 +115,16 @@ def test_clustering_and_anomaly_payloads_are_deterministic_for_equivalent_snapsh
         "as_of_ledger_at": "2026-04-06T00:00:00Z",
         "as_of_market_at": "2026-04-06T00:00:00Z",
         "rows": [
-            {"instrument_symbol": "AAPL", "return_30d": "0.042", "volatility_30d": "0.021"},
-            {"instrument_symbol": "MSFT", "return_30d": "0.038", "volatility_30d": "0.019"},
+            {
+                "instrument_symbol": "AAPL",
+                "return_30d": "0.042",
+                "volatility_30d": "0.021",
+            },
+            {
+                "instrument_symbol": "MSFT",
+                "return_30d": "0.038",
+                "volatility_30d": "0.019",
+            },
         ],
     }
 

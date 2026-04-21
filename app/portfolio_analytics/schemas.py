@@ -210,7 +210,9 @@ class PortfolioRiskEstimatorMetric(BaseModel):
     unit: Literal["percent", "ratio", "unitless"] = "unitless"
     interpretation_band: Literal["favorable", "caution", "elevated_risk"] = "caution"
     timeline_series_id: str | None = None
-    health_contribution_direction: Literal["supporting", "neutral", "penalizing"] = "neutral"
+    health_contribution_direction: Literal["supporting", "neutral", "penalizing"] = (
+        "neutral"
+    )
     health_contribution_severity: Literal["low", "moderate", "high"] = "moderate"
 
 
@@ -448,8 +450,12 @@ class PortfolioMonteCarloRequest(BaseModel):
     period: PortfolioChartPeriod = PortfolioChartPeriod.D90
     sims: int = Field(default=1000, ge=250, le=5000)
     horizon_days: int | None = Field(default=None, ge=5, le=756)
-    bust_threshold: Decimal | None = Field(default=None, ge=Decimal("-0.95"), le=Decimal("0"))
-    goal_threshold: Decimal | None = Field(default=None, ge=Decimal("0"), le=Decimal("3"))
+    bust_threshold: Decimal | None = Field(
+        default=None, ge=Decimal("-0.95"), le=Decimal("0")
+    )
+    goal_threshold: Decimal | None = Field(
+        default=None, ge=Decimal("0"), le=Decimal("3")
+    )
     seed: int | None = Field(default=None, ge=0, le=2_147_483_647)
     enable_profile_comparison: bool = True
     calibration_basis: PortfolioMonteCarloCalibrationBasis = (
@@ -640,7 +646,9 @@ class PortfolioHealthSynthesisResponse(BaseModel):
     health_label: PortfolioHealthLabel
     threshold_policy_version: str = Field(min_length=1)
     pillars: list[PortfolioHealthPillar]
-    key_drivers: list[PortfolioHealthDriver] = Field(default_factory=list[PortfolioHealthDriver])
+    key_drivers: list[PortfolioHealthDriver] = Field(
+        default_factory=list[PortfolioHealthDriver]
+    )
     health_caveats: list[str] = Field(default_factory=list)
     core_metric_ids: list[str] = Field(default_factory=list)
     advanced_metric_ids: list[str] = Field(default_factory=list)

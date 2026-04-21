@@ -1,16 +1,30 @@
 import { useMemo } from "react";
 
+import { useQueries } from "@tanstack/react-query";
+
 import {
+  fetchPortfolioCommandCenterResponse,
+  fetchPortfolioHierarchyResponse,
+  fetchPortfolioSummaryResponse,
+  fetchPortfolioTimeSeriesResponse,
   formatPortfolioMoney,
   formatPortfolioPercent,
   getPortfolioSummaryRowsByMarketValue,
+  isPortfolioCommandCenterEmpty,
+  isPortfolioHierarchyEmpty,
+  isPortfolioSummaryEmpty,
+  isPortfolioTimeSeriesEmpty,
   resolvePortfolioAssetDetailHref,
   resolvePortfolioSummaryKpis,
   resolveTickerActionState,
-  usePortfolioCommandCenterResource,
-  usePortfolioHierarchyResource,
-  usePortfolioSummaryResource,
 } from "../../../core/api/portfolio";
+import {
+  buildPortfolioRouteQueryKey,
+  createPortfolioRouteQueryFn,
+  resolvePortfolioRouteErrorMessage,
+  resolvePortfolioRouteQueryResource,
+  resolvePortfolioRouteStatus,
+} from "../../../core/api/portfolio-route-query";
 import { type HierarchyPivotGroup } from "../../../features/portfolio-hierarchy/HierarchyPivotTable";
 
 export type HomeKpi = {
@@ -44,6 +58,12 @@ export type HomeHoldingsSummaryRow = {
   state: string;
 };
 
+export type HomeEquityPoint = {
+  capturedAt: string;
+  portfolioValue: number;
+  benchmarkValue: number;
+};
+
 export type PortfolioHomeRouteData = {
   status: "loading" | "ready" | "empty" | "error";
   errorMessage: string | null;
@@ -55,6 +75,7 @@ export type PortfolioHomeRouteData = {
   allocationSlices: HomeAllocationSlice[];
   holdingsSummaryRows: HomeHoldingsSummaryRow[];
   hierarchyPivotGroups: HierarchyPivotGroup[];
+  equitySeries: HomeEquityPoint[];
 };
 
 function resolveValue(value: string | number | null | undefined): number {
@@ -143,39 +164,80 @@ function buildAllocationSlices(
 }
 
 export function usePortfolioHomeRouteData(): PortfolioHomeRouteData {
-  const commandCenter = usePortfolioCommandCenterResource();
-  const summary = usePortfolioSummaryResource();
-  const hierarchy = usePortfolioHierarchyResource();
+  const [
+    commandCenterQuery,
+    summaryQuery,
+    hierarchyQuery,
+    timeSeriesQuery,
+  ] = useQueries({
+    queries: [
+      {
+        queryKey: buildPortfolioRouteQueryKey("/portfolio/command-center"),
+        queryFn: createPortfolioRouteQueryFn({
+          path: "/portfolio/command-center",
+          loader: fetchPortfolioCommandCenterResponse,
+        }),
+        retry: false,
+      },
+      {
+        queryKey: buildPortfolioRouteQueryKey("/portfolio/summary"),
+        queryFn: createPortfolioRouteQueryFn({
+          path: "/portfolio/summary",
+          loader: fetchPortfolioSummaryResponse,
+        }),
+        retry: false,
+      },
+      {
+        queryKey: buildPortfolioRouteQueryKey("/portfolio/hierarchy", {
+          group_by: "sector",
+        }),
+        queryFn: createPortfolioRouteQueryFn({
+          path: "/portfolio/hierarchy",
+          query: {
+            group_by: "sector",
+          },
+          loader: fetchPortfolioHierarchyResponse,
+        }),
+        retry: false,
+      },
+      {
+        queryKey: buildPortfolioRouteQueryKey("/portfolio/time-series", {
+          period: "90D",
+          scope: "portfolio",
+        }),
+        queryFn: createPortfolioRouteQueryFn({
+          path: "/portfolio/time-series",
+          query: {
+            period: "90D",
+            scope: "portfolio",
+          },
+          loader: () => fetchPortfolioTimeSeriesResponse("90D", "portfolio"),
+        }),
+        retry: false,
+      },
+    ],
+  });
 
-  const status = useMemo(() => {
-    if (
-      commandCenter.status === "loading" ||
-      summary.status === "loading" ||
-      hierarchy.status === "loading"
-    ) {
-      return "loading" as const;
-    }
+  const commandCenter = resolvePortfolioRouteQueryResource(
+    commandCenterQuery,
+    isPortfolioCommandCenterEmpty,
+  );
+  const summary = resolvePortfolioRouteQueryResource(
+    summaryQuery,
+    isPortfolioSummaryEmpty,
+  );
+  const hierarchy = resolvePortfolioRouteQueryResource(
+    hierarchyQuery,
+    isPortfolioHierarchyEmpty,
+  );
+  const timeSeries = resolvePortfolioRouteQueryResource(
+    timeSeriesQuery,
+    isPortfolioTimeSeriesEmpty,
+  );
 
-    if (
-      commandCenter.status === "error" ||
-      summary.status === "error" ||
-      hierarchy.status === "error"
-    ) {
-      return "error" as const;
-    }
-
-    if (
-      commandCenter.status === "empty" ||
-      summary.status === "empty" ||
-      hierarchy.status === "empty"
-    ) {
-      return "empty" as const;
-    }
-
-    return "ready" as const;
-  }, [commandCenter.status, hierarchy.status, summary.status]);
-
-  const errorMessage = commandCenter.errorMessage ?? summary.errorMessage ?? hierarchy.errorMessage;
+  const resources = [commandCenter, summary, hierarchy, timeSeries];
+  const status = resolvePortfolioRouteStatus(resources);
+  const errorMessage = resolvePortfolioRouteErrorMessage(resources);
 
   const summaryRows = useMemo(
     () => getPortfolioSummaryRowsByMarketValue(summary.data?.rows ?? []),
@@ -224,7 +286,7 @@ export function usePortfolioHomeRouteData(): PortfolioHomeRouteData {
               100,
             1,
           )
-        : "Unavailable",
+        : "Awaiting portfolio summary",
       delta: commandCenter.data
         ? `Top 5 ${formatPortfolioPercent(commandCenter.data.concentration_top5_pct, 1)}`
         : "Awaiting concentration context",
@@ -284,6 +346,18 @@ export function usePortfolioHomeRouteData(): PortfolioHomeRouteData {
     return buildHierarchyPivotGroups(totalMarketValue, groups);
   }, [hierarchy.data?.groups, totalMarketValue]);
 
+  const equitySeries = useMemo<HomeEquityPoint[]>(
+    () =>
+      (timeSeries.data?.points ?? []).slice(-40).map((point) => ({
+        capturedAt: point.captured_at,
+        portfolioValue: resolveValue(point.portfolio_value_usd),
+        benchmarkValue:
+          resolveValue(point.benchmark_sp500_value_usd) ||
+          resolveValue(point.benchmark_nasdaq100_value_usd),
+      })),
+    [timeSeries.data?.points],
+  );
+
   return {
     status,
     errorMessage,
@@ -291,6 +365,7 @@ export function usePortfolioHomeRouteData(): PortfolioHomeRouteData {
       commandCenter.reload();
       summary.reload();
       hierarchy.reload();
+      timeSeries.reload();
     },
     assetDetailHref: resolvePortfolioAssetDetailHref(summary.data),
     kpis,
@@ -299,5 +374,6 @@ export function usePortfolioHomeRouteData(): PortfolioHomeRouteData {
     allocationSlices,
     holdingsSummaryRows,
     hierarchyPivotGroups,
+    equitySeries,
   };
 }

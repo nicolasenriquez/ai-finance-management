@@ -76,7 +76,9 @@ def _normalize_instrument_symbol(
     if scope == PortfolioMLScope.PORTFOLIO:
         return None
     if instrument_symbol is None or instrument_symbol.strip() == "":
-        raise ValueError("--instrument-symbol is required when --scope=instrument_symbol.")
+        raise ValueError(
+            "--instrument-symbol is required when --scope=instrument_symbol."
+        )
     return instrument_symbol.strip().upper()
 
 
@@ -97,7 +99,11 @@ async def _run_workflow(
             db=db,
         )
         print("# Forecast Response")
-        print(json.dumps(forecast_response.model_dump(mode="json"), indent=2, sort_keys=True))
+        print(
+            json.dumps(
+                forecast_response.model_dump(mode="json"), indent=2, sort_keys=True
+            )
+        )
 
         if not include_registry:
             return 0
@@ -109,7 +115,11 @@ async def _run_workflow(
             lifecycle_state=registry_lifecycle_state,
         )
         print("\n# Registry Response")
-        print(json.dumps(registry_response.model_dump(mode="json"), indent=2, sort_keys=True))
+        print(
+            json.dumps(
+                registry_response.model_dump(mode="json"), indent=2, sort_keys=True
+            )
+        )
     return 0
 
 

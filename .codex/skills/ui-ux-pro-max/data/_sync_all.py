@@ -27,7 +27,9 @@ def r2h(r, g, b):
 
 def lum(h):
     r, g, b = [x / 255.0 for x in h2r(h)]
-    r, g, b = [(x / 12.92 if x <= 0.03928 else ((x + 0.055) / 1.055) ** 2.4) for x in (r, g, b)]
+    r, g, b = [
+        (x / 12.92 if x <= 0.03928 else ((x + 0.055) / 1.055) ** 2.4) for x in (r, g, b)
+    ]
     return 0.2126 * r + 0.7152 * g + 0.0722 * b
 
 
@@ -163,7 +165,13 @@ NEW_COLORS = {
         "#FFFBEB",
         "Warm ink + amber accent on cream",
     ),
-    "Habit Tracker": ("#D97706", "#F59E0B", "#059669", "#FFFBEB", "Streak amber + habit green"),
+    "Habit Tracker": (
+        "#D97706",
+        "#F59E0B",
+        "#059669",
+        "#FFFBEB",
+        "Streak amber + habit green",
+    ),
     "Food Delivery / On-Demand": (
         "#EA580C",
         "#F97316",
@@ -292,7 +300,13 @@ NEW_COLORS = {
         "#FFFFFF",
         "Recording red + waveform blue",
     ),
-    "Bookmark & Read-Later": ("#D97706", "#F59E0B", "#2563EB", "#FFFBEB", "Warm amber + link blue"),
+    "Bookmark & Read-Later": (
+        "#D97706",
+        "#F59E0B",
+        "#2563EB",
+        "#FFFBEB",
+        "Warm amber + link blue",
+    ),
     "Translator App": (
         "#2563EB",
         "#0891B2",
@@ -321,7 +335,13 @@ NEW_COLORS = {
         "#F8FAFC",
         "Folder blue + file amber",
     ),
-    "Email Client": ("#2563EB", "#3B82F6", "#DC2626", "#FFFFFF", "Inbox blue + priority red"),
+    "Email Client": (
+        "#2563EB",
+        "#3B82F6",
+        "#DC2626",
+        "#FFFFFF",
+        "Inbox blue + priority red",
+    ),
     # ── B. Games ──
     "Casual Puzzle Game": (
         "#EC4899",
@@ -337,7 +357,13 @@ NEW_COLORS = {
         "#EFF6FF",
         "Quiz blue + gold leaderboard",
     ),
-    "Card & Board Game": ("#15803D", "#166534", "#D97706", "#0F172A", "Felt green + gold on dark"),
+    "Card & Board Game": (
+        "#15803D",
+        "#166534",
+        "#D97706",
+        "#0F172A",
+        "Felt green + gold on dark",
+    ),
     "Idle & Clicker Game": (
         "#D97706",
         "#F59E0B",
@@ -417,7 +443,13 @@ NEW_COLORS = {
         "#FDF2F8",
         "Fashion rose + gold accent",
     ),
-    "Plant Care Tracker": ("#15803D", "#059669", "#D97706", "#F0FDF4", "Nature green + sun yellow"),
+    "Plant Care Tracker": (
+        "#15803D",
+        "#059669",
+        "#D97706",
+        "#F0FDF4",
+        "Nature green + sun yellow",
+    ),
     "Book & Reading Tracker": (
         "#78716C",
         "#92400E",
@@ -439,7 +471,13 @@ NEW_COLORS = {
         "#F8FAFC",
         "Family blue + chore green",
     ),
-    "Mood Tracker": ("#7C3AED", "#6366F1", "#D97706", "#FAF5FF", "Mood purple + insight amber"),
+    "Mood Tracker": (
+        "#7C3AED",
+        "#6366F1",
+        "#D97706",
+        "#FAF5FF",
+        "Mood purple + insight amber",
+    ),
     "Gift & Wishlist": (
         "#DC2626",
         "#D97706",

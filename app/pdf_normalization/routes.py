@@ -6,8 +6,14 @@ from fastapi import APIRouter, HTTPException
 
 from app.core.config import get_settings
 from app.core.logging import get_logger
-from app.pdf_normalization.schemas import PdfNormalizationRequest, PdfNormalizationResult
-from app.pdf_normalization.service import PdfNormalizationClientError, normalize_pdf_from_storage
+from app.pdf_normalization.schemas import (
+    PdfNormalizationRequest,
+    PdfNormalizationResult,
+)
+from app.pdf_normalization.service import (
+    PdfNormalizationClientError,
+    normalize_pdf_from_storage,
+)
 
 logger = get_logger(__name__)
 settings = get_settings()

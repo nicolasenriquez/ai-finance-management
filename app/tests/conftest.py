@@ -34,7 +34,9 @@ async def test_db_engine() -> AsyncGenerator[AsyncEngine, None]:
         AsyncEngine: Database engine for the test.
     """
     settings = get_settings()
-    test_database_url = resolve_test_database_url(runtime_database_url=settings.database_url)
+    test_database_url = resolve_test_database_url(
+        runtime_database_url=settings.database_url
+    )
     engine = create_async_engine(
         test_database_url,
         pool_pre_ping=True,

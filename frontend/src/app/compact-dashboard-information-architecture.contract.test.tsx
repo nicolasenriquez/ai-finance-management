@@ -8,18 +8,21 @@ import {
   it,
 } from "vitest";
 
+import { AppProviders } from "./providers";
 import { CompactDashboardShell } from "../components/shell/CompactDashboardShell";
 
 describe("compact dashboard information architecture contract", () => {
   it("3.1 keeps exactly five primary compact routes with one decision job per route", () => {
     render(
       <MemoryRouter initialEntries={["/portfolio/home"]}>
-        <CompactDashboardShell
-          title="Portfolio Home"
-          subtitle="Executive view"
-        >
-          <section>Test content</section>
-        </CompactDashboardShell>
+        <AppProviders>
+          <CompactDashboardShell
+            title="Portfolio Home"
+            subtitle="Executive view"
+          >
+            <section>Test content</section>
+          </CompactDashboardShell>
+        </AppProviders>
       </MemoryRouter>,
     );
 

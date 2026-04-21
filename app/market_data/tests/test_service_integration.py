@@ -68,12 +68,16 @@ async def _truncate_tables_if_present(db: AsyncSession) -> None:
     """Truncate integration tables when they exist in the current schema."""
 
     existing_tables = [
-        table_name for table_name in _TRUNCATE_CANDIDATES if await _table_exists(db, table_name)
+        table_name
+        for table_name in _TRUNCATE_CANDIDATES
+        if await _table_exists(db, table_name)
     ]
     if not existing_tables:
         return
 
-    truncate_sql = f"TRUNCATE TABLE {', '.join(existing_tables)} RESTART IDENTITY CASCADE"
+    truncate_sql = (
+        f"TRUNCATE TABLE {', '.join(existing_tables)} RESTART IDENTITY CASCADE"
+    )
     await db.execute(text(truncate_sql))
     await db.commit()
 
@@ -114,7 +118,11 @@ async def _seed_ledger_truth(db: AsyncSession) -> None:
         canonical_schema_version="dataset_1_v1",
         canonical_payload={"event_type": "trade", "trade_side": "buy"},
         raw_values={},
-        provenance={"table_name": "compra_venta_activos", "row_index": 1, "source_page": 1},
+        provenance={
+            "table_name": "compra_venta_activos",
+            "row_index": 1,
+            "source_page": 1,
+        },
     )
     canonical_sell = CanonicalPdfRecord(
         source_document_id=source_document.id,
@@ -128,7 +136,11 @@ async def _seed_ledger_truth(db: AsyncSession) -> None:
         canonical_schema_version="dataset_1_v1",
         canonical_payload={"event_type": "trade", "trade_side": "sell"},
         raw_values={},
-        provenance={"table_name": "compra_venta_activos", "row_index": 2, "source_page": 1},
+        provenance={
+            "table_name": "compra_venta_activos",
+            "row_index": 2,
+            "source_page": 1,
+        },
     )
     canonical_dividend = CanonicalPdfRecord(
         source_document_id=source_document.id,
@@ -142,7 +154,11 @@ async def _seed_ledger_truth(db: AsyncSession) -> None:
         canonical_schema_version="dataset_1_v1",
         canonical_payload={"event_type": "dividend"},
         raw_values={},
-        provenance={"table_name": "dividendos_recibidos", "row_index": 1, "source_page": 2},
+        provenance={
+            "table_name": "dividendos_recibidos",
+            "row_index": 1,
+            "source_page": 2,
+        },
     )
     canonical_split = CanonicalPdfRecord(
         source_document_id=source_document.id,
@@ -255,11 +271,14 @@ async def _fetch_truth_counts(db: AsyncSession) -> dict[str, int]:
     """Return current row counts for canonical+ledger truth tables."""
 
     return {
-        table_name: await _fetch_table_count(db, table_name) for table_name in _LEDGER_TRUTH_TABLES
+        table_name: await _fetch_table_count(db, table_name)
+        for table_name in _LEDGER_TRUTH_TABLES
     }
 
 
-def _build_valid_request(*, price: str = "510.123456789") -> MarketDataSnapshotWriteRequest:
+def _build_valid_request(
+    *, price: str = "510.123456789"
+) -> MarketDataSnapshotWriteRequest:
     """Return a valid market-data snapshot request used across integration tests."""
 
     return MarketDataSnapshotWriteRequest(
@@ -452,7 +471,9 @@ async def test_ingest_concurrent_duplicate_requests_are_duplicate_safe(
     )
 
     async with session_factory() as verify_session:
-        snapshot_count = await _fetch_table_count(verify_session, "market_data_snapshot")
+        snapshot_count = await _fetch_table_count(
+            verify_session, "market_data_snapshot"
+        )
         price_count = await _fetch_table_count(verify_session, "price_history")
         rows_result = await verify_session.execute(select(PriceHistory))
         rows = rows_result.scalars().all()
@@ -553,7 +574,9 @@ async def test_provider_ingest_is_idempotent_and_non_mutating(
             {"provider": "yfinance"},
         )
 
-    monkeypatch.setattr("app.market_data.service.fetch_yfinance_daily_close_rows", fake_fetch)
+    monkeypatch.setattr(
+        "app.market_data.service.fetch_yfinance_daily_close_rows", fake_fetch
+    )
 
     first = await ingest_yfinance_daily_close_snapshot(
         db=test_db_session,
@@ -618,7 +641,11 @@ async def test_supported_universe_refresh_is_idempotent_and_non_mutating(
                     trading_date=date(2026, 3, 24),
                     close_value=close_value,
                     currency_code="USD",
-                    source_payload={"provider": "yfinance", "field": "Close", "symbol": symbol},
+                    source_payload={
+                        "provider": "yfinance",
+                        "field": "Close",
+                        "symbol": symbol,
+                    },
                 )
             )
             rows_by_symbol[symbol] = 1
@@ -630,7 +657,9 @@ async def test_supported_universe_refresh_is_idempotent_and_non_mutating(
             },
         )
 
-    monkeypatch.setattr("app.market_data.service.fetch_yfinance_daily_close_rows", fake_fetch)
+    monkeypatch.setattr(
+        "app.market_data.service.fetch_yfinance_daily_close_rows", fake_fetch
+    )
 
     first = await refresh_yfinance_supported_universe(
         db=test_db_session,
@@ -662,7 +691,9 @@ async def test_supported_universe_refresh_is_idempotent_and_non_mutating(
     assert after_counts == before_counts
 
     index_voo = list(expected_symbols).index("VOO")
-    expected_voo_price = Decimal("100.000000000") + Decimal(index_voo) + Decimal("1.000000000")
+    expected_voo_price = (
+        Decimal("100.000000000") + Decimal(index_voo) + Decimal("1.000000000")
+    )
     voo_rows = [row for row in rows if row.instrument_symbol == "VOO"]
     assert len(voo_rows) == 1
     assert voo_rows[0].price_value == expected_voo_price
@@ -733,7 +764,9 @@ async def test_supported_universe_refresh_scope_100_executes_once_and_non_mutati
     await test_db_session.rollback()
 
     expected_symbols = tuple(list_market_data_library_symbols(size=100))
-    symbol_index_by_name = {symbol: index for index, symbol in enumerate(expected_symbols)}
+    symbol_index_by_name = {
+        symbol: index for index, symbol in enumerate(expected_symbols)
+    }
     call_count_by_symbol: dict[str, int] = {}
 
     async def fake_fetch(
@@ -758,7 +791,11 @@ async def test_supported_universe_refresh_scope_100_executes_once_and_non_mutati
                     trading_date=date(2026, 3, 24),
                     close_value=close_value,
                     currency_code="USD",
-                    source_payload={"provider": "yfinance", "field": "Close", "symbol": symbol},
+                    source_payload={
+                        "provider": "yfinance",
+                        "field": "Close",
+                        "symbol": symbol,
+                    },
                 )
             ],
             {
@@ -768,7 +805,9 @@ async def test_supported_universe_refresh_scope_100_executes_once_and_non_mutati
             },
         )
 
-    monkeypatch.setattr("app.market_data.service.fetch_yfinance_daily_close_rows", fake_fetch)
+    monkeypatch.setattr(
+        "app.market_data.service.fetch_yfinance_daily_close_rows", fake_fetch
+    )
 
     result = await refresh_yfinance_supported_universe(
         db=test_db_session,
@@ -810,7 +849,9 @@ async def test_supported_universe_refresh_scope_100_sample_rerun_is_idempotent_a
     full_scope_symbols = tuple(list_market_data_library_symbols(size=100))
     sample_symbols = tuple(full_scope_symbols[:20])
     assert len(sample_symbols) == 20
-    symbol_index_by_name = {symbol: index for index, symbol in enumerate(sample_symbols)}
+    symbol_index_by_name = {
+        symbol: index for index, symbol in enumerate(sample_symbols)
+    }
     call_count_by_symbol: dict[str, int] = {}
 
     original_list_market_data_library_symbols = list_market_data_library_symbols
@@ -848,7 +889,11 @@ async def test_supported_universe_refresh_scope_100_sample_rerun_is_idempotent_a
                     trading_date=date(2026, 3, 24),
                     close_value=close_value,
                     currency_code="USD",
-                    source_payload={"provider": "yfinance", "field": "Close", "symbol": symbol},
+                    source_payload={
+                        "provider": "yfinance",
+                        "field": "Close",
+                        "symbol": symbol,
+                    },
                 )
             ],
             {
@@ -862,7 +907,9 @@ async def test_supported_universe_refresh_scope_100_sample_rerun_is_idempotent_a
         "app.market_data.service.list_market_data_library_symbols",
         fake_list_market_data_library_symbols,
     )
-    monkeypatch.setattr("app.market_data.service.fetch_yfinance_daily_close_rows", fake_fetch)
+    monkeypatch.setattr(
+        "app.market_data.service.fetch_yfinance_daily_close_rows", fake_fetch
+    )
 
     first = await refresh_yfinance_supported_universe(
         db=test_db_session,
@@ -917,7 +964,9 @@ async def test_refresh_pr_smoke_core_plus_non_core_sample_is_idempotent_and_non_
 
     core_symbols = list_supported_market_data_symbols()
     starter_100 = list_market_data_library_symbols(size=100)
-    non_core_sample = [symbol for symbol in starter_100 if symbol not in core_symbols][:8]
+    non_core_sample = [symbol for symbol in starter_100 if symbol not in core_symbols][
+        :8
+    ]
     assert len(non_core_sample) == 8
     smoke_symbols = tuple(core_symbols + non_core_sample)
     symbol_index_by_name = {symbol: index for index, symbol in enumerate(smoke_symbols)}
@@ -942,7 +991,11 @@ async def test_refresh_pr_smoke_core_plus_non_core_sample_is_idempotent_and_non_
                 + Decimal(symbol_index_by_name[symbol])
                 + run_offset,
                 currency_code="USD",
-                source_payload={"provider": "yfinance", "field": "Close", "symbol": symbol},
+                source_payload={
+                    "provider": "yfinance",
+                    "field": "Close",
+                    "symbol": symbol,
+                },
             )
             for symbol in symbols
         ]
@@ -955,7 +1008,9 @@ async def test_refresh_pr_smoke_core_plus_non_core_sample_is_idempotent_and_non_
             },
         )
 
-    monkeypatch.setattr("app.market_data.service.fetch_yfinance_daily_close_rows", fake_fetch)
+    monkeypatch.setattr(
+        "app.market_data.service.fetch_yfinance_daily_close_rows", fake_fetch
+    )
 
     first = await ingest_yfinance_daily_close_snapshot(
         db=test_db_session,

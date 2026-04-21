@@ -82,7 +82,9 @@ class PortfolioLedgerClientError(ValueError):
         self.status_code = status_code
 
 
-def map_canonical_record_to_ledger_event(*, record: Mapping[str, object]) -> dict[str, object]:
+def map_canonical_record_to_ledger_event(
+    *, record: Mapping[str, object]
+) -> dict[str, object]:
     """Map one persisted canonical record to a typed ledger event seed."""
 
     persisted_record = _parse_persisted_canonical_record(record=record)
@@ -277,7 +279,9 @@ async def _derive_and_persist_ledger_events(
             dividend_canonical_record_ids.add(persisted_record.canonical_record_id)
         else:
             corporate_action_events += 1
-            corporate_action_canonical_record_ids.add(persisted_record.canonical_record_id)
+            corporate_action_canonical_record_ids.add(
+                persisted_record.canonical_record_id
+            )
 
     await _prune_stale_ledger_event_rows(
         source_document_id=source_document_id,
@@ -418,7 +422,9 @@ def _apply_trade_event_to_lot_state(
     )
 
 
-def _initial_lot_state_from_buy_transaction(*, transaction: PortfolioTransaction) -> _LotState:
+def _initial_lot_state_from_buy_transaction(
+    *, transaction: PortfolioTransaction
+) -> _LotState:
     """Build initial lot state from one buy-side portfolio transaction."""
 
     quantity = _coerce_positive_decimal_for_lot(
@@ -565,12 +571,14 @@ def _apply_sell_transaction_to_lot_state(
         lot_state.remaining_qty = updated_remaining_qty
         lot_state.total_cost_basis_usd = updated_total_cost_basis_usd
 
-        disposition_states[(opening_transaction_id, transaction.id)] = _DispositionState(
-            opening_transaction_id=opening_transaction_id,
-            sell_transaction_id=transaction.id,
-            disposition_date=transaction.event_date,
-            matched_qty=matched_qty,
-            matched_cost_basis_usd=matched_cost_basis_to_apply,
+        disposition_states[(opening_transaction_id, transaction.id)] = (
+            _DispositionState(
+                opening_transaction_id=opening_transaction_id,
+                sell_transaction_id=transaction.id,
+                disposition_date=transaction.event_date,
+                matched_qty=matched_qty,
+                matched_cost_basis_usd=matched_cost_basis_to_apply,
+            )
         )
 
 
@@ -805,7 +813,9 @@ async def _upsert_lot_disposition_rows(
     """Persist deterministic lot-disposition rows with conflict-safe upsert semantics."""
 
     for disposition_state in disposition_states.values():
-        lot_id = lot_id_by_opening_transaction_id.get(disposition_state.opening_transaction_id)
+        lot_id = lot_id_by_opening_transaction_id.get(
+            disposition_state.opening_transaction_id
+        )
         if lot_id is None:
             raise PortfolioLedgerClientError(
                 (
