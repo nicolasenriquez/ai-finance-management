@@ -1,3 +1,9 @@
+import {
+  createElement,
+  type ReactNode,
+} from "react";
+import { vi } from "vitest";
+
 import { PORTFOLIO_API_FIXTURE } from "./test-api-fixtures";
 
 const globalFixture = globalThis as typeof globalThis & {
@@ -99,3 +105,22 @@ if (typeof HTMLElement !== "undefined") {
       toJSON: () => ({}),
     }) as DOMRect;
 }
+
+vi.mock("recharts", async () => {
+  const actual = await vi.importActual<typeof import("recharts")>("recharts");
+
+  return {
+    ...actual,
+    ResponsiveContainer: ({ children }: { children: ReactNode }) =>
+      createElement(
+        "div",
+        {
+          style: {
+            width: `${TEST_VIEWPORT_WIDTH}px`,
+            height: `${TEST_VIEWPORT_HEIGHT}px`,
+          },
+        },
+        children,
+      ),
+  };
+});
