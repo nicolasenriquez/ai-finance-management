@@ -287,7 +287,11 @@ async def test_fetch_applies_symbol_request_spacing_between_symbols(
                 trading_date=date(2026, 3, 24),
                 close_value=Decimal("100.000000000"),
                 currency_code="USD",
-                source_payload={"provider": "yfinance", "field": "Close", "symbol": symbol},
+                source_payload={
+                    "provider": "yfinance",
+                    "field": "Close",
+                    "symbol": symbol,
+                },
             )
         ]
 
@@ -295,7 +299,8 @@ async def test_fetch_applies_symbol_request_spacing_between_symbols(
         sleep_calls.append(delay_seconds)
 
     monkeypatch.setattr(
-        "app.market_data.providers.yfinance_adapter._fetch_symbol_currency", fake_currency
+        "app.market_data.providers.yfinance_adapter._fetch_symbol_currency",
+        fake_currency,
     )
     monkeypatch.setattr("app.market_data.providers.yfinance_adapter._fetch_symbol_rows", fake_rows)
     monkeypatch.setattr("app.market_data.providers.yfinance_adapter.time.sleep", fake_sleep)

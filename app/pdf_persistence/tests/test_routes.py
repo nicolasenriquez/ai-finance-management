@@ -255,7 +255,10 @@ async def test_persist_endpoint_concurrent_duplicate_requests_are_duplicate_safe
     )
 
     assert first_body["source_document_id"] == second_body["source_document_id"]
-    assert {first_body["source_document_status"], second_body["source_document_status"]} <= {
+    assert {
+        first_body["source_document_status"],
+        second_body["source_document_status"],
+    } <= {
         "created",
         "reused",
     }

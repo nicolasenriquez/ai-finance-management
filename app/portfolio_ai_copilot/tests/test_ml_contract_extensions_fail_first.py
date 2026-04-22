@@ -178,7 +178,10 @@ def test_chat_rejects_unresolved_document_references_without_provider_call(
             json={
                 "operation": "chat",
                 "messages": [
-                    {"role": "user", "content": "Summarize referenced documents and forecast risk."}
+                    {
+                        "role": "user",
+                        "content": "Summarize referenced documents and forecast risk.",
+                    }
                 ],
                 "period": "90D",
                 "scope": "portfolio",

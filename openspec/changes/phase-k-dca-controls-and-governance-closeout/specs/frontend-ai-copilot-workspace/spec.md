@@ -33,3 +33,29 @@ The frontend SHALL render recommendation bubbles using operation-specific catalo
 - **WHEN** the active operation is `opportunity_scan`
 - **THEN** recommendation bubbles emphasize DCA allocation prioritization, concentration impact, and risk-control trade-offs
 - **THEN** bubble copy remains informational and non-executing within read-only copilot boundaries
+
+### Requirement: Copilot workspace SHALL render SOT DCA assessment cues for opportunity workflows
+The frontend SHALL make SOT DCA interpretation cues visible in opportunity workflows so users can distinguish deterministic classification from interpretive assistant commentary.
+
+#### Scenario: Opportunity response surfaces deterministic vs interpretive layers
+- **WHEN** an `opportunity_scan` response is rendered
+- **THEN** the workspace exposes deterministic candidate/action-state evidence separately from narrative explanation
+- **THEN** the UI keeps fundamentals-proxy caveat and non-advice posture visible in the evidence/limitations surface
+
+#### Scenario: Follow-up prompts map to SOT DCA categories
+- **WHEN** recommendation bubbles are rendered for `opportunity_scan`
+- **THEN** prompts map to DCA categories such as cadence discipline, concentration impact, hold-off risk, and monitoring cadence
+- **THEN** prompts avoid execution language or guaranteed-outcome framing
+
+### Requirement: Copilot presentation SHALL preserve lifecycle transparency across docked and expanded surfaces
+The frontend SHALL keep copilot lifecycle state explicit across docked, expanded, and mobile modes so users can audit request progress and trust boundaries.
+
+#### Scenario: Lifecycle state remains explicit during request processing
+- **WHEN** a copilot request is submitted from any presentation mode
+- **THEN** the UI shows deterministic lifecycle states for request start, in-flight processing, and completion/error outcomes
+- **THEN** users are not forced to infer status from partial response text
+
+#### Scenario: Presentation changes do not lose trust context
+- **WHEN** a user moves between docked and expanded copilot surfaces
+- **THEN** current answer, evidence, caveats, and state monitor context remain available
+- **THEN** state continuity is preserved without silently resetting DCA control selections

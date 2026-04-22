@@ -9,7 +9,10 @@ from typing import NoReturn
 
 from app.core.logging import get_logger
 from app.pdf_extraction.schemas import PdfExtractedRow
-from app.pdf_extraction.service import PdfExtractionClientError, extract_pdf_from_storage
+from app.pdf_extraction.service import (
+    PdfExtractionClientError,
+    extract_pdf_from_storage,
+)
 from app.pdf_normalization.schemas import (
     CanonicalDividendRecord,
     CanonicalRecord,

@@ -76,7 +76,7 @@ async def get_portfolio_news_context_response(
 
     top_rows = sorted(
         summary_response.rows,
-        key=lambda row: row.market_value_usd if row.market_value_usd is not None else zero,
+        key=lambda row: (row.market_value_usd if row.market_value_usd is not None else zero),
         reverse=True,
     )[:5]
     context_rows: list[PortfolioNewsContextRow] = []

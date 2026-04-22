@@ -16,7 +16,13 @@ MAX_RESULTS = 3
 CSV_CONFIG = {
     "style": {
         "file": "styles.csv",
-        "search_cols": ["Style Category", "Keywords", "Best For", "Type", "AI Prompt Keywords"],
+        "search_cols": [
+            "Style Category",
+            "Keywords",
+            "Best For",
+            "Type",
+            "AI Prompt Keywords",
+        ],
         "output_cols": [
             "Style Category",
             "Type",
@@ -88,7 +94,12 @@ CSV_CONFIG = {
     },
     "landing": {
         "file": "landing.csv",
-        "search_cols": ["Pattern Name", "Keywords", "Conversion Optimization", "Section Order"],
+        "search_cols": [
+            "Pattern Name",
+            "Keywords",
+            "Conversion Optimization",
+            "Section Order",
+        ],
         "output_cols": [
             "Pattern Name",
             "Keywords",
@@ -510,7 +521,12 @@ def detect_domain(query):
             "navigation",
             "mobile",
         ],
-        "typography": ["font pairing", "typography pairing", "heading font", "body font"],
+        "typography": [
+            "font pairing",
+            "typography pairing",
+            "heading font",
+            "body font",
+        ],
         "google-fonts": [
             "google font",
             "font family",
@@ -614,7 +630,11 @@ def search_stack(query, stack, max_results=MAX_RESULTS):
         return {"error": f"Stack file not found: {filepath}", "stack": stack}
 
     results = _search_csv(
-        filepath, _STACK_COLS["search_cols"], _STACK_COLS["output_cols"], query, max_results
+        filepath,
+        _STACK_COLS["search_cols"],
+        _STACK_COLS["output_cols"],
+        query,
+        max_results,
     )
 
     return {

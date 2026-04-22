@@ -99,7 +99,10 @@ def _build_strategy_rows(
                 sum(
                     [
                         (suggested_weights[symbol] / Decimal("100"))
-                        * max(Decimal("0.02"), Decimal("0.20") - volatility_proxy_by_symbol[symbol])
+                        * max(
+                            Decimal("0.02"),
+                            Decimal("0.20") - volatility_proxy_by_symbol[symbol],
+                        )
                         for symbol in symbols
                     ],
                     zero,

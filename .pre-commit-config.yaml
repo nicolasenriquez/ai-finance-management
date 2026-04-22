@@ -29,7 +29,7 @@ repos:
         stages: [pre-push]
       - id: backend-black-format
         name: backend black format
-        entry: uv run black
+        entry: bash scripts/dev/run-black-serial.sh --check --diff
         language: system
         files: \.py$
       - id: frontend-static-lint

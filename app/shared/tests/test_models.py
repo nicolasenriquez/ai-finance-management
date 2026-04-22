@@ -35,7 +35,9 @@ def test_timestamp_mixin_creates_columns() -> None:
 
 @pytest.mark.asyncio
 @pytest.mark.integration
-async def test_timestamp_mixin_sets_timestamps_on_creation(db_session: AsyncSession) -> None:
+async def test_timestamp_mixin_sets_timestamps_on_creation(
+    db_session: AsyncSession,
+) -> None:
     """Test that timestamps are automatically set on model creation."""
     # Create test instance
     before = datetime.now(UTC)

@@ -5,7 +5,15 @@ from __future__ import annotations
 from datetime import date
 from decimal import Decimal
 
-from sqlalchemy import JSON, Date, ForeignKey, Integer, Numeric, String, UniqueConstraint
+from sqlalchemy import (
+    JSON,
+    Date,
+    ForeignKey,
+    Integer,
+    Numeric,
+    String,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base

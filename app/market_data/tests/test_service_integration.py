@@ -114,7 +114,11 @@ async def _seed_ledger_truth(db: AsyncSession) -> None:
         canonical_schema_version="dataset_1_v1",
         canonical_payload={"event_type": "trade", "trade_side": "buy"},
         raw_values={},
-        provenance={"table_name": "compra_venta_activos", "row_index": 1, "source_page": 1},
+        provenance={
+            "table_name": "compra_venta_activos",
+            "row_index": 1,
+            "source_page": 1,
+        },
     )
     canonical_sell = CanonicalPdfRecord(
         source_document_id=source_document.id,
@@ -128,7 +132,11 @@ async def _seed_ledger_truth(db: AsyncSession) -> None:
         canonical_schema_version="dataset_1_v1",
         canonical_payload={"event_type": "trade", "trade_side": "sell"},
         raw_values={},
-        provenance={"table_name": "compra_venta_activos", "row_index": 2, "source_page": 1},
+        provenance={
+            "table_name": "compra_venta_activos",
+            "row_index": 2,
+            "source_page": 1,
+        },
     )
     canonical_dividend = CanonicalPdfRecord(
         source_document_id=source_document.id,
@@ -142,7 +150,11 @@ async def _seed_ledger_truth(db: AsyncSession) -> None:
         canonical_schema_version="dataset_1_v1",
         canonical_payload={"event_type": "dividend"},
         raw_values={},
-        provenance={"table_name": "dividendos_recibidos", "row_index": 1, "source_page": 2},
+        provenance={
+            "table_name": "dividendos_recibidos",
+            "row_index": 1,
+            "source_page": 2,
+        },
     )
     canonical_split = CanonicalPdfRecord(
         source_document_id=source_document.id,
@@ -618,7 +630,11 @@ async def test_supported_universe_refresh_is_idempotent_and_non_mutating(
                     trading_date=date(2026, 3, 24),
                     close_value=close_value,
                     currency_code="USD",
-                    source_payload={"provider": "yfinance", "field": "Close", "symbol": symbol},
+                    source_payload={
+                        "provider": "yfinance",
+                        "field": "Close",
+                        "symbol": symbol,
+                    },
                 )
             )
             rows_by_symbol[symbol] = 1
@@ -758,7 +774,11 @@ async def test_supported_universe_refresh_scope_100_executes_once_and_non_mutati
                     trading_date=date(2026, 3, 24),
                     close_value=close_value,
                     currency_code="USD",
-                    source_payload={"provider": "yfinance", "field": "Close", "symbol": symbol},
+                    source_payload={
+                        "provider": "yfinance",
+                        "field": "Close",
+                        "symbol": symbol,
+                    },
                 )
             ],
             {
@@ -848,7 +868,11 @@ async def test_supported_universe_refresh_scope_100_sample_rerun_is_idempotent_a
                     trading_date=date(2026, 3, 24),
                     close_value=close_value,
                     currency_code="USD",
-                    source_payload={"provider": "yfinance", "field": "Close", "symbol": symbol},
+                    source_payload={
+                        "provider": "yfinance",
+                        "field": "Close",
+                        "symbol": symbol,
+                    },
                 )
             ],
             {
@@ -942,7 +966,11 @@ async def test_refresh_pr_smoke_core_plus_non_core_sample_is_idempotent_and_non_
                 + Decimal(symbol_index_by_name[symbol])
                 + run_offset,
                 currency_code="USD",
-                source_payload={"provider": "yfinance", "field": "Close", "symbol": symbol},
+                source_payload={
+                    "provider": "yfinance",
+                    "field": "Close",
+                    "symbol": symbol,
+                },
             )
             for symbol in symbols
         ]

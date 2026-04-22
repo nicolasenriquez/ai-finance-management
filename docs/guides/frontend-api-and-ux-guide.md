@@ -1,5 +1,13 @@
 # Frontend API And UX Guide
 
+## Third-Pass Route Refinement
+
+The implementation-facing route architecture for the next frontend pass is documented in:
+
+- [portfolio-dashboard-third-pass-refinement.md](../product/portfolio-dashboard-third-pass-refinement.md)
+
+Use that memo as the primary route and storytelling reference. The legacy workspace-first route map below remains only as historical context for backend contracts that still exist.
+
 ## Purpose
 
 This guide defines the implementation contract between backend portfolio APIs and frontend route behavior.
@@ -22,23 +30,24 @@ It documents the current workspace-first IA, state mapping rules, and methodolog
 
 ## Route Information Architecture
 
-- `/portfolio`
-  - grouped summary table
-  - deterministic drill-down to lot detail
-- `/portfolio/:symbol`
-  - lot-level ledger detail + dispositions
 - `/portfolio/home`
-  - executive KPI snapshot + period waterfall + trend preview + deterministic drill-down links
+  - executive command center with KPI strip, equity curve, attention panel, top movers, allocation snapshot, and holdings summary
 - `/portfolio/analytics`
-  - trend + contribution modules + attribution waterfall (`Preview` framing in navigation)
+  - performance explainability with attribution waterfall, contribution leaders, rolling returns, and monthly heatmap
 - `/portfolio/risk`
-  - estimator cards/charts + methodology metadata + explainability + drawdown/rolling/distribution modules (`Interpretation` framing in navigation)
+  - downside control with drawdown, distribution, scatter, correlation, and concentration review
+- `/portfolio/signals`
+  - secondary tactical overlay with ranked review queue, momentum, technical signals, and the visible page label `Opportunities`
+- `/portfolio/asset-detail/:ticker`
+  - instrument deep dive with price action, price-volume combo, position detail, benchmark-relative context, and narrative notes
+
+Legacy compatibility surfaces may still exist during migration, but they are not primary design targets:
+
+- `/portfolio`
+- `/portfolio/:symbol`
 - `/portfolio/reports`
-  - quant scorecards + benchmark omission context + Monte Carlo workflow + report lifecycle states + HTML preview
 - `/portfolio/copilot`
-  - read-only copilot chat + deterministic opportunity candidate rendering + explicit evidence/limitations/state mapping
 - `/portfolio/transactions`
-  - ledger-event-only table and filters (v1 scope)
 
 ## Dashboard Audit Framework (Phase L)
 
@@ -59,8 +68,9 @@ Primary IA budget rules:
 
 Shell-density rules:
 
-- route-aware density policy is deterministic by path (`expanded`, `balanced`, `compact`)
+- route-aware density policy is deterministic by path (`expanded`, `standard`, `compact`)
 - compact mode reduces non-critical shell chrome on dense analytical routes
+- freshness/provenance context must stay in a compact support rail adjacent to route context
 - density behavior must remain stable across route transitions
 
 ## Chart Composition and Storytelling Contract
@@ -72,8 +82,9 @@ Shell-density rules:
 - Route storytelling sequence:
   - Home: snapshot triage
   - Analytics: attribution and contribution diagnostics
-  - Risk: methodology-sensitive interpretation
-  - Quant/Reports: diagnostics + report artifact lifecycle
+  - Risk: downside and fragility interpretation
+  - Signals / Opportunities: tactical review queue and candidate discovery
+  - Asset detail: per-instrument deep dive
 - Guardrails:
   - no mixed-unit risk chart on a single shared axis
   - no high-cardinality pie/donut usage for ranked contribution views
@@ -230,7 +241,7 @@ Behavior notes:
 Behavior notes:
 
 - Report controls must expose explicit action lifecycle states (`loading`, `error`, `unavailable`, `ready`).
-- Report generation and artifact preview are owned by `/portfolio/reports`; Home links to that route instead of owning workflow execution.
+- Report generation and artifact preview are owned by a compact utility surface, not a standalone route; Home and Asset Detail may expose the utility as a bounded action cluster.
 
 ### Monte Carlo Response
 
@@ -340,9 +351,9 @@ Each route must render explicit `loading`, `empty`, and `error` states:
 
 ## Quant Placement Matrix
 
-- Home: KPI snapshot and drill-down links only (no report generation controls).
+- Home: KPI snapshot and drill-down links plus compact report utility entry point.
 - Risk: interpretation-sensitive risk metrics with methodology context as primary surface.
-- Quant/Reports: quant diagnostics, benchmark omission context, report lifecycle controls, and artifact preview.
+- Asset detail and home utility surfaces: report lifecycle controls and artifact preview.
 
 ## Dense-Table and Action-Density Contract (Phase G Extension 9.x)
 

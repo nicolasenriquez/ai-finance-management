@@ -64,7 +64,11 @@ if __name__ == "__main__":
         help=f"Stack-specific search. Available: {', '.join(AVAILABLE_STACKS)}",
     )
     parser.add_argument(
-        "--max-results", "-n", type=int, default=MAX_RESULTS, help="Max results (default: 3)"
+        "--max-results",
+        "-n",
+        type=int,
+        default=MAX_RESULTS,
+        help="Max results (default: 3)",
     )
     parser.add_argument("--json", action="store_true", help="Output as JSON")
     # Design system generation
@@ -75,7 +79,11 @@ if __name__ == "__main__":
         help="Generate complete design system recommendation",
     )
     parser.add_argument(
-        "--project-name", "-p", type=str, default=None, help="Project name for design system output"
+        "--project-name",
+        "-p",
+        type=str,
+        default=None,
+        help="Project name for design system output",
     )
     parser.add_argument(
         "--format",

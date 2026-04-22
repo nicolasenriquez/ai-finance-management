@@ -25,7 +25,12 @@ import app.portfolio_ledger.service as portfolio_ledger_service
 from app.main import app
 from app.market_data.models import MarketDataSnapshot, PriceHistory
 from app.pdf_persistence.models import CanonicalPdfRecord, ImportJob, SourceDocument
-from app.portfolio_ledger.models import DividendEvent, Lot, LotDisposition, PortfolioTransaction
+from app.portfolio_ledger.models import (
+    DividendEvent,
+    Lot,
+    LotDisposition,
+    PortfolioTransaction,
+)
 
 _TRUNCATE_CANDIDATES: tuple[str, ...] = (
     "price_history",
@@ -610,7 +615,10 @@ async def _seed_persisted_ledger_state(
                 source_provider="yfinance",
                 snapshot_key="yf|d1|1d|3mo|aa1rp1|2025-02-20|s2|testseed000001",
                 snapshot_captured_at=datetime(2025, 2, 20, 21, 0, tzinfo=UTC),
-                snapshot_metadata={"provider": "yfinance", "seed": "portfolio_analytics_tests"},
+                snapshot_metadata={
+                    "provider": "yfinance",
+                    "seed": "portfolio_analytics_tests",
+                },
             )
             session.add(market_snapshot)
             await session.flush()
@@ -899,7 +907,9 @@ def test_time_series_endpoint_returns_max_period_points_from_persisted_history(
             pytest.fail("Time-series points must include string 'captured_at'.")
         captured_at_values.append(captured_at)
         _assert_decimal_field(
-            point, "portfolio_value_usd", str(Decimal(str(point["portfolio_value_usd"])))
+            point,
+            "portfolio_value_usd",
+            str(Decimal(str(point["portfolio_value_usd"]))),
         )
         _assert_decimal_field(point, "pnl_usd", str(Decimal(str(point["pnl_usd"]))))
         assert "benchmark_sp500_value_usd" in point

@@ -19,14 +19,20 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logging import get_logger
 from app.pdf_ingestion.schemas import PdfIngestionResult
-from app.pdf_ingestion.service import PdfIngestionClientError, load_ingestion_result_from_storage
+from app.pdf_ingestion.service import (
+    PdfIngestionClientError,
+    load_ingestion_result_from_storage,
+)
 from app.pdf_normalization.schemas import (
     CanonicalDividendRecord,
     CanonicalRecord,
     CanonicalTradeRecord,
     PdfNormalizationResult,
 )
-from app.pdf_normalization.service import PdfNormalizationClientError, normalize_pdf_from_storage
+from app.pdf_normalization.service import (
+    PdfNormalizationClientError,
+    normalize_pdf_from_storage,
+)
 from app.pdf_persistence.models import CanonicalPdfRecord, ImportJob, SourceDocument
 from app.pdf_persistence.schemas import (
     PdfPersistenceResult,
@@ -45,7 +51,11 @@ _TRADE_EVENT_TYPE = "trade"
 _DIVIDEND_EVENT_TYPE = "dividend"
 _SPLIT_EVENT_TYPE = "split"
 
-_PROVENANCE_FINGERPRINT_FIELDS: tuple[str, ...] = ("table_name", "row_index", "source_page")
+_PROVENANCE_FINGERPRINT_FIELDS: tuple[str, ...] = (
+    "table_name",
+    "row_index",
+    "source_page",
+)
 _EVENT_FINGERPRINT_FIELDS: dict[str, tuple[str, ...]] = {
     _TRADE_EVENT_TYPE: (
         "trade_date",

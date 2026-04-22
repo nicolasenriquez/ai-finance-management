@@ -10,7 +10,10 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
-from app.market_data.providers.yfinance_adapter import YFinanceAdapterError, YFinanceNormalizedRow
+from app.market_data.providers.yfinance_adapter import (
+    YFinanceAdapterError,
+    YFinanceNormalizedRow,
+)
 from app.market_data.schemas import MarketDataPriceWrite, MarketDataSnapshotWriteRequest
 from app.market_data.service import (
     MarketDataClientError,
@@ -435,7 +438,11 @@ async def test_refresh_supported_universe_uses_starter_100_scope_symbols(
                     trading_date=date(2026, 3, 24),
                     close_value=Decimal("100.000000000"),
                     currency_code="USD",
-                    source_payload={"provider": "yfinance", "field": "Close", "symbol": symbol},
+                    source_payload={
+                        "provider": "yfinance",
+                        "field": "Close",
+                        "symbol": symbol,
+                    },
                 )
             ],
             {
@@ -511,7 +518,11 @@ async def test_refresh_supported_universe_applies_symbol_request_spacing(
                     trading_date=date(2026, 3, 24),
                     close_value=Decimal("100.000000000"),
                     currency_code="USD",
-                    source_payload={"provider": "yfinance", "field": "Close", "symbol": symbol},
+                    source_payload={
+                        "provider": "yfinance",
+                        "field": "Close",
+                        "symbol": symbol,
+                    },
                 )
             ],
             {
@@ -619,7 +630,11 @@ async def test_refresh_scope_100_allows_non_portfolio_failures_after_retry(
                     trading_date=date(2026, 3, 24),
                     close_value=Decimal("101.000000000"),
                     currency_code="USD",
-                    source_payload={"provider": "yfinance", "field": "Close", "symbol": symbol},
+                    source_payload={
+                        "provider": "yfinance",
+                        "field": "Close",
+                        "symbol": symbol,
+                    },
                 )
             ],
             {
@@ -723,7 +738,11 @@ async def test_refresh_scope_100_emits_history_and_currency_recovery_evidence(
                     trading_date=date(2026, 3, 24),
                     close_value=Decimal("99.000000000"),
                     currency_code="USD",
-                    source_payload={"provider": "yfinance", "field": "Close", "symbol": symbol},
+                    source_payload={
+                        "provider": "yfinance",
+                        "field": "Close",
+                        "symbol": symbol,
+                    },
                 )
             ],
             symbol_metadata,
@@ -830,7 +849,11 @@ async def test_refresh_scope_100_fails_when_required_symbol_still_fails_after_re
                     trading_date=date(2026, 3, 24),
                     close_value=Decimal("102.000000000"),
                     currency_code="USD",
-                    source_payload={"provider": "yfinance", "field": "Close", "symbol": symbol},
+                    source_payload={
+                        "provider": "yfinance",
+                        "field": "Close",
+                        "symbol": symbol,
+                    },
                 )
             ],
             {
@@ -948,7 +971,11 @@ async def test_refresh_supported_universe_succeeds_through_provider_ingest_path(
                 trading_date=date(2026, 3, 24),
                 close_value=Decimal("100.000000000") + Decimal(index),
                 currency_code="USD",
-                source_payload={"provider": "yfinance", "field": "Close", "symbol": symbol},
+                source_payload={
+                    "provider": "yfinance",
+                    "field": "Close",
+                    "symbol": symbol,
+                },
             )
             for index, symbol in enumerate(symbols)
         ]

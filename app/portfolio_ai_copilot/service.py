@@ -1123,7 +1123,7 @@ async def get_portfolio_copilot_chat_response(
                 "portfolio_ai_copilot.chat_completed",
                 operation=request.operation.value,
                 state=response.state.value,
-                reason_code=response.reason_code.value if response.reason_code else None,
+                reason_code=(response.reason_code.value if response.reason_code else None),
                 evidence_count=len(response.evidence),
                 opportunity_candidate_count=len(response.opportunity_candidates),
             )
@@ -1207,7 +1207,11 @@ async def get_portfolio_copilot_chat_response(
             error=str(exc),
         )
         return response
-    except (PortfolioAnalyticsClientError, MarketDataClientError, PortfolioMLClientError) as exc:
+    except (
+        PortfolioAnalyticsClientError,
+        MarketDataClientError,
+        PortfolioMLClientError,
+    ) as exc:
         logger.info(
             "portfolio_ai_copilot.chat_rejected",
             operation=request.operation.value,
@@ -1260,7 +1264,7 @@ async def get_portfolio_copilot_chat_response(
             provider_status_code=exc.status_code,
             provider_error_code=exc.provider_error_code,
             mapped_state=response.state.value,
-            mapped_reason_code=response.reason_code.value if response.reason_code else None,
+            mapped_reason_code=(response.reason_code.value if response.reason_code else None),
             error=str(exc),
         )
         return response

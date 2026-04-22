@@ -577,7 +577,10 @@ def generate_design_system(
 
 # ============ PERSISTENCE FUNCTIONS ============
 def persist_design_system(
-    design_system: dict, page: str = None, output_dir: str = None, page_query: str = None
+    design_system: dict,
+    page: str = None,
+    output_dir: str = None,
+    page_query: str = None,
 ) -> dict:
     """
     Persist design system to design-system/<project>/ folder using Master + Overrides pattern.
@@ -1135,17 +1138,41 @@ def _detect_page_type(context: str, style_results: list) -> str:
     # Check for common page type patterns
     page_patterns = [
         (
-            ["dashboard", "admin", "analytics", "data", "metrics", "stats", "monitor", "overview"],
+            [
+                "dashboard",
+                "admin",
+                "analytics",
+                "data",
+                "metrics",
+                "stats",
+                "monitor",
+                "overview",
+            ],
             "Dashboard / Data View",
         ),
-        (["checkout", "payment", "cart", "purchase", "order", "billing"], "Checkout / Payment"),
-        (["settings", "profile", "account", "preferences", "config"], "Settings / Profile"),
-        (["landing", "marketing", "homepage", "hero", "home", "promo"], "Landing / Marketing"),
-        (["login", "signin", "signup", "register", "auth", "password"], "Authentication"),
+        (
+            ["checkout", "payment", "cart", "purchase", "order", "billing"],
+            "Checkout / Payment",
+        ),
+        (
+            ["settings", "profile", "account", "preferences", "config"],
+            "Settings / Profile",
+        ),
+        (
+            ["landing", "marketing", "homepage", "hero", "home", "promo"],
+            "Landing / Marketing",
+        ),
+        (
+            ["login", "signin", "signup", "register", "auth", "password"],
+            "Authentication",
+        ),
         (["pricing", "plans", "subscription", "tiers", "packages"], "Pricing / Plans"),
         (["blog", "article", "post", "news", "content", "story"], "Blog / Article"),
         (["product", "item", "detail", "pdp", "shop", "store"], "Product Detail"),
-        (["search", "results", "browse", "filter", "catalog", "list"], "Search Results"),
+        (
+            ["search", "results", "browse", "filter", "catalog", "list"],
+            "Search Results",
+        ),
         (["empty", "404", "error", "not found", "zero"], "Empty State"),
     ]
 
@@ -1174,7 +1201,11 @@ if __name__ == "__main__":
     parser.add_argument("query", help="Search query (e.g., 'SaaS dashboard')")
     parser.add_argument("--project-name", "-p", type=str, default=None, help="Project name")
     parser.add_argument(
-        "--format", "-f", choices=["ascii", "markdown"], default="ascii", help="Output format"
+        "--format",
+        "-f",
+        choices=["ascii", "markdown"],
+        default="ascii",
+        help="Output format",
     )
 
     args = parser.parse_args()

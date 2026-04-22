@@ -100,7 +100,12 @@ from app.portfolio_analytics.schemas import (
     PortfolioTransactionEvent,
     PortfolioTransactionsResponse,
 )
-from app.portfolio_ledger.models import DividendEvent, Lot, LotDisposition, PortfolioTransaction
+from app.portfolio_ledger.models import (
+    DividendEvent,
+    Lot,
+    LotDisposition,
+    PortfolioTransaction,
+)
 from app.shared.models import utcnow
 
 logger = get_logger(__name__)
@@ -3753,7 +3758,10 @@ def _resolve_benchmark_price_series_by_id(
     if not aligned_timestamps:
         return resolved_series_by_id
 
-    for benchmark_field, candidate_symbols in _BENCHMARK_CANDIDATE_SYMBOLS_BY_ID.items():
+    for (
+        benchmark_field,
+        candidate_symbols,
+    ) in _BENCHMARK_CANDIDATE_SYMBOLS_BY_ID.items():
         for candidate_symbol in candidate_symbols:
             symbol_series = candidate_price_series_by_symbol.get(candidate_symbol)
             if symbol_series is None:
@@ -6281,7 +6289,9 @@ def _serialize_lot_row(lot: Lot) -> dict[str, object]:
     }
 
 
-def _serialize_lot_disposition_row(lot_disposition: LotDisposition) -> dict[str, object]:
+def _serialize_lot_disposition_row(
+    lot_disposition: LotDisposition,
+) -> dict[str, object]:
     """Serialize one lot-disposition ORM row for analytics builders."""
 
     return {

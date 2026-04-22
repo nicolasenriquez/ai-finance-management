@@ -244,7 +244,9 @@ async def get_portfolio_correlation(
     limit_symbols: Annotated[
         int,
         Query(
-            description="Bounded number of symbols to include in correlation matrix.", ge=2, le=12
+            description="Bounded number of symbols to include in correlation matrix.",
+            ge=2,
+            le=12,
         ),
     ] = 8,
 ) -> PortfolioCorrelationResponse:

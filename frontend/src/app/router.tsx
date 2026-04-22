@@ -1,73 +1,83 @@
 import {
+  type ReactNode,
+  Suspense,
+  lazy,
+} from "react";
+import {
   Navigate,
   createBrowserRouter,
 } from "react-router-dom";
 
-import { PortfolioAnalyticsPage } from "../pages/portfolio-analytics-page/PortfolioAnalyticsPage";
-import { PortfolioCopilotPage } from "../pages/portfolio-copilot-page/PortfolioCopilotPage";
-import { PortfolioHoldingsPage } from "../pages/portfolio-holdings-page/PortfolioHoldingsPage";
-import { PortfolioHomePage } from "../pages/portfolio-home-page/PortfolioHomePage";
-import { PortfolioLotDetailPage } from "../pages/portfolio-lot-detail-page/PortfolioLotDetailPage";
-import { PortfolioReportsPage } from "../pages/portfolio-reports-page/PortfolioReportsPage";
-import { PortfolioRiskPage } from "../pages/portfolio-risk-page/PortfolioRiskPage";
-import { PortfolioTransactionsPage } from "../pages/portfolio-transactions-page/PortfolioTransactionsPage";
+const PortfolioHomePage = lazy(async () => ({
+  default: (await import("../pages/portfolio-home-page/PortfolioHomePage")).PortfolioHomePage,
+}));
+const PortfolioAnalyticsPage = lazy(async () => ({
+  default: (await import("../pages/portfolio-analytics-page/PortfolioAnalyticsPage")).PortfolioAnalyticsPage,
+}));
+const PortfolioRiskPage = lazy(async () => ({
+  default: (await import("../pages/portfolio-risk-page/PortfolioRiskPage")).PortfolioRiskPage,
+}));
+const PortfolioSignalsPage = lazy(async () => ({
+  default: (await import("../pages/portfolio-signals-page/PortfolioSignalsPage")).PortfolioSignalsPage,
+}));
+const PortfolioAssetDetailPage = lazy(async () => ({
+  default: (await import("../pages/portfolio-asset-detail-page/PortfolioAssetDetailPage")).PortfolioAssetDetailPage,
+}));
+
+function withRouteSuspense(node: ReactNode): ReactNode {
+  return (
+    <Suspense
+      fallback={(
+        <section
+          aria-live="polite"
+          className="route-lazy-fallback"
+          role="status"
+        >
+          Loading route module...
+        </section>
+      )}
+    >
+      {node}
+    </Suspense>
+  );
+}
 
 export const appRouter = createBrowserRouter([
   {
     path: "/",
-    element: <Navigate to="/portfolio/dashboard" replace />,
+    element: <Navigate to="/portfolio/home" replace />,
   },
   {
     path: "/portfolio",
     children: [
       {
         index: true,
-        element: <Navigate to="dashboard" replace />,
-      },
-      {
-        path: "dashboard",
-        element: <PortfolioHomePage />,
-      },
-      {
-        path: "holdings",
-        element: <PortfolioHoldingsPage />,
-      },
-      {
-        path: "performance",
-        element: <PortfolioAnalyticsPage />,
-      },
-      {
-        path: "risk",
-        element: <PortfolioRiskPage />,
-      },
-      {
-        path: "rebalancing",
-        element: <PortfolioReportsPage />,
-      },
-      {
-        path: "copilot",
-        element: <PortfolioCopilotPage />,
-      },
-      {
-        path: "transactions",
-        element: <PortfolioTransactionsPage />,
+        element: <Navigate to="home" replace />,
       },
       {
         path: "home",
-        element: <Navigate to="/portfolio/dashboard" replace />,
+        element: withRouteSuspense(<PortfolioHomePage />),
       },
       {
         path: "analytics",
-        element: <Navigate to="/portfolio/performance" replace />,
+        element: withRouteSuspense(<PortfolioAnalyticsPage />),
       },
       {
-        path: "reports",
-        element: <Navigate to="/portfolio/rebalancing" replace />,
+        path: "risk",
+        element: withRouteSuspense(<PortfolioRiskPage />),
       },
       {
-        path: ":symbol",
-        element: <PortfolioLotDetailPage />,
+        path: "signals",
+        element: withRouteSuspense(<PortfolioSignalsPage />),
+      },
+      {
+        path: "asset-detail/:ticker",
+        element: withRouteSuspense(<PortfolioAssetDetailPage />),
       },
     ],
+  },
+  {
+    path: "*",
+    element: <Navigate to="/portfolio/home" replace />,
   },
 ]);

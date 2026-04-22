@@ -86,7 +86,9 @@ def test_ingest_pdf_bytes_stores_file_and_returns_metadata(tmp_path: Path) -> No
     assert result.preflight.status == "extractable"
 
 
-def test_load_ingestion_result_from_storage_returns_manifest_metadata(tmp_path: Path) -> None:
+def test_load_ingestion_result_from_storage_returns_manifest_metadata(
+    tmp_path: Path,
+) -> None:
     """Stored ingestion metadata should be recoverable by storage key."""
 
     ingested_result = ingest_pdf_bytes(
@@ -107,7 +109,9 @@ def test_load_ingestion_result_from_storage_returns_manifest_metadata(tmp_path: 
     assert loaded_result == ingested_result
 
 
-def test_load_ingestion_result_from_storage_rejects_missing_manifest(tmp_path: Path) -> None:
+def test_load_ingestion_result_from_storage_rejects_missing_manifest(
+    tmp_path: Path,
+) -> None:
     """Missing metadata manifests should fail explicitly."""
 
     storage_key = "statement.pdf"

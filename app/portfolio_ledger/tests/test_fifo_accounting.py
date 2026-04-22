@@ -121,7 +121,8 @@ def test_split_adjustment_preserves_total_basis_and_updates_unit_basis() -> None
     expected_open_lots = cast(list[Mapping[str, object]], expected["open_lots"])
 
     adjusted_lots = cast(
-        list[Mapping[str, object]], apply_split(open_lots=open_lots, split_event=split_event)
+        list[Mapping[str, object]],
+        apply_split(open_lots=open_lots, split_event=split_event),
     )
 
     assert adjusted_lots == expected_open_lots

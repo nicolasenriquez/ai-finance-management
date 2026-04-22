@@ -1,30 +1,37 @@
-import type { PropsWithChildren } from "react";
+import {
+  type PropsWithChildren,
+  useEffect,
+  useState,
+} from "react";
 
 import {
   QueryClient,
   QueryClientProvider,
 } from "@tanstack/react-query";
 
-import { PortfolioCopilotWorkspaceProvider } from "../features/portfolio-copilot/workspace-session";
 import { ThemeProvider } from "./theme";
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      retry: false,
-      refetchOnWindowFocus: false,
-    },
-  },
-});
-
 export function AppProviders({ children }: PropsWithChildren) {
+  const [queryClient] = useState(
+    () =>
+      new QueryClient({
+        defaultOptions: {
+          queries: {
+            retry: false,
+            refetchOnWindowFocus: false,
+          },
+        },
+      }),
+  );
+
+  useEffect(() => () => {
+    void queryClient.cancelQueries();
+    queryClient.clear();
+  }, [queryClient]);
+
   return (
     <ThemeProvider>
-      <QueryClientProvider client={queryClient}>
-        <PortfolioCopilotWorkspaceProvider>
-          {children}
-        </PortfolioCopilotWorkspaceProvider>
-      </QueryClientProvider>
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
     </ThemeProvider>
   );
 }

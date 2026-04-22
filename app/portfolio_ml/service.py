@@ -48,6 +48,19 @@ _COVERAGE_FLOOR: Final[float] = 0.72
 _COVERAGE_CEILING: Final[float] = 0.88
 _CHAMPION_TTL_HOURS: Final[int] = 168
 _DEFAULT_RIDGE_LAG_COUNT: Final[int] = 5
+_TREND_WINDOW_DAYS: Final[int] = 30
+_MOMENTUM_WINDOW_DAYS: Final[int] = 90
+_SMA_MEDIUM_WINDOW_DAYS: Final[int] = 50
+_SMA_LONG_WINDOW_DAYS: Final[int] = 200
+_EMA_MEDIUM_SPAN_DAYS: Final[int] = 50
+_EMA_LONG_SPAN_DAYS: Final[int] = 200
+_BOLLINGER_WINDOW_DAYS: Final[int] = 20
+_BOLLINGER_STD_MULTIPLIER: Final[float] = 1.96
+_ICHIMOKU_CONVERSION_WINDOW_DAYS: Final[int] = 9
+_ICHIMOKU_BASELINE_WINDOW_DAYS: Final[int] = 26
+_ICHIMOKU_SPAN_B_WINDOW_DAYS: Final[int] = 52
+_ICHIMOKU_LEADING_SHIFT_DAYS: Final[int] = 26
+_MONTHLY_AVERAGE_WINDOW_MONTHS: Final[int] = 3
 _SUPPORTED_FORECAST_MODEL_FAMILIES: Final[frozenset[str]] = frozenset(
     {
         "naive",
@@ -311,7 +324,7 @@ def _calculate_trend(series: pd.Series) -> Decimal:
     if len(cleaned) < 2:
         return Decimal("0")
 
-    trailing = cleaned.iloc[-min(len(cleaned), 30) :]
+    trailing = cleaned.iloc[-min(len(cleaned), _TREND_WINDOW_DAYS) :]
     x_axis = np.arange(len(trailing), dtype="float64")
     y_axis = trailing.to_numpy(dtype="float64")
     slope = float(np.polyfit(x_axis, y_axis, deg=1)[0])
@@ -325,7 +338,7 @@ def _calculate_momentum(series: pd.Series) -> Decimal:
     if len(cleaned) < 2:
         return Decimal("0")
 
-    trailing = cleaned.iloc[-min(len(cleaned), 90) :]
+    trailing = cleaned.iloc[-min(len(cleaned), _MOMENTUM_WINDOW_DAYS) :]
     start_value = float(trailing.iloc[0])
     end_value = float(trailing.iloc[-1])
     if math.isclose(start_value, 0.0):
@@ -367,6 +380,220 @@ def _calculate_drawdown_state(series: pd.Series) -> Decimal:
     return _quantize_decimal(Decimal(str(drawdown_ratio)), scale=_SIGNAL_VALUE_SCALE)
 
 
+def _calculate_daily_return(series: pd.Series) -> Decimal:
+    """Compute one latest daily return ratio from normalized price levels."""
+
+    cleaned = series.dropna()
+    if len(cleaned) < 2:
+        return Decimal("0")
+
+    previous_close = float(cleaned.iloc[-2])
+    latest_close = float(cleaned.iloc[-1])
+    if math.isclose(previous_close, 0.0):
+        return Decimal("0")
+
+    daily_return_ratio = (latest_close / previous_close) - 1.0
+    return _quantize_decimal(Decimal(str(daily_return_ratio)), scale=_SIGNAL_VALUE_SCALE)
+
+
+def _calculate_price_vs_sma(
+    series: pd.Series,
+    *,
+    window_days: int,
+) -> Decimal:
+    """Compute one latest close vs SMA ratio for one deterministic window."""
+
+    cleaned = series.dropna()
+    if len(cleaned) < window_days:
+        return Decimal("0")
+
+    sma_series = cleaned.rolling(window=window_days).mean()
+    latest_sma = float(sma_series.iloc[-1])
+    latest_close = float(cleaned.iloc[-1])
+    if math.isclose(latest_sma, 0.0):
+        return Decimal("0")
+
+    distance_ratio = (latest_close / latest_sma) - 1.0
+    return _quantize_decimal(Decimal(str(distance_ratio)), scale=_SIGNAL_VALUE_SCALE)
+
+
+def _calculate_sma_spread(series: pd.Series) -> Decimal:
+    """Compute one deterministic SMA 50/200 spread ratio."""
+
+    cleaned = series.dropna()
+    if len(cleaned) < _SMA_LONG_WINDOW_DAYS:
+        return Decimal("0")
+
+    sma_medium = float(cleaned.rolling(window=_SMA_MEDIUM_WINDOW_DAYS).mean().iloc[-1])
+    sma_long = float(cleaned.rolling(window=_SMA_LONG_WINDOW_DAYS).mean().iloc[-1])
+    if math.isclose(sma_long, 0.0):
+        return Decimal("0")
+
+    spread_ratio = (sma_medium / sma_long) - 1.0
+    return _quantize_decimal(Decimal(str(spread_ratio)), scale=_SIGNAL_VALUE_SCALE)
+
+
+def _calculate_price_vs_ema(
+    series: pd.Series,
+    *,
+    span_days: int,
+) -> Decimal:
+    """Compute one latest close vs EMA ratio for one deterministic span."""
+
+    cleaned = series.dropna()
+    if len(cleaned) < span_days:
+        return Decimal("0")
+
+    ema_series = cleaned.ewm(span=span_days, adjust=False).mean()
+    latest_ema = float(ema_series.iloc[-1])
+    latest_close = float(cleaned.iloc[-1])
+    if math.isclose(latest_ema, 0.0):
+        return Decimal("0")
+
+    distance_ratio = (latest_close / latest_ema) - 1.0
+    return _quantize_decimal(Decimal(str(distance_ratio)), scale=_SIGNAL_VALUE_SCALE)
+
+
+def _calculate_ema_spread(series: pd.Series) -> Decimal:
+    """Compute one deterministic EMA 50/200 spread ratio."""
+
+    cleaned = series.dropna()
+    if len(cleaned) < _EMA_LONG_SPAN_DAYS:
+        return Decimal("0")
+
+    ema_medium = float(cleaned.ewm(span=_EMA_MEDIUM_SPAN_DAYS, adjust=False).mean().iloc[-1])
+    ema_long = float(cleaned.ewm(span=_EMA_LONG_SPAN_DAYS, adjust=False).mean().iloc[-1])
+    if math.isclose(ema_long, 0.0):
+        return Decimal("0")
+
+    spread_ratio = (ema_medium / ema_long) - 1.0
+    return _quantize_decimal(Decimal(str(spread_ratio)), scale=_SIGNAL_VALUE_SCALE)
+
+
+def _calculate_bollinger_percent_b(series: pd.Series) -> Decimal:
+    """Compute one deterministic Bollinger percent-b signal from close levels."""
+
+    cleaned = series.dropna()
+    if len(cleaned) < _BOLLINGER_WINDOW_DAYS:
+        return Decimal("0")
+
+    rolling_mean = cleaned.rolling(window=_BOLLINGER_WINDOW_DAYS).mean()
+    rolling_std = cleaned.rolling(window=_BOLLINGER_WINDOW_DAYS).std()
+    latest_middle = float(rolling_mean.iloc[-1])
+    latest_std = float(rolling_std.iloc[-1])
+    if math.isclose(latest_std, 0.0):
+        return Decimal("0")
+
+    upper_band = latest_middle + (_BOLLINGER_STD_MULTIPLIER * latest_std)
+    lower_band = latest_middle - (_BOLLINGER_STD_MULTIPLIER * latest_std)
+    band_width = upper_band - lower_band
+    if math.isclose(band_width, 0.0):
+        return Decimal("0")
+
+    latest_close = float(cleaned.iloc[-1])
+    percent_b = (latest_close - lower_band) / band_width
+    return _quantize_decimal(Decimal(str(percent_b)), scale=_SIGNAL_VALUE_SCALE)
+
+
+def _calculate_ichimoku_bias_proxy(series: pd.Series) -> Decimal:
+    """Compute one close-only proxy of Ichimoku trend bias."""
+
+    cleaned = series.dropna()
+    if len(cleaned) < _ICHIMOKU_BASELINE_WINDOW_DAYS:
+        return Decimal("0")
+
+    conversion_line = (
+        cleaned.rolling(window=_ICHIMOKU_CONVERSION_WINDOW_DAYS).max()
+        + cleaned.rolling(window=_ICHIMOKU_CONVERSION_WINDOW_DAYS).min()
+    ) / 2.0
+    baseline_line = (
+        cleaned.rolling(window=_ICHIMOKU_BASELINE_WINDOW_DAYS).max()
+        + cleaned.rolling(window=_ICHIMOKU_BASELINE_WINDOW_DAYS).min()
+    ) / 2.0
+    span_a = ((conversion_line + baseline_line) / 2.0).shift(_ICHIMOKU_LEADING_SHIFT_DAYS)
+    span_b = (
+        (
+            cleaned.rolling(window=_ICHIMOKU_SPAN_B_WINDOW_DAYS).max()
+            + cleaned.rolling(window=_ICHIMOKU_SPAN_B_WINDOW_DAYS).min()
+        )
+        / 2.0
+    ).shift(_ICHIMOKU_LEADING_SHIFT_DAYS)
+
+    components: list[float] = []
+    latest_conversion = float(conversion_line.iloc[-1])
+    latest_baseline = float(baseline_line.iloc[-1])
+    if not math.isclose(latest_baseline, 0.0):
+        components.append((latest_conversion / latest_baseline) - 1.0)
+
+    latest_span_a = float(span_a.iloc[-1])
+    latest_span_b = float(span_b.iloc[-1])
+    cloud_midpoint = (latest_span_a + latest_span_b) / 2.0
+    if not math.isclose(cloud_midpoint, 0.0) and not math.isnan(cloud_midpoint):
+        latest_close = float(cleaned.iloc[-1])
+        components.append((latest_close / cloud_midpoint) - 1.0)
+
+    if len(components) == 0:
+        return Decimal("0")
+
+    ichimoku_bias = sum(components) / len(components)
+    return _quantize_decimal(Decimal(str(ichimoku_bias)), scale=_SIGNAL_VALUE_SCALE)
+
+
+def _month_end_close(series: pd.Series) -> pd.Series:
+    """Return deterministic month-end close levels from one normalized daily series."""
+
+    cleaned = series.dropna()
+    if len(cleaned) == 0:
+        return cleaned
+    return cleaned.resample("ME").last().dropna()
+
+
+def _calculate_monthly_return(series: pd.Series) -> Decimal:
+    """Compute one latest month-over-month close return ratio."""
+
+    month_end_close = _month_end_close(series)
+    if len(month_end_close) < 2:
+        return Decimal("0")
+
+    previous_month_close = float(month_end_close.iloc[-2])
+    latest_month_close = float(month_end_close.iloc[-1])
+    if math.isclose(previous_month_close, 0.0):
+        return Decimal("0")
+
+    monthly_return_ratio = (latest_month_close / previous_month_close) - 1.0
+    return _quantize_decimal(Decimal(str(monthly_return_ratio)), scale=_SIGNAL_VALUE_SCALE)
+
+
+def _calculate_monthly_average_return(series: pd.Series) -> Decimal:
+    """Compute one trailing three-month average of month-over-month returns."""
+
+    month_end_close = _month_end_close(series)
+    monthly_returns = month_end_close.pct_change().dropna()
+    if len(monthly_returns) < _MONTHLY_AVERAGE_WINDOW_MONTHS:
+        return Decimal("0")
+
+    trailing_average = float(monthly_returns.iloc[-_MONTHLY_AVERAGE_WINDOW_MONTHS:].mean())
+    return _quantize_decimal(Decimal(str(trailing_average)), scale=_SIGNAL_VALUE_SCALE)
+
+
+def _calculate_trailing_twelve_month_return(series: pd.Series) -> Decimal:
+    """Compute one trailing twelve-month cumulative return ratio."""
+
+    cleaned = series.dropna()
+    if len(cleaned) < 2:
+        return Decimal("0")
+
+    trailing_window_days = min(len(cleaned), _TRADING_DAYS_ANNUALIZATION)
+    trailing_close = cleaned.iloc[-trailing_window_days:]
+    start_close = float(trailing_close.iloc[0])
+    latest_close = float(trailing_close.iloc[-1])
+    if math.isclose(start_close, 0.0):
+        return Decimal("0")
+
+    trailing_return_ratio = (latest_close / start_close) - 1.0
+    return _quantize_decimal(Decimal(str(trailing_return_ratio)), scale=_SIGNAL_VALUE_SCALE)
+
+
 def _volatility_band(volatility: Decimal) -> str:
     """Map one volatility value to deterministic interpretation band."""
 
@@ -383,6 +610,52 @@ def _drawdown_band(drawdown: Decimal) -> str:
     if drawdown > Decimal("-0.05"):
         return "favorable"
     if drawdown > Decimal("-0.15"):
+        return "caution"
+    return "elevated_risk"
+
+
+def _symmetric_abs_band(
+    value: Decimal,
+    *,
+    favorable_abs: Decimal,
+    caution_abs: Decimal,
+) -> str:
+    """Map one signed ratio to deterministic band by absolute magnitude."""
+
+    absolute_value = abs(value)
+    if absolute_value <= favorable_abs:
+        return "favorable"
+    if absolute_value <= caution_abs:
+        return "caution"
+    return "elevated_risk"
+
+
+def _trend_bias_band(value: Decimal) -> str:
+    """Map one signed trend-bias ratio to deterministic interpretation bands."""
+
+    if value >= Decimal("0"):
+        return "favorable"
+    if value > Decimal("-0.030000"):
+        return "caution"
+    return "elevated_risk"
+
+
+def _bollinger_percent_b_band(value: Decimal) -> str:
+    """Map one Bollinger percent-b value to deterministic interpretation bands."""
+
+    if Decimal("0.20") <= value <= Decimal("0.80"):
+        return "favorable"
+    if Decimal("0.00") <= value <= Decimal("1.00"):
+        return "caution"
+    return "elevated_risk"
+
+
+def _trailing_return_band(value: Decimal) -> str:
+    """Map one trailing return value to deterministic interpretation bands."""
+
+    if value > Decimal("-0.050000"):
+        return "favorable"
+    if value > Decimal("-0.150000"):
         return "caution"
     return "elevated_risk"
 
@@ -419,6 +692,22 @@ def build_deterministic_signal_payload(
     momentum_value = _calculate_momentum(normalized_series)
     volatility_value = _calculate_volatility_regime(normalized_series)
     drawdown_value = _calculate_drawdown_state(normalized_series)
+    daily_return_value = _calculate_daily_return(normalized_series)
+    price_vs_sma_50_value = _calculate_price_vs_sma(
+        normalized_series,
+        window_days=_SMA_MEDIUM_WINDOW_DAYS,
+    )
+    sma_50_vs_200_value = _calculate_sma_spread(normalized_series)
+    price_vs_ema_50_value = _calculate_price_vs_ema(
+        normalized_series,
+        span_days=_EMA_MEDIUM_SPAN_DAYS,
+    )
+    ema_50_vs_200_value = _calculate_ema_spread(normalized_series)
+    bollinger_percent_b_value = _calculate_bollinger_percent_b(normalized_series)
+    ichimoku_bias_proxy_value = _calculate_ichimoku_bias_proxy(normalized_series)
+    monthly_return_value = _calculate_monthly_return(normalized_series)
+    monthly_avg_return_3m_value = _calculate_monthly_average_return(normalized_series)
+    trailing_return_12m_value = _calculate_trailing_twelve_month_return(normalized_series)
 
     scope_value = snapshot_input.get("scope")
     scope = scope_value if isinstance(scope_value, str) else PortfolioMLScope.PORTFOLIO.value
@@ -428,14 +717,14 @@ def build_deterministic_signal_payload(
             "signal_id": "trend_30d",
             "label": "Trend (30D)",
             "unit": "slope_per_day",
-            "interpretation_band": "favorable" if trend_value >= Decimal("0") else "caution",
+            "interpretation_band": ("favorable" if trend_value >= Decimal("0") else "caution"),
             "value": trend_value,
         },
         {
             "signal_id": "momentum_90d",
             "label": "Momentum (90D)",
             "unit": "ratio",
-            "interpretation_band": "favorable" if momentum_value >= Decimal("0") else "caution",
+            "interpretation_band": ("favorable" if momentum_value >= Decimal("0") else "caution"),
             "value": momentum_value,
         },
         {
@@ -451,6 +740,92 @@ def build_deterministic_signal_payload(
             "unit": "ratio",
             "interpretation_band": _drawdown_band(drawdown_value),
             "value": drawdown_value,
+        },
+        {
+            "signal_id": "daily_return_1d",
+            "label": "Daily Return (1D)",
+            "unit": "ratio",
+            "interpretation_band": _symmetric_abs_band(
+                daily_return_value,
+                favorable_abs=Decimal("0.020000"),
+                caution_abs=Decimal("0.050000"),
+            ),
+            "value": daily_return_value,
+        },
+        {
+            "signal_id": "price_vs_sma_50",
+            "label": "Price vs SMA (50D)",
+            "unit": "ratio",
+            "interpretation_band": _symmetric_abs_band(
+                price_vs_sma_50_value,
+                favorable_abs=Decimal("0.040000"),
+                caution_abs=Decimal("0.100000"),
+            ),
+            "value": price_vs_sma_50_value,
+        },
+        {
+            "signal_id": "sma_50_vs_200",
+            "label": "SMA 50 vs SMA 200",
+            "unit": "ratio",
+            "interpretation_band": _trend_bias_band(sma_50_vs_200_value),
+            "value": sma_50_vs_200_value,
+        },
+        {
+            "signal_id": "price_vs_ema_50",
+            "label": "Price vs EMA (50D)",
+            "unit": "ratio",
+            "interpretation_band": _symmetric_abs_band(
+                price_vs_ema_50_value,
+                favorable_abs=Decimal("0.040000"),
+                caution_abs=Decimal("0.100000"),
+            ),
+            "value": price_vs_ema_50_value,
+        },
+        {
+            "signal_id": "ema_50_vs_200",
+            "label": "EMA 50 vs EMA 200",
+            "unit": "ratio",
+            "interpretation_band": _trend_bias_band(ema_50_vs_200_value),
+            "value": ema_50_vs_200_value,
+        },
+        {
+            "signal_id": "bollinger_percent_b_20d",
+            "label": "Bollinger %B (20D)",
+            "unit": "position_ratio",
+            "interpretation_band": _bollinger_percent_b_band(bollinger_percent_b_value),
+            "value": bollinger_percent_b_value,
+        },
+        {
+            "signal_id": "ichimoku_bias_proxy",
+            "label": "Ichimoku Bias (Close Proxy)",
+            "unit": "ratio",
+            "interpretation_band": _trend_bias_band(ichimoku_bias_proxy_value),
+            "value": ichimoku_bias_proxy_value,
+        },
+        {
+            "signal_id": "monthly_return_1m",
+            "label": "Monthly Return (1M)",
+            "unit": "ratio",
+            "interpretation_band": _symmetric_abs_band(
+                monthly_return_value,
+                favorable_abs=Decimal("0.050000"),
+                caution_abs=Decimal("0.100000"),
+            ),
+            "value": monthly_return_value,
+        },
+        {
+            "signal_id": "monthly_return_avg_3m",
+            "label": "Monthly Return Average (3M)",
+            "unit": "ratio",
+            "interpretation_band": _trend_bias_band(monthly_avg_return_3m_value),
+            "value": monthly_avg_return_3m_value,
+        },
+        {
+            "signal_id": "trailing_return_12m",
+            "label": "Trailing Return (12M)",
+            "unit": "ratio",
+            "interpretation_band": _trailing_return_band(trailing_return_12m_value),
+            "value": trailing_return_12m_value,
         },
     ]
 
@@ -770,18 +1145,23 @@ def compute_capm_signal_metrics(
 
 
 def _default_snapshot_points(*, evaluated_at: datetime) -> list[dict[str, object]]:
-    """Build one deterministic synthetic daily series for v1 signal endpoint fallback."""
+    """Build one deterministic synthetic daily series for signal endpoint fallback."""
 
-    day_3 = evaluated_at - timedelta(days=3)
-    day_2 = evaluated_at - timedelta(days=2)
-    day_1 = evaluated_at - timedelta(days=1)
-    day_0 = evaluated_at
-    return [
-        {"captured_at": day_3.isoformat(), "value": "100.0"},
-        {"captured_at": day_2.isoformat(), "value": "101.2"},
-        {"captured_at": day_1.isoformat(), "value": "100.9"},
-        {"captured_at": day_0.isoformat(), "value": "102.1"},
-    ]
+    history_days = _TRADING_DAYS_ANNUALIZATION + 20
+    points: list[dict[str, object]] = []
+    for offset in range(history_days):
+        captured_at = evaluated_at - timedelta(days=(history_days - 1 - offset))
+        trend_component = 100.0 + (0.08 * offset)
+        cyclical_component = 0.12 * ((offset % 7) - 3)
+        value = trend_component + cyclical_component
+        points.append(
+            {
+                "captured_at": captured_at.isoformat(),
+                "value": f"{value:.4f}",
+            }
+        )
+
+    return points
 
 
 def _build_family_registry_snapshot_payload(
@@ -980,9 +1360,21 @@ async def get_portfolio_ml_clusters_response(
     as_of_ledger_at = evaluated_at - timedelta(hours=1)
     as_of_market_at = evaluated_at - timedelta(hours=1)
     base_rows = [
-        {"instrument_symbol": "AAPL", "return_30d": "0.042000", "volatility_30d": "0.021000"},
-        {"instrument_symbol": "MSFT", "return_30d": "0.038000", "volatility_30d": "0.019000"},
-        {"instrument_symbol": "BTC", "return_30d": "0.061000", "volatility_30d": "0.083000"},
+        {
+            "instrument_symbol": "AAPL",
+            "return_30d": "0.042000",
+            "volatility_30d": "0.021000",
+        },
+        {
+            "instrument_symbol": "MSFT",
+            "return_30d": "0.038000",
+            "volatility_30d": "0.019000",
+        },
+        {
+            "instrument_symbol": "BTC",
+            "return_30d": "0.061000",
+            "volatility_30d": "0.083000",
+        },
     ]
     if scope is PortfolioMLScope.INSTRUMENT_SYMBOL and normalized_symbol is not None:
         base_rows = [row for row in base_rows if row["instrument_symbol"] == normalized_symbol]
@@ -1074,9 +1466,21 @@ async def get_portfolio_ml_anomalies_response(
     as_of_ledger_at = evaluated_at - timedelta(hours=1)
     as_of_market_at = evaluated_at - timedelta(hours=1)
     base_rows = [
-        {"instrument_symbol": "AAPL", "return_30d": "0.042000", "volatility_30d": "0.021000"},
-        {"instrument_symbol": "MSFT", "return_30d": "-0.012000", "volatility_30d": "0.019000"},
-        {"instrument_symbol": "BTC", "return_30d": "-0.088000", "volatility_30d": "0.092000"},
+        {
+            "instrument_symbol": "AAPL",
+            "return_30d": "0.042000",
+            "volatility_30d": "0.021000",
+        },
+        {
+            "instrument_symbol": "MSFT",
+            "return_30d": "-0.012000",
+            "volatility_30d": "0.019000",
+        },
+        {
+            "instrument_symbol": "BTC",
+            "return_30d": "-0.088000",
+            "volatility_30d": "0.092000",
+        },
     ]
     if scope is PortfolioMLScope.INSTRUMENT_SYMBOL and normalized_symbol is not None:
         base_rows = [row for row in base_rows if row["instrument_symbol"] == normalized_symbol]

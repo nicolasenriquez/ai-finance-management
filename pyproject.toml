@@ -9,10 +9,10 @@ dependencies = [
     "asyncpg>=0.30.0",
     "fastapi>=0.120.1",
     "pdfplumber>=0.11.7",
-    "pypdf>=6.9.1",
+    "pypdf>=6.10.2",
     "pydantic-settings>=2.11.0",
-    "python-multipart>=0.0.20",
-    "python-dotenv>=1.2.1",
+    "python-multipart>=0.0.26",
+    "python-dotenv>=1.2.2",
     "sqlalchemy[asyncio]>=2.0.44",
     "structlog>=25.5.0",
     "uvicorn[standard]>=0.38.0",
@@ -22,6 +22,7 @@ dependencies = [
     "pandas==3.0.1",
     "scipy==1.17.1",
     "quantstats==0.0.81",
+    "pillow>=12.2.0",
 ]
 
 [dependency-groups]

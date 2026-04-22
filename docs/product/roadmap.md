@@ -1,5 +1,33 @@
 # Roadmap
 
+## Steering Update (2026-04-21): Data Integrity and Stage Gates
+
+This steering update clarifies execution priority: close and harden deterministic system-of-record boundaries before expanding downstream decision features. The repository keeps the current domain model (`pdf -> canonical -> ledger -> market_data -> analytics/ml/copilot`) and does not adopt Bronze/Silver/Gold table naming.
+
+### Stage-Gated Quality Model (Repository-Local Equivalence)
+
+- Stage A (`Bronze`-equivalent): PDF ingestion, extraction, normalization, verification, and canonical persistence.
+- Stage B (`Silver Core`-equivalent): Ledger rebuild, accounting policy hardening, and finance golden-case stability.
+- Stage C (`Silver Expansion`-equivalent): Market-data snapshot boundary, provenance, and non-mutation guarantees over canonical/ledger truth.
+- Stage D (`Gold`-equivalent): Decision-layer analytics, ML diagnostics, and read-only copilot experiences grounded on prior deterministic layers.
+
+### Quality Gate Exit Criteria
+
+- Gate A: idempotent ingest/persistence, deterministic fingerprints, row/source provenance, transactional rollback safety, and auditable import jobs.
+- Gate B: deterministic ledger rebuilds, duplicate-safe reruns/concurrency behavior, frozen accounting policy semantics, and finance golden-case coverage.
+- Gate C: fail-fast provider/market-data contracts, explicit snapshot provenance, no canonical/ledger mutation during refresh, and one-snapshot valuation consistency.
+- Gate D: read-only AI/tool boundaries, explicit evidence/caveat payloads, and no hidden execution or advisory-certainty semantics.
+
+### Immediate Execution Order for Active Changes
+
+- 1. Complete `phase-k-dca-controls-and-governance-closeout` end-to-end with validation and governance evidence.
+- 2. Start `phase-o-personal-dca-chat-assistant-sot` only after phase-k completion gates are green.
+- 3. Keep roadmap, OpenSpec tasks, and `CHANGELOG.md` synchronized as a release-blocking governance requirement for every completed phase.
+
+### Status Alignment Rule
+
+- If phase-status text in this roadmap lags behind active OpenSpec/change logs, treat OpenSpec task state plus `CHANGELOG.md` validation evidence as operational source of truth until this file is updated in the same closeout window.
+
 ## Phase 0: Product and Delivery Foundations
 
 - Freeze PRD v1.

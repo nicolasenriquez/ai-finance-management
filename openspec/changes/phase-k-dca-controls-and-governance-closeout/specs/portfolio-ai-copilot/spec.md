@@ -25,3 +25,29 @@ The system SHALL not classify a candidate as `double_down_candidate` unless 52-w
 - **WHEN** a candidate row has evaluable 52-week context and satisfies configured DCA threshold policy
 - **THEN** deterministic action-state classification may assign `double_down_candidate`
 - **THEN** returned action multiplier reflects the validated DCA control value
+
+### Requirement: Opportunity responses SHALL use one SOT DCA assessment envelope
+The system SHALL frame opportunity outputs using one stable DCA assessment envelope that includes baseline cadence discipline, double-down eligibility, fundamentals proxy posture, concentration/risk implications, and next-check guidance.
+
+#### Scenario: Deterministic opportunity output maps to SOT envelope sections
+- **WHEN** an opportunity-scan request completes successfully
+- **THEN** response narration and prompt guidance are aligned to deterministic candidate output and reason codes
+- **THEN** the response explicitly distinguishes deterministic rule outcomes from interpretive commentary
+
+#### Scenario: Fundamentals evidence remains proxy-scoped
+- **WHEN** fundamentals assessment is derived from deterministic proxy metrics
+- **THEN** the response includes explicit caveat language that proxy checks do not replace manual fundamental verification
+- **THEN** no section implies guaranteed return or execution guidance
+
+### Requirement: SOT risk gating SHALL prevent optimistic escalation under insufficient context
+The system SHALL not escalate to `double_down_candidate` when critical gating context fails or remains insufficient, even if superficial drawdown inputs appear attractive.
+
+#### Scenario: Threshold appears met but gating context is insufficient
+- **WHEN** drawdown threshold is met but 52-week eligibility or fundamentals-proxy gates are not passed deterministically
+- **THEN** action-state remains non-escalated (`baseline_dca`, `watchlist`, or `hold_off`)
+- **THEN** action reasoning includes explicit insufficiency/failure metadata for downstream inspection
+
+#### Scenario: Insufficient context is surfaced instead of inferred
+- **WHEN** available data cannot support full DCA SOT interpretation
+- **THEN** the response includes explicit insufficiency caveats and follow-up checks
+- **THEN** no fabricated personal-finance assumptions are introduced

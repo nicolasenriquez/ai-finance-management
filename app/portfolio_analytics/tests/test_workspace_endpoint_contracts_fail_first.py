@@ -1662,7 +1662,11 @@ def test_health_synthesis_endpoint_contract_returns_required_shape(
     with TestClient(app) as client:
         response = client.get(
             endpoint_path,
-            params={"period": "90D", "scope": "portfolio", "profile_posture": "balanced"},
+            params={
+                "period": "90D",
+                "scope": "portfolio",
+                "profile_posture": "balanced",
+            },
         )
 
     assert response.status_code == 200

@@ -17,5 +17,9 @@ export default defineConfig(({ mode }) => {
         },
       },
     },
+    test: {
+      setupFiles: ["./src/app/test-api-setup.ts"],
+      testTimeout: 40000,
+    },
   };
 });

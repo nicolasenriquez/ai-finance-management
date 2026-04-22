@@ -121,7 +121,9 @@ def test_logging_produces_json_output(capsys: pytest.CaptureFixture[str]) -> Non
     assert log_data["level"] == "info"
 
 
-def test_logging_includes_request_id_when_set(capsys: pytest.CaptureFixture[str]) -> None:
+def test_logging_includes_request_id_when_set(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
     """Test that logs include request_id when set in context."""
     setup_logging(log_level="INFO")
     logger = get_logger("test")

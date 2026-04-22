@@ -222,7 +222,9 @@ def _load_expected_records_from_golden_set() -> list[VerifiableRecord]:
     return records
 
 
-def _build_actual_records(normalized_records: Sequence[object]) -> list[VerifiableRecord]:
+def _build_actual_records(
+    normalized_records: Sequence[object],
+) -> list[VerifiableRecord]:
     """Build verifiable records from canonical normalization output."""
 
     records: list[VerifiableRecord] = []

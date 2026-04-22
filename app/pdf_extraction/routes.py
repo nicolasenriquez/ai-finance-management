@@ -7,7 +7,10 @@ from fastapi import APIRouter, HTTPException
 from app.core.config import get_settings
 from app.core.logging import get_logger
 from app.pdf_extraction.schemas import PdfExtractionRequest, PdfExtractionResult
-from app.pdf_extraction.service import PdfExtractionClientError, extract_pdf_from_storage
+from app.pdf_extraction.service import (
+    PdfExtractionClientError,
+    extract_pdf_from_storage,
+)
 
 logger = get_logger(__name__)
 settings = get_settings()

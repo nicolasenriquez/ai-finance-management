@@ -105,8 +105,16 @@ def test_clustering_and_anomaly_payloads_are_deterministic_for_equivalent_snapsh
         "as_of_ledger_at": "2026-04-06T00:00:00Z",
         "as_of_market_at": "2026-04-06T00:00:00Z",
         "rows": [
-            {"instrument_symbol": "AAPL", "return_30d": "0.042", "volatility_30d": "0.021"},
-            {"instrument_symbol": "MSFT", "return_30d": "0.038", "volatility_30d": "0.019"},
+            {
+                "instrument_symbol": "AAPL",
+                "return_30d": "0.042",
+                "volatility_30d": "0.021",
+            },
+            {
+                "instrument_symbol": "MSFT",
+                "return_30d": "0.038",
+                "volatility_30d": "0.019",
+            },
         ],
     }
 

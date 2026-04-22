@@ -10,7 +10,10 @@ from typing import cast
 
 import pytest
 
-from app.portfolio_analytics.schemas import PortfolioChartPeriod, PortfolioQuantReportScope
+from app.portfolio_analytics.schemas import (
+    PortfolioChartPeriod,
+    PortfolioQuantReportScope,
+)
 
 
 def test_quant_report_retrieval_returns_expired_error_and_cleans_up_artifact(

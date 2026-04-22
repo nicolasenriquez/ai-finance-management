@@ -16,7 +16,12 @@ from sqlalchemy import func, select, table, text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from app.pdf_persistence.models import CanonicalPdfRecord, ImportJob, SourceDocument
-from app.portfolio_ledger.models import DividendEvent, Lot, LotDisposition, PortfolioTransaction
+from app.portfolio_ledger.models import (
+    DividendEvent,
+    Lot,
+    LotDisposition,
+    PortfolioTransaction,
+)
 
 RebuildCallable = Callable[..., Awaitable[Mapping[str, object]]]
 
