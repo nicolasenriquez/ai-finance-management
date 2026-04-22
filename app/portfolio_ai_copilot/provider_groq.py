@@ -180,9 +180,7 @@ async def request_groq_chat_completion(
     )
 
 
-def _build_groq_provider_error_from_response(
-    *, response: httpx.Response
-) -> GroqProviderError:
+def _build_groq_provider_error_from_response(*, response: httpx.Response) -> GroqProviderError:
     """Build one typed provider error from failing HTTP response payload."""
 
     error_code: str | None = None

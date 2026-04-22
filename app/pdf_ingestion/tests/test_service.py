@@ -118,9 +118,7 @@ def test_load_ingestion_result_from_storage_rejects_missing_manifest(
     (tmp_path / storage_key).write_bytes(_load_text_pdf_bytes())
 
     with pytest.raises(PdfIngestionClientError) as exc_info:
-        load_ingestion_result_from_storage(
-            storage_key=storage_key, storage_root=tmp_path
-        )
+        load_ingestion_result_from_storage(storage_key=storage_key, storage_root=tmp_path)
 
     assert exc_info.value.status_code == 404
 

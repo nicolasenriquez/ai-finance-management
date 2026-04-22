@@ -33,9 +33,7 @@ def resolve_test_database_url(*, runtime_database_url: str) -> str:
     if explicit_test_url:
         explicit_test_db_name = _database_name_from_url(explicit_test_url)
         if not explicit_test_db_name.endswith("_test"):
-            raise RuntimeError(
-                "TEST_DATABASE_URL must point to a database ending with '_test'."
-            )
+            raise RuntimeError("TEST_DATABASE_URL must point to a database ending with '_test'.")
         return explicit_test_url
 
     if runtime_db_name.endswith("_test"):

@@ -25,10 +25,7 @@ from app.pdf_verification.schemas import (
 logger = get_logger(__name__)
 
 _DATASET_1_GOLDEN_JSON_PATH = (
-    Path(__file__).resolve().parent.parent
-    / "golden_sets"
-    / "dataset_1"
-    / "202602_stocks.json"
+    Path(__file__).resolve().parent.parent / "golden_sets" / "dataset_1" / "202602_stocks.json"
 )
 _DATASET_1_TABLE_ORDER: tuple[str, ...] = (
     "compra_venta_activos",
@@ -62,9 +59,7 @@ class PdfVerificationClientError(ValueError):
         self.status_code = status_code
 
 
-def verify_pdf_from_storage(
-    *, storage_key: str, storage_root: Path
-) -> PdfVerificationResult:
+def verify_pdf_from_storage(*, storage_key: str, storage_root: Path) -> PdfVerificationResult:
     """Verify normalized dataset 1 records against the checked-in golden set."""
 
     logger.info("pdf_verification.execution_started", storage_key=storage_key)
@@ -251,27 +246,17 @@ def _build_actual_records(
                 f"Normalization output record at index {index} has invalid table_name provenance.",
                 status_code=422,
             )
-        if isinstance(row_id, bool) or (
-            row_id is not None and not isinstance(row_id, int)
-        ):
+        if isinstance(row_id, bool) or (row_id is not None and not isinstance(row_id, int)):
             raise PdfVerificationClientError(
                 f"Normalization output record at index {index} has invalid row_id provenance.",
                 status_code=422,
             )
-        if (
-            isinstance(row_index, bool)
-            or not isinstance(row_index, int)
-            or row_index < 1
-        ):
+        if isinstance(row_index, bool) or not isinstance(row_index, int) or row_index < 1:
             raise PdfVerificationClientError(
                 f"Normalization output record at index {index} has invalid row_index provenance.",
                 status_code=422,
             )
-        if (
-            isinstance(source_page, bool)
-            or not isinstance(source_page, int)
-            or source_page < 1
-        ):
+        if isinstance(source_page, bool) or not isinstance(source_page, int) or source_page < 1:
             raise PdfVerificationClientError(
                 f"Normalization output record at index {index} has invalid source_page provenance.",
                 status_code=422,
@@ -293,9 +278,7 @@ def _build_actual_records(
     return records
 
 
-def _coerce_records(
-    records: Sequence[object], *, context: str
-) -> list[VerifiableRecord]:
+def _coerce_records(records: Sequence[object], *, context: str) -> list[VerifiableRecord]:
     """Coerce arbitrary record-like inputs into verifiable records."""
 
     coerced: list[VerifiableRecord] = []
@@ -355,9 +338,7 @@ def _compare_record_fields(
     for field_name in field_names:
         expected_raw = expected_record.raw_values.get(field_name)
         actual_raw = actual_record.raw_values.get(field_name)
-        if _normalize_for_comparison(
-            field_name, expected_raw
-        ) == _normalize_for_comparison(
+        if _normalize_for_comparison(field_name, expected_raw) == _normalize_for_comparison(
             field_name,
             actual_raw,
         ):
@@ -518,9 +499,7 @@ def _required_non_empty_string(value: object, *, context: str) -> str:
     """Assert value is a required non-empty string."""
 
     if not isinstance(value, str):
-        raise PdfVerificationClientError(
-            f"{context} must be a string.", status_code=422
-        )
+        raise PdfVerificationClientError(f"{context} must be a string.", status_code=422)
     normalized = normalize_blank_cell(value)
     if normalized is None:
         raise PdfVerificationClientError(
@@ -536,9 +515,7 @@ def _optional_string(value: object, *, context: str) -> str | None:
     if value is None:
         return None
     if not isinstance(value, str):
-        raise PdfVerificationClientError(
-            f"{context} must be a string or null.", status_code=422
-        )
+        raise PdfVerificationClientError(f"{context} must be a string or null.", status_code=422)
     return normalize_blank_cell(value)
 
 

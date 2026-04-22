@@ -55,8 +55,7 @@ def test_settings_defaults() -> None:
         assert settings.market_data_yfinance_auto_adjust is False
         assert settings.market_data_yfinance_repair is False
         assert (
-            settings.market_data_symbol_universe_path
-            == "app/market_data/symbol_universe.v1.json"
+            settings.market_data_symbol_universe_path == "app/market_data/symbol_universe.v1.json"
         )
         assert "http://localhost:3000" in settings.allowed_origins
         assert "http://localhost:8123" in settings.allowed_origins

@@ -208,9 +208,7 @@ def apply_split_to_open_lots(
                 f"lot_id={lot_id}, adjusted_remaining_qty={adjusted_remaining_qty}."
             )
 
-        adjusted_unit_cost_basis_usd = (
-            total_cost_basis_usd / adjusted_remaining_qty
-        ).quantize(
+        adjusted_unit_cost_basis_usd = (total_cost_basis_usd / adjusted_remaining_qty).quantize(
             _UNIT_COST_BASIS_SCALE,
             rounding=ROUND_HALF_UP,
         )

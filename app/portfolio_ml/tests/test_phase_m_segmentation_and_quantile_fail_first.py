@@ -64,18 +64,14 @@ def test_service_exposes_phase_m_clustering_and_anomaly_builders() -> None:
 
     service_module = _load_portfolio_ml_service_module()
 
-    cluster_builder = getattr(
-        service_module, "build_deterministic_cluster_payload", None
-    )
+    cluster_builder = getattr(service_module, "build_deterministic_cluster_payload", None)
     if cluster_builder is None or not callable(cluster_builder):
         pytest.fail(
             "Fail-first baseline: missing callable build_deterministic_cluster_payload(). "
             "Implement task 4.1 before this test can pass.",
         )
 
-    anomaly_builder = getattr(
-        service_module, "build_deterministic_anomaly_payload", None
-    )
+    anomaly_builder = getattr(service_module, "build_deterministic_anomaly_payload", None)
     if anomaly_builder is None or not callable(anomaly_builder):
         pytest.fail(
             "Fail-first baseline: missing callable build_deterministic_anomaly_payload(). "
@@ -83,19 +79,13 @@ def test_service_exposes_phase_m_clustering_and_anomaly_builders() -> None:
         )
 
 
-def test_clustering_and_anomaly_payloads_are_deterministic_for_equivalent_snapshot_input() -> (
-    None
-):
+def test_clustering_and_anomaly_payloads_are_deterministic_for_equivalent_snapshot_input() -> None:
     """Equivalent snapshot inputs should produce equivalent cluster and anomaly outputs."""
 
     service_module = _load_portfolio_ml_service_module()
 
-    cluster_builder_obj = getattr(
-        service_module, "build_deterministic_cluster_payload", None
-    )
-    anomaly_builder_obj = getattr(
-        service_module, "build_deterministic_anomaly_payload", None
-    )
+    cluster_builder_obj = getattr(service_module, "build_deterministic_cluster_payload", None)
+    anomaly_builder_obj = getattr(service_module, "build_deterministic_anomaly_payload", None)
     if (
         cluster_builder_obj is None
         or anomaly_builder_obj is None

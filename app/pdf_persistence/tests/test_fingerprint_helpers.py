@@ -43,9 +43,7 @@ def _load_callable(name: str, *, task_hint: str) -> PersistenceCallable:
 def test_build_canonical_record_fingerprint_is_deterministic() -> None:
     """Fingerprint generation should be deterministic for equal canonical input."""
 
-    build_fingerprint = _load_callable(
-        "build_canonical_record_fingerprint", task_hint="2.3"
-    )
+    build_fingerprint = _load_callable("build_canonical_record_fingerprint", task_hint="2.3")
 
     canonical_record = {
         "event_type": "trade",
@@ -89,9 +87,7 @@ def test_build_canonical_record_fingerprint_is_deterministic() -> None:
 def test_build_canonical_record_fingerprint_is_source_scoped() -> None:
     """Fingerprint should change when source-scoping fields differ."""
 
-    build_fingerprint = _load_callable(
-        "build_canonical_record_fingerprint", task_hint="2.3"
-    )
+    build_fingerprint = _load_callable("build_canonical_record_fingerprint", task_hint="2.3")
 
     canonical_record = {
         "event_type": "dividend",

@@ -45,18 +45,12 @@ def test_baseline_candidate_forecasts_include_quantile_boosting_family() -> None
 def test_model_policy_supports_segmentation_and_anomaly_families() -> None:
     """Model-family policy should allow segmentation and anomaly governance families."""
 
-    assert (
-        enforce_supported_model_policy(model_family="kmeans_proxy_v1")
-        == "kmeans_proxy_v1"
-    )
+    assert enforce_supported_model_policy(model_family="kmeans_proxy_v1") == "kmeans_proxy_v1"
     assert (
         enforce_supported_model_policy(model_family="isolation_forest_proxy_v1")
         == "isolation_forest_proxy_v1"
     )
-    assert (
-        enforce_supported_model_policy(model_family="quantile_boosting")
-        == "quantile_boosting"
-    )
+    assert enforce_supported_model_policy(model_family="quantile_boosting") == "quantile_boosting"
 
 
 @pytest.mark.asyncio
@@ -97,9 +91,7 @@ async def test_forecast_policy_disallow_records_quantile_candidate_audit(
     )
 
     quantile_audit_rows = [
-        row
-        for row in captured_upserts
-        if row.get("model_family") == "quantile_boosting"
+        row for row in captured_upserts if row.get("model_family") == "quantile_boosting"
     ]
     assert len(quantile_audit_rows) >= 1
     policy_result = cast(dict[str, object], quantile_audit_rows[0]["policy_result"])
@@ -150,9 +142,7 @@ class _FakeRegistryDb:
 
 
 @pytest.mark.asyncio
-async def test_registry_surfaces_family_specific_stale_state_and_governance_metadata() -> (
-    None
-):
+async def test_registry_surfaces_family_specific_stale_state_and_governance_metadata() -> None:
     """Registry should expose stale family reason and reproducibility metadata."""
 
     evaluated_at = datetime(2026, 4, 6, 15, 0, tzinfo=UTC)

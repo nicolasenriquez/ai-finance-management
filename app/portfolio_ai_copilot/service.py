@@ -95,13 +95,9 @@ _FUNDAMENTALS_PROXY_MAX_30D_DRAWDOWN = Decimal("-0.25")
 _FUNDAMENTALS_PROXY_MAX_90D_DRAWDOWN = Decimal("-0.35")
 _FUNDAMENTALS_PROXY_MAX_30D_VOLATILITY = Decimal("0.060000")
 _BOUNDARY_PATTERNS: tuple[re.Pattern[str], ...] = (
-    re.compile(
-        r"\b(buy|sell|short|rebalance|auto(?:matically)?|execute)\b", re.IGNORECASE
-    ),
+    re.compile(r"\b(buy|sell|short|rebalance|auto(?:matically)?|execute)\b", re.IGNORECASE),
     re.compile(r"\b(place|submit)\s+(a\s+)?(trade|order)\b", re.IGNORECASE),
-    re.compile(
-        r"\b(guarantee|guaranteed|risk[-\s]?free|certain return)\b", re.IGNORECASE
-    ),
+    re.compile(r"\b(guarantee|guaranteed|risk[-\s]?free|certain return)\b", re.IGNORECASE),
     re.compile(
         r"\b(raw payload|canonical payload|source payload|transaction events?)\b",
         re.IGNORECASE,
@@ -209,9 +205,7 @@ class _GovernedSqlTemplate:
     timeout_seconds: float
 
 
-def sanitize_model_context_payload(
-    *, context_payload: dict[str, object]
-) -> dict[str, object]:
+def sanitize_model_context_payload(*, context_payload: dict[str, object]) -> dict[str, object]:
     """Remove excluded raw/private fields recursively from model-visible context payload."""
 
     sanitized_payload = _sanitize_context_value(value=context_payload)
@@ -253,9 +247,7 @@ def classify_copilot_boundary_violation_reason(*, user_message: str) -> str | No
 def enforce_copilot_request_boundary(*, user_message: str) -> None:
     """Raise typed client error when one user request violates read-only boundaries."""
 
-    violation_reason = classify_copilot_boundary_violation_reason(
-        user_message=user_message
-    )
+    violation_reason = classify_copilot_boundary_violation_reason(user_message=user_message)
     if violation_reason is None:
         return
     raise PortfolioAiCopilotClientError(
@@ -343,9 +335,7 @@ def compute_deterministic_opportunity_candidates(
             status_code=422,
             reason_code=CopilotReasonCode.BOUNDARY_RESTRICTED,
         )
-    if double_down_threshold_pct <= Decimal(
-        "0"
-    ) or double_down_threshold_pct >= Decimal("1"):
+    if double_down_threshold_pct <= Decimal("0") or double_down_threshold_pct >= Decimal("1"):
         raise PortfolioAiCopilotClientError(
             "double_down_threshold_pct must be in (0, 1).",
             status_code=422,
@@ -413,14 +403,12 @@ def compute_deterministic_opportunity_candidates(
             fundamentals_proxy_score,
             fundamentals_proxy_reason_codes,
         ) = _resolve_fundamentals_proxy_assessment(candidate_row=row)
-        action_state, action_multiplier, action_reason_codes = (
-            _resolve_dca_action_state(
-                candidate_row=row,
-                strategy_profile=strategy_profile,
-                double_down_threshold_pct=double_down_threshold_pct,
-                double_down_multiplier=double_down_multiplier,
-                fundamentals_proxy_state=fundamentals_proxy_state,
-            )
+        action_state, action_multiplier, action_reason_codes = _resolve_dca_action_state(
+            candidate_row=row,
+            strategy_profile=strategy_profile,
+            double_down_threshold_pct=double_down_threshold_pct,
+            double_down_multiplier=double_down_multiplier,
+            fundamentals_proxy_state=fundamentals_proxy_state,
         )
         opportunity_score = (
             (0.45 * discount_score) + (0.35 * momentum_score) + (0.20 * stability_score)
@@ -437,9 +425,7 @@ def compute_deterministic_opportunity_candidates(
                 "action_multiplier": _quantize_score(float(action_multiplier)),
                 "action_reason_codes": deduplicated_action_reasons,
                 "fundamentals_proxy_state": fundamentals_proxy_state.value,
-                "fundamentals_proxy_score": _quantize_score(
-                    float(fundamentals_proxy_score)
-                ),
+                "fundamentals_proxy_score": _quantize_score(float(fundamentals_proxy_score)),
                 "opportunity_score": _quantize_score(opportunity_score),
                 "discount_score": _quantize_score(discount_score),
                 "momentum_score": _quantize_score(momentum_score),
@@ -584,9 +570,7 @@ def _safe_price_drawdown_pct(
         return Decimal("0")
     if latest_close_price_usd <= Decimal("0"):
         return Decimal("0")
-    raw_drawdown = (
-        reference_high_price_usd - latest_close_price_usd
-    ) / reference_high_price_usd
+    raw_drawdown = (reference_high_price_usd - latest_close_price_usd) / reference_high_price_usd
     if raw_drawdown <= Decimal("0"):
         return Decimal("0")
     return raw_drawdown
@@ -638,9 +622,7 @@ def _resolve_dca_action_state(
     """Resolve deterministic DCA action state, multiplier, and reason codes."""
 
     reasons: list[str] = [f"strategy_profile_{strategy_profile.value}"]
-    has_full_52w_history = (
-        candidate_row.history_points_count >= _OPPORTUNITY_52W_WINDOW_POINTS
-    )
+    has_full_52w_history = candidate_row.history_points_count >= _OPPORTUNITY_52W_WINDOW_POINTS
     if has_full_52w_history:
         reasons.append("full_52w_history")
     else:
@@ -658,10 +640,7 @@ def _resolve_dca_action_state(
 
     if candidate_row.currently_held:
         reasons.append("currently_held")
-        if (
-            threshold_met
-            and fundamentals_proxy_state is CopilotFundamentalsProxyState.PASSED
-        ):
+        if threshold_met and fundamentals_proxy_state is CopilotFundamentalsProxyState.PASSED:
             reasons.append("fundamentals_proxy_passed")
             return (
                 CopilotOpportunityActionState.DOUBLE_DOWN_CANDIDATE,
@@ -879,9 +858,7 @@ async def execute_governed_sql_template(
         rows.append(row_payload)
 
     executed_at = datetime.now(UTC).isoformat()
-    audit_id = (
-        f"governed_sql_{normalized_template_id}_{datetime.now(UTC):%Y%m%dT%H%M%SZ}"
-    )
+    audit_id = f"governed_sql_{normalized_template_id}_{datetime.now(UTC):%Y%m%dT%H%M%SZ}"
     return {
         "template_id": normalized_template_id,
         "audit_id": audit_id,
@@ -923,19 +900,14 @@ async def validate_document_references(
     existing_rows_result = await db.execute(
         select(SourceDocument.id).where(SourceDocument.id.in_(normalized_document_ids))
     )
-    existing_ids = {
-        int(document_id) for document_id in existing_rows_result.scalars().all()
-    }
+    existing_ids = {int(document_id) for document_id in existing_rows_result.scalars().all()}
     missing_ids = [
-        document_id
-        for document_id in normalized_document_ids
-        if document_id not in existing_ids
+        document_id for document_id in normalized_document_ids if document_id not in existing_ids
     ]
     if len(missing_ids) > 0:
         missing_ids_text = ", ".join(str(document_id) for document_id in missing_ids)
         raise PortfolioAiCopilotClientError(
-            "document_reference_not_found: unresolved document_id values "
-            f"{missing_ids_text}.",
+            "document_reference_not_found: unresolved document_id values " f"{missing_ids_text}.",
             status_code=422,
             reason_code=CopilotReasonCode.INSUFFICIENT_CONTEXT,
         )
@@ -952,9 +924,7 @@ async def _build_document_reference_context(
     if len(document_ids) == 0:
         return []
 
-    result = await db.execute(
-        select(SourceDocument).where(SourceDocument.id.in_(document_ids))
-    )
+    result = await db.execute(select(SourceDocument).where(SourceDocument.id.in_(document_ids)))
     rows = result.scalars().all()
 
     by_id: dict[int, SourceDocument] = {}
@@ -1066,24 +1036,13 @@ def _build_prompt_suggestions(
     suggestions = resolve_phase_m_question_pack(request=request)
 
     if "portfolio_ml_forecasts" in selected_tool_ids:
-        suggestions.append(
-            "Show the current forecast champion lifecycle state and expiry window."
-        )
-    if (
-        "portfolio_ml_capm" in selected_tool_ids
-        or "portfolio_ml_signals" in selected_tool_ids
-    ):
-        suggestions.append(
-            "Explain CAPM beta and expected return with benchmark provenance."
-        )
+        suggestions.append("Show the current forecast champion lifecycle state and expiry window.")
+    if "portfolio_ml_capm" in selected_tool_ids or "portfolio_ml_signals" in selected_tool_ids:
+        suggestions.append("Explain CAPM beta and expected return with benchmark provenance.")
     if "portfolio_ml_registry" in selected_tool_ids:
-        suggestions.append(
-            "List the latest registry promotion decisions and replacement lineage."
-        )
+        suggestions.append("List the latest registry promotion decisions and replacement lineage.")
     if "portfolio_sql_template" in selected_tool_ids:
-        suggestions.append(
-            "Inspect governed SQL template output metadata and row bounds."
-        )
+        suggestions.append("Inspect governed SQL template output metadata and row bounds.")
     if "opportunity_scanner" in selected_tool_ids:
         suggestions.append(
             "Which currently held symbols meet the 20% drawdown double-down threshold today?"
@@ -1108,9 +1067,7 @@ def _build_prompt_suggestions(
         )
 
     if len(suggestions) == 0:
-        suggestions.append(
-            "Explain portfolio risk and trend movement over the selected period."
-        )
+        suggestions.append("Explain portfolio risk and trend movement over the selected period.")
 
     deduplicated_suggestions: list[str] = []
     for suggestion in suggestions:
@@ -1166,9 +1123,7 @@ async def get_portfolio_copilot_chat_response(
                 "portfolio_ai_copilot.chat_completed",
                 operation=request.operation.value,
                 state=response.state.value,
-                reason_code=(
-                    response.reason_code.value if response.reason_code else None
-                ),
+                reason_code=(response.reason_code.value if response.reason_code else None),
                 evidence_count=len(response.evidence),
                 opportunity_candidate_count=len(response.opportunity_candidates),
             )
@@ -1309,9 +1264,7 @@ async def get_portfolio_copilot_chat_response(
             provider_status_code=exc.status_code,
             provider_error_code=exc.provider_error_code,
             mapped_state=response.state.value,
-            mapped_reason_code=(
-                response.reason_code.value if response.reason_code else None
-            ),
+            mapped_reason_code=(response.reason_code.value if response.reason_code else None),
             error=str(exc),
         )
         return response
@@ -1503,8 +1456,7 @@ async def _build_opportunity_scan_response(
     )
     top_candidates_raw = ranked_candidates_raw[:10]
     top_candidates = [
-        CopilotOpportunityCandidate.model_validate(candidate)
-        for candidate in top_candidates_raw
+        CopilotOpportunityCandidate.model_validate(candidate) for candidate in top_candidates_raw
     ]
     prompt_context: dict[str, object] = {
         "operation": request.operation.value,
@@ -1560,37 +1512,25 @@ async def _build_opportunity_scan_response(
     )
 
 
-async def _load_opportunity_candidate_inputs(
-    *, db: AsyncSession
-) -> list[dict[str, object]]:
+async def _load_opportunity_candidate_inputs(*, db: AsyncSession) -> list[dict[str, object]]:
     """Load deterministic scanner inputs from starter universe and persisted market data."""
 
     starter_symbols = list_market_data_library_symbols(size=100)
     summary_response = await get_portfolio_summary_response(db=db)
-    held_symbols = {
-        row.instrument_symbol.strip().upper() for row in summary_response.rows
-    }
+    held_symbols = {row.instrument_symbol.strip().upper() for row in summary_response.rows}
 
     candidate_inputs: list[dict[str, object]] = []
     for symbol in starter_symbols:
-        price_history_rows = await list_price_history_for_symbol(
-            db=db, instrument_symbol=symbol
-        )
-        normalized_closes = _extract_recent_unique_usd_closes(
-            price_history_rows=price_history_rows
-        )
+        price_history_rows = await list_price_history_for_symbol(db=db, instrument_symbol=symbol)
+        normalized_closes = _extract_recent_unique_usd_closes(price_history_rows=price_history_rows)
         if not normalized_closes:
             continue
 
         latest_close = normalized_closes[0]
         rolling_90d_window = normalized_closes[:_MIN_OPPORTUNITY_HISTORY_POINTS]
         rolling_52w_window = normalized_closes[:_OPPORTUNITY_52W_WINDOW_POINTS]
-        rolling_90d_high = (
-            max(rolling_90d_window) if rolling_90d_window else Decimal("0")
-        )
-        rolling_52w_high = (
-            max(rolling_52w_window) if rolling_52w_window else Decimal("0")
-        )
+        rolling_90d_high = max(rolling_90d_window) if rolling_90d_window else Decimal("0")
+        rolling_52w_high = max(rolling_52w_window) if rolling_52w_window else Decimal("0")
         drawdown_from_52w_high_pct = _safe_price_drawdown_pct(
             latest_close_price_usd=latest_close,
             reference_high_price_usd=rolling_52w_high,
@@ -1616,9 +1556,7 @@ async def _load_opportunity_candidate_inputs(
     return candidate_inputs
 
 
-def _extract_recent_unique_usd_closes(
-    *, price_history_rows: Sequence[object]
-) -> list[Decimal]:
+def _extract_recent_unique_usd_closes(*, price_history_rows: Sequence[object]) -> list[Decimal]:
     """Extract descending unique-date USD close values for one symbol history series."""
 
     normalized_closes: list[Decimal] = []
@@ -1631,9 +1569,7 @@ def _extract_recent_unique_usd_closes(
         if currency_code != "USD":
             continue
         price_value_candidate = row_mapping.get("price_value")
-        if not isinstance(
-            price_value_candidate, Decimal
-        ) or price_value_candidate <= Decimal("0"):
+        if not isinstance(price_value_candidate, Decimal) or price_value_candidate <= Decimal("0"):
             continue
         trading_date_candidate = row_mapping.get("trading_date")
         market_timestamp_candidate = row_mapping.get("market_timestamp")
@@ -1649,9 +1585,7 @@ def _extract_recent_unique_usd_closes(
     return normalized_closes
 
 
-def _resolve_calendar_key(
-    *, trading_date: object, market_timestamp: object
-) -> str | None:
+def _resolve_calendar_key(*, trading_date: object, market_timestamp: object) -> str | None:
     """Resolve deterministic per-day key for one market-data row."""
 
     if hasattr(trading_date, "isoformat"):
@@ -1682,9 +1616,7 @@ def _compute_return_metrics(
         period_days=252,
     )
 
-    volatility_30d = _compute_30d_volatility(
-        descending_close_values=descending_close_values
-    )
+    volatility_30d = _compute_30d_volatility(descending_close_values=descending_close_values)
     return return_30d, return_90d, return_252d, volatility_30d
 
 
@@ -1752,9 +1684,7 @@ async def _execute_allowlisted_tools(
             continue
         raw_payload = await tool_definition.execute(db, request)
         payload_mapping = _serialize_tool_payload(raw_payload=raw_payload)
-        sanitized_payload = sanitize_model_context_payload(
-            context_payload=payload_mapping
-        )
+        sanitized_payload = sanitize_model_context_payload(context_payload=payload_mapping)
         tool_results.append(
             _ToolExecutionResult(
                 tool_id=tool_definition.tool_id,
@@ -2109,9 +2039,7 @@ async def _tool_portfolio_ml_capm(
         scope=_resolve_portfolio_ml_scope(request=request),
         instrument_symbol=request.instrument_symbol,
     )
-    capm_payload = cast(
-        dict[str, object], signal_response.capm.model_dump(mode="python")
-    )
+    capm_payload = cast(dict[str, object], signal_response.capm.model_dump(mode="python"))
     return {
         "state": signal_response.state.value,
         "state_reason_code": signal_response.state_reason_code,

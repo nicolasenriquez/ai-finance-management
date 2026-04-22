@@ -50,9 +50,7 @@ class PortfolioTransaction(Base, TimestampMixin):
     )
     canonical_fingerprint: Mapped[str] = mapped_column(String(128), nullable=False)
     event_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
-    instrument_symbol: Mapped[str] = mapped_column(
-        String(64), nullable=False, index=True
-    )
+    instrument_symbol: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     trade_side: Mapped[str] = mapped_column(String(8), nullable=False)
     quantity: Mapped[Decimal] = mapped_column(Numeric(18, 9), nullable=False)
     gross_amount_usd: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
@@ -77,9 +75,7 @@ class DividendEvent(Base, TimestampMixin):
 
     __tablename__ = "dividend_event"
     __table_args__ = (
-        UniqueConstraint(
-            "canonical_record_id", name="uq_dividend_event_canonical_record_id"
-        ),
+        UniqueConstraint("canonical_record_id", name="uq_dividend_event_canonical_record_id"),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -100,9 +96,7 @@ class DividendEvent(Base, TimestampMixin):
     )
     canonical_fingerprint: Mapped[str] = mapped_column(String(128), nullable=False)
     event_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
-    instrument_symbol: Mapped[str] = mapped_column(
-        String(64), nullable=False, index=True
-    )
+    instrument_symbol: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     gross_amount_usd: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
     taxes_withheld_usd: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
     net_amount_usd: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
@@ -143,9 +137,7 @@ class CorporateActionEvent(Base, TimestampMixin):
     )
     canonical_fingerprint: Mapped[str] = mapped_column(String(128), nullable=False)
     event_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
-    instrument_symbol: Mapped[str] = mapped_column(
-        String(64), nullable=False, index=True
-    )
+    instrument_symbol: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     action_type: Mapped[str] = mapped_column(String(32), nullable=False)
     shares_before_qty: Mapped[Decimal] = mapped_column(Numeric(18, 9), nullable=False)
     shares_after_qty: Mapped[Decimal] = mapped_column(Numeric(18, 9), nullable=False)
@@ -165,9 +157,7 @@ class Lot(Base, TimestampMixin):
     """Open or closed lot derived from a buy-side portfolio transaction."""
 
     __tablename__ = "lot"
-    __table_args__ = (
-        UniqueConstraint("opening_transaction_id", name="uq_lot_opening_tx"),
-    )
+    __table_args__ = (UniqueConstraint("opening_transaction_id", name="uq_lot_opening_tx"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     opening_transaction_id: Mapped[int] = mapped_column(
@@ -180,15 +170,11 @@ class Lot(Base, TimestampMixin):
         nullable=True,
         index=True,
     )
-    instrument_symbol: Mapped[str] = mapped_column(
-        String(64), nullable=False, index=True
-    )
+    instrument_symbol: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     opened_on: Mapped[date] = mapped_column(Date, nullable=False, index=True)
     original_qty: Mapped[Decimal] = mapped_column(Numeric(18, 9), nullable=False)
     remaining_qty: Mapped[Decimal] = mapped_column(Numeric(18, 9), nullable=False)
-    total_cost_basis_usd: Mapped[Decimal] = mapped_column(
-        Numeric(18, 2), nullable=False
-    )
+    total_cost_basis_usd: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
     unit_cost_basis_usd: Mapped[Decimal] = mapped_column(Numeric(18, 9), nullable=False)
     accounting_policy_version: Mapped[str] = mapped_column(String(64), nullable=False)
 
@@ -227,9 +213,7 @@ class LotDisposition(Base, TimestampMixin):
     )
     disposition_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
     matched_qty: Mapped[Decimal] = mapped_column(Numeric(18, 9), nullable=False)
-    matched_cost_basis_usd: Mapped[Decimal] = mapped_column(
-        Numeric(18, 2), nullable=False
-    )
+    matched_cost_basis_usd: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
     accounting_policy_version: Mapped[str] = mapped_column(String(64), nullable=False)
 
     lot: Mapped[Lot] = relationship(back_populates="dispositions")

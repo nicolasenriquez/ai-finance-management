@@ -214,9 +214,7 @@ def test_time_series_endpoint_normalizes_instrument_scope_inputs_before_service_
     async def _fake_time_series_response(**kwargs: Any) -> dict[str, Any]:
         scope = kwargs.get("scope")
         if scope is None or not hasattr(scope, "value"):
-            raise AssertionError(
-                "Normalized scope enum value was not passed to service callable."
-            )
+            raise AssertionError("Normalized scope enum value was not passed to service callable.")
         captured_scope_values.append(str(scope.value))
         captured_symbol_values.append(cast(str | None, kwargs.get("instrument_symbol")))
         return {
@@ -255,9 +253,7 @@ def test_time_series_endpoint_normalizes_instrument_scope_inputs_before_service_
 
 
 @pytest.mark.integration
-def test_time_series_endpoint_rejects_instrument_scope_without_symbol_explicitly() -> (
-    None
-):
+def test_time_series_endpoint_rejects_instrument_scope_without_symbol_explicitly() -> None:
     """Instrument-scoped time-series requests should fail fast when symbol is missing."""
 
     endpoint_path = _workspace_endpoint_path(suffix="time-series")
@@ -356,9 +352,7 @@ def test_contribution_endpoint_normalizes_supported_period_values_before_service
     async def _fake_contribution_response(**kwargs: Any) -> dict[str, Any]:
         period = kwargs.get("period")
         if period is None or not hasattr(period, "value"):
-            raise AssertionError(
-                "Normalized period enum value was not passed to service callable."
-            )
+            raise AssertionError("Normalized period enum value was not passed to service callable.")
         captured_period_values.append(str(period.value))
         return {
             "as_of_ledger_at": "2026-03-28T00:00:00Z",
@@ -708,13 +702,9 @@ def test_efficient_frontier_endpoint_normalizes_scope_and_symbol_before_service_
         normalized_scope = kwargs.get("scope")
         normalized_period = kwargs.get("period")
         if normalized_scope is None or not hasattr(normalized_scope, "value"):
-            raise AssertionError(
-                "Normalized scope enum value was not passed to service callable."
-            )
+            raise AssertionError("Normalized scope enum value was not passed to service callable.")
         if normalized_period is None or not hasattr(normalized_period, "value"):
-            raise AssertionError(
-                "Normalized period enum value was not passed to service callable."
-            )
+            raise AssertionError("Normalized period enum value was not passed to service callable.")
         captured_scope_values.append(str(normalized_scope.value))
         captured_symbol_values.append(cast(str | None, kwargs.get("instrument_symbol")))
         captured_period_values.append(str(normalized_period.value))
@@ -1469,9 +1459,7 @@ def test_monte_carlo_endpoint_is_deterministic_for_equivalent_seed_and_state(
         request = kwargs.get("request")
         seed = getattr(request, "seed", None)
         if seed is None:
-            raise AssertionError(
-                "Monte Carlo request seed should be available in typed request."
-            )
+            raise AssertionError("Monte Carlo request seed should be available in typed request.")
         return {
             "as_of_ledger_at": "2026-03-28T00:00:00Z",
             "scope": "portfolio",

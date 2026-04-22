@@ -44,9 +44,7 @@ class MarketDataSnapshot(Base, TimestampMixin):
     snapshot_captured_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, index=True
     )
-    snapshot_metadata: Mapped[dict[str, object] | None] = mapped_column(
-        JSON, nullable=True
-    )
+    snapshot_metadata: Mapped[dict[str, object] | None] = mapped_column(JSON, nullable=True)
 
     prices: Mapped[list[PriceHistory]] = relationship(back_populates="snapshot")
 
@@ -84,9 +82,7 @@ class PriceHistory(Base, TimestampMixin):
         nullable=False,
         index=True,
     )
-    instrument_symbol: Mapped[str] = mapped_column(
-        String(64), nullable=False, index=True
-    )
+    instrument_symbol: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     market_timestamp: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
@@ -95,8 +91,6 @@ class PriceHistory(Base, TimestampMixin):
     trading_date: Mapped[date | None] = mapped_column(Date, nullable=True, index=True)
     price_value: Mapped[Decimal] = mapped_column(Numeric(18, 9), nullable=False)
     currency_code: Mapped[str] = mapped_column(String(8), nullable=False)
-    source_payload: Mapped[dict[str, object] | None] = mapped_column(
-        JSON, nullable=True
-    )
+    source_payload: Mapped[dict[str, object] | None] = mapped_column(JSON, nullable=True)
 
     snapshot: Mapped[MarketDataSnapshot] = relationship(back_populates="prices")

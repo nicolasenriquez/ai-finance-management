@@ -112,9 +112,7 @@ class _FakeCloseTable:
     def items(self) -> list[tuple[object, object]]:
         """Return deterministic column-key/value items."""
 
-        return [
-            (column_key, column_value) for column_key, column_value in self._columns
-        ]
+        return [(column_key, column_value) for column_key, column_value in self._columns]
 
 
 def test_build_config_rejects_auto_adjust_true() -> None:
@@ -304,12 +302,8 @@ async def test_fetch_applies_symbol_request_spacing_between_symbols(
         "app.market_data.providers.yfinance_adapter._fetch_symbol_currency",
         fake_currency,
     )
-    monkeypatch.setattr(
-        "app.market_data.providers.yfinance_adapter._fetch_symbol_rows", fake_rows
-    )
-    monkeypatch.setattr(
-        "app.market_data.providers.yfinance_adapter.time.sleep", fake_sleep
-    )
+    monkeypatch.setattr("app.market_data.providers.yfinance_adapter._fetch_symbol_rows", fake_rows)
+    monkeypatch.setattr("app.market_data.providers.yfinance_adapter.time.sleep", fake_sleep)
 
     config = build_yfinance_adapter_config(
         period="5y",
@@ -704,9 +698,7 @@ async def test_fetch_recovers_empty_history_using_shorter_period_fallback(
                 return _FakeEmptyDownloadResult()
             if period == "3y":
                 return _FakeDownloadResult(
-                    _FakeCloseSeries(
-                        points=[(datetime(2026, 3, 24, tzinfo=UTC), 120.0)]
-                    )
+                    _FakeCloseSeries(points=[(datetime(2026, 3, 24, tzinfo=UTC), 120.0)])
                 )
             return _FakeEmptyDownloadResult()
 
@@ -1163,9 +1155,7 @@ async def test_fetch_symbol_rows_rejects_tabular_close_payload_with_single_unmat
         fake_currency,
     )
 
-    with pytest.raises(
-        YFinanceAdapterError, match="unsupported tabular Close payload"
-    ) as exc_info:
+    with pytest.raises(YFinanceAdapterError, match="unsupported tabular Close payload") as exc_info:
         await fetch_yfinance_daily_close_rows(
             symbols=("AMD",),
             config=_valid_config(),
@@ -1219,9 +1209,7 @@ async def test_fetch_symbol_rows_rejects_tabular_close_payload_with_ambiguous_sy
         fake_currency,
     )
 
-    with pytest.raises(
-        YFinanceAdapterError, match="unsupported tabular Close payload"
-    ) as exc_info:
+    with pytest.raises(YFinanceAdapterError, match="unsupported tabular Close payload") as exc_info:
         await fetch_yfinance_daily_close_rows(
             symbols=("AMD",),
             config=_valid_config(),

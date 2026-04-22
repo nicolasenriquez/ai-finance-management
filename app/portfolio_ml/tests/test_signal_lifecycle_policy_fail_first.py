@@ -37,9 +37,7 @@ def _load_callable(name: str, *, task_hint: str) -> Callable[..., Any]:
     return cast(Callable[..., Any], candidate)
 
 
-def test_lifecycle_resolver_returns_stale_when_source_data_exceeds_freshness_policy() -> (
-    None
-):
+def test_lifecycle_resolver_returns_stale_when_source_data_exceeds_freshness_policy() -> None:
     """Lifecycle resolver should return stale with explicit reason when source data is old."""
 
     resolve_signal_lifecycle_state = cast(

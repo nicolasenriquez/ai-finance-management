@@ -215,9 +215,7 @@ def _apply_shorter_history_period_filter(
         )
 
     return tuple(
-        period
-        for period in periods
-        if period.strip().lower() != normalized_primary_period_key
+        period for period in periods if period.strip().lower() != normalized_primary_period_key
     )
 
 
@@ -587,9 +585,7 @@ def _extract_close_series(*, download_result: object, symbol: str) -> object:
     return close_series
 
 
-def _extract_close_items(
-    *, close_series: object, symbol: str
-) -> list[tuple[object, object]]:
+def _extract_close_items(*, close_series: object, symbol: str) -> list[tuple[object, object]]:
     """Return close items from supported one-dimensional and tabular payload shapes."""
 
     if _is_tabular_close_payload(close_series):
@@ -601,9 +597,7 @@ def _extract_close_items(
     return _extract_series_items(close_series=close_series, symbol=symbol)
 
 
-def _extract_series_items(
-    *, close_series: object, symbol: str
-) -> list[tuple[object, object]]:
+def _extract_series_items(*, close_series: object, symbol: str) -> list[tuple[object, object]]:
     """Return close-series items as list of market-key/value pairs."""
 
     items_candidate = getattr(close_series, "items", None)
@@ -651,9 +645,7 @@ def _extract_tabular_close_items(
         column_item
         for column_item in column_items
         if _close_column_matches_symbol(column_key=column_item[0], symbol=symbol)
-        or _close_column_matches_symbol(
-            column_key=column_item[0], symbol=provider_symbol
-        )
+        or _close_column_matches_symbol(column_key=column_item[0], symbol=provider_symbol)
     ]
     if len(matching_columns) == 1:
         _, column_series = matching_columns[0]
@@ -678,9 +670,7 @@ def _close_column_matches_symbol(*, column_key: object, symbol: str) -> bool:
     if isinstance(column_key, str):
         return column_key.strip().upper() == normalized_symbol
     if isinstance(column_key, tuple):
-        column_key_parts = cast(
-            tuple[object, ...], column_key
-        )  # ty: ignore[redundant-cast]
+        column_key_parts = cast(tuple[object, ...], column_key)  # ty: ignore[redundant-cast]
         return any(
             isinstance(part, str) and part.strip().upper() == normalized_symbol
             for part in column_key_parts
@@ -695,9 +685,7 @@ def _is_two_item_tuple(candidate: object) -> TypeGuard[tuple[object, object]]:
         return False
     # pyright strict narrows `candidate` to tuple[Unknown, ...], so we explicitly
     # widen element type to object before length check.
-    normalized_candidate = cast(
-        tuple[object, ...], candidate
-    )  # ty: ignore[redundant-cast]
+    normalized_candidate = cast(tuple[object, ...], candidate)  # ty: ignore[redundant-cast]
     return len(normalized_candidate) == 2
 
 
@@ -763,9 +751,7 @@ def _coerce_day_level_temporal_key(*, value: object) -> date | None:
     to_pydatetime = getattr(value, "to_pydatetime", None)
     if callable(to_pydatetime):
         converted_value = to_pydatetime()
-        normalized_from_pydatetime = _coerce_day_level_temporal_key(
-            value=converted_value
-        )
+        normalized_from_pydatetime = _coerce_day_level_temporal_key(value=converted_value)
         if normalized_from_pydatetime is not None:
             return normalized_from_pydatetime
 
@@ -800,9 +786,7 @@ def _coerce_decimal(*, raw_value: object, symbol: str) -> Decimal:
     return decimal_value
 
 
-def _extract_mapping_string(
-    mapping: Mapping[str, object] | None, *, key: str
-) -> str | None:
+def _extract_mapping_string(mapping: Mapping[str, object] | None, *, key: str) -> str | None:
     """Extract one string field from mapping payload when present."""
 
     if mapping is None:
@@ -859,9 +843,7 @@ def _format_provider_exception_reason(exc: Exception) -> str:
     return type(exc).__name__
 
 
-def _is_real_yfinance_download_function(
-    *, download_function: Callable[..., object]
-) -> bool:
+def _is_real_yfinance_download_function(*, download_function: Callable[..., object]) -> bool:
     """Return whether download function belongs to yfinance implementation modules."""
 
     module_name = getattr(download_function, "__module__", "")

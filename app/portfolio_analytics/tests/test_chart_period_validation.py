@@ -67,14 +67,8 @@ def test_normalize_chart_period_passthrough_for_enum_values() -> None:
 
     normalize_chart_period = _load_normalizer()
 
-    assert (
-        normalize_chart_period(period_value=PortfolioChartPeriod.D30)
-        == PortfolioChartPeriod.D30
-    )
-    assert (
-        normalize_chart_period(period_value=PortfolioChartPeriod.MAX)
-        == PortfolioChartPeriod.MAX
-    )
+    assert normalize_chart_period(period_value=PortfolioChartPeriod.D30) == PortfolioChartPeriod.D30
+    assert normalize_chart_period(period_value=PortfolioChartPeriod.MAX) == PortfolioChartPeriod.MAX
 
 
 def test_normalize_chart_period_rejects_unsupported_values_explicitly() -> None:

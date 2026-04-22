@@ -60,9 +60,7 @@ def _index_rows_by_symbol(
     for row in summary_rows:
         symbol = row.get("instrument_symbol")
         if not isinstance(symbol, str):
-            pytest.fail(
-                "Grouped summary rows must include string instrument_symbol values."
-            )
+            pytest.fail("Grouped summary rows must include string instrument_symbol values.")
         rows_by_symbol[symbol] = row
     return rows_by_symbol
 

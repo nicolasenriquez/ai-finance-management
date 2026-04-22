@@ -71,12 +71,8 @@ _SUPPORTED_FORECAST_MODEL_FAMILIES: Final[frozenset[str]] = frozenset(
         "quantile_boosting",
     }
 )
-_SUPPORTED_SEGMENTATION_MODEL_FAMILIES: Final[frozenset[str]] = frozenset(
-    {"kmeans_proxy_v1"}
-)
-_SUPPORTED_ANOMALY_MODEL_FAMILIES: Final[frozenset[str]] = frozenset(
-    {"isolation_forest_proxy_v1"}
-)
+_SUPPORTED_SEGMENTATION_MODEL_FAMILIES: Final[frozenset[str]] = frozenset({"kmeans_proxy_v1"})
+_SUPPORTED_ANOMALY_MODEL_FAMILIES: Final[frozenset[str]] = frozenset({"isolation_forest_proxy_v1"})
 _SUPPORTED_MODEL_FAMILIES: Final[frozenset[str]] = frozenset(
     {
         *_SUPPORTED_FORECAST_MODEL_FAMILIES,
@@ -155,8 +151,7 @@ def enforce_supported_model_policy(*, model_family: str) -> str:
     normalized = _normalize_model_family_token(model_family=model_family)
     if normalized in _DEFERRED_MODEL_FAMILIES:
         raise PortfolioMLClientError(
-            "unsupported_model_policy: model family "
-            f"'{model_family}' is deferred for v1.",
+            "unsupported_model_policy: model family " f"'{model_family}' is deferred for v1.",
             status_code=422,
         )
     if normalized not in _SUPPORTED_MODEL_FAMILIES:
@@ -294,9 +289,7 @@ def normalize_time_index_series(
 
     indexed_points: list[tuple[datetime, float]] = []
     for point in raw_points:
-        captured_at = _to_utc_datetime(
-            point.get("captured_at"), field_name="captured_at"
-        )
+        captured_at = _to_utc_datetime(point.get("captured_at"), field_name="captured_at")
         value_decimal = _parse_decimal(point.get("value"), field_name="value")
         indexed_points.append((captured_at, float(value_decimal)))
 
@@ -400,9 +393,7 @@ def _calculate_daily_return(series: pd.Series) -> Decimal:
         return Decimal("0")
 
     daily_return_ratio = (latest_close / previous_close) - 1.0
-    return _quantize_decimal(
-        Decimal(str(daily_return_ratio)), scale=_SIGNAL_VALUE_SCALE
-    )
+    return _quantize_decimal(Decimal(str(daily_return_ratio)), scale=_SIGNAL_VALUE_SCALE)
 
 
 def _calculate_price_vs_sma(
@@ -470,12 +461,8 @@ def _calculate_ema_spread(series: pd.Series) -> Decimal:
     if len(cleaned) < _EMA_LONG_SPAN_DAYS:
         return Decimal("0")
 
-    ema_medium = float(
-        cleaned.ewm(span=_EMA_MEDIUM_SPAN_DAYS, adjust=False).mean().iloc[-1]
-    )
-    ema_long = float(
-        cleaned.ewm(span=_EMA_LONG_SPAN_DAYS, adjust=False).mean().iloc[-1]
-    )
+    ema_medium = float(cleaned.ewm(span=_EMA_MEDIUM_SPAN_DAYS, adjust=False).mean().iloc[-1])
+    ema_long = float(cleaned.ewm(span=_EMA_LONG_SPAN_DAYS, adjust=False).mean().iloc[-1])
     if math.isclose(ema_long, 0.0):
         return Decimal("0")
 
@@ -523,9 +510,7 @@ def _calculate_ichimoku_bias_proxy(series: pd.Series) -> Decimal:
         cleaned.rolling(window=_ICHIMOKU_BASELINE_WINDOW_DAYS).max()
         + cleaned.rolling(window=_ICHIMOKU_BASELINE_WINDOW_DAYS).min()
     ) / 2.0
-    span_a = ((conversion_line + baseline_line) / 2.0).shift(
-        _ICHIMOKU_LEADING_SHIFT_DAYS
-    )
+    span_a = ((conversion_line + baseline_line) / 2.0).shift(_ICHIMOKU_LEADING_SHIFT_DAYS)
     span_b = (
         (
             cleaned.rolling(window=_ICHIMOKU_SPAN_B_WINDOW_DAYS).max()
@@ -576,9 +561,7 @@ def _calculate_monthly_return(series: pd.Series) -> Decimal:
         return Decimal("0")
 
     monthly_return_ratio = (latest_month_close / previous_month_close) - 1.0
-    return _quantize_decimal(
-        Decimal(str(monthly_return_ratio)), scale=_SIGNAL_VALUE_SCALE
-    )
+    return _quantize_decimal(Decimal(str(monthly_return_ratio)), scale=_SIGNAL_VALUE_SCALE)
 
 
 def _calculate_monthly_average_return(series: pd.Series) -> Decimal:
@@ -589,9 +572,7 @@ def _calculate_monthly_average_return(series: pd.Series) -> Decimal:
     if len(monthly_returns) < _MONTHLY_AVERAGE_WINDOW_MONTHS:
         return Decimal("0")
 
-    trailing_average = float(
-        monthly_returns.iloc[-_MONTHLY_AVERAGE_WINDOW_MONTHS:].mean()
-    )
+    trailing_average = float(monthly_returns.iloc[-_MONTHLY_AVERAGE_WINDOW_MONTHS:].mean())
     return _quantize_decimal(Decimal(str(trailing_average)), scale=_SIGNAL_VALUE_SCALE)
 
 
@@ -610,9 +591,7 @@ def _calculate_trailing_twelve_month_return(series: pd.Series) -> Decimal:
         return Decimal("0")
 
     trailing_return_ratio = (latest_close / start_close) - 1.0
-    return _quantize_decimal(
-        Decimal(str(trailing_return_ratio)), scale=_SIGNAL_VALUE_SCALE
-    )
+    return _quantize_decimal(Decimal(str(trailing_return_ratio)), scale=_SIGNAL_VALUE_SCALE)
 
 
 def _volatility_band(volatility: Decimal) -> str:
@@ -728,34 +707,24 @@ def build_deterministic_signal_payload(
     ichimoku_bias_proxy_value = _calculate_ichimoku_bias_proxy(normalized_series)
     monthly_return_value = _calculate_monthly_return(normalized_series)
     monthly_avg_return_3m_value = _calculate_monthly_average_return(normalized_series)
-    trailing_return_12m_value = _calculate_trailing_twelve_month_return(
-        normalized_series
-    )
+    trailing_return_12m_value = _calculate_trailing_twelve_month_return(normalized_series)
 
     scope_value = snapshot_input.get("scope")
-    scope = (
-        scope_value
-        if isinstance(scope_value, str)
-        else PortfolioMLScope.PORTFOLIO.value
-    )
+    scope = scope_value if isinstance(scope_value, str) else PortfolioMLScope.PORTFOLIO.value
 
     signal_rows: list[dict[str, object]] = [
         {
             "signal_id": "trend_30d",
             "label": "Trend (30D)",
             "unit": "slope_per_day",
-            "interpretation_band": (
-                "favorable" if trend_value >= Decimal("0") else "caution"
-            ),
+            "interpretation_band": ("favorable" if trend_value >= Decimal("0") else "caution"),
             "value": trend_value,
         },
         {
             "signal_id": "momentum_90d",
             "label": "Momentum (90D)",
             "unit": "ratio",
-            "interpretation_band": (
-                "favorable" if momentum_value >= Decimal("0") else "caution"
-            ),
+            "interpretation_band": ("favorable" if momentum_value >= Decimal("0") else "caution"),
             "value": momentum_value,
         },
         {
@@ -896,9 +865,7 @@ def build_deterministic_cluster_payload(
             )
         symbol = symbol_obj.strip().upper()
         return_30d = _parse_decimal(row.get("return_30d"), field_name="return_30d")
-        volatility_30d = _parse_decimal(
-            row.get("volatility_30d"), field_name="volatility_30d"
-        )
+        volatility_30d = _parse_decimal(row.get("volatility_30d"), field_name="volatility_30d")
         if volatility_30d >= Decimal("0.050000"):
             cluster_id = "high_beta"
             cluster_label = "High Beta"
@@ -914,9 +881,7 @@ def build_deterministic_cluster_payload(
                 "cluster_id": cluster_id,
                 "cluster_label": cluster_label,
                 "return_30d": _quantize_decimal(return_30d, scale=_SIGNAL_VALUE_SCALE),
-                "volatility_30d": _quantize_decimal(
-                    volatility_30d, scale=_SIGNAL_VALUE_SCALE
-                ),
+                "volatility_30d": _quantize_decimal(volatility_30d, scale=_SIGNAL_VALUE_SCALE),
             }
         )
     cluster_rows.sort(key=lambda row: cast(str, row["instrument_symbol"]))
@@ -944,9 +909,7 @@ def build_deterministic_anomaly_payload(
         )
     rows = cast(list[object], rows_obj)
     anomaly_rows: list[dict[str, object]] = []
-    default_event_at = snapshot_input.get(
-        "as_of_market_at", snapshot_input.get("as_of_ledger_at")
-    )
+    default_event_at = snapshot_input.get("as_of_market_at", snapshot_input.get("as_of_ledger_at"))
     for row_obj in rows:
         if not isinstance(row_obj, Mapping):
             raise PortfolioMLClientError(
@@ -962,19 +925,13 @@ def build_deterministic_anomaly_payload(
             )
         symbol = symbol_obj.strip().upper()
         return_30d = _parse_decimal(row.get("return_30d"), field_name="return_30d")
-        volatility_30d = _parse_decimal(
-            row.get("volatility_30d"), field_name="volatility_30d"
-        )
+        volatility_30d = _parse_decimal(row.get("volatility_30d"), field_name="volatility_30d")
         score = _quantize_decimal(
             (abs(return_30d) * Decimal("0.70")) + (volatility_30d * Decimal("0.30")),
             scale=_SIGNAL_VALUE_SCALE,
         )
         severity = "high" if score >= Decimal("0.060000") else "moderate"
-        reason_code = (
-            "return_and_volatility_outlier"
-            if score >= Decimal("0.030000")
-            else "normal"
-        )
+        reason_code = "return_and_volatility_outlier" if score >= Decimal("0.030000") else "normal"
         anomaly_rows.append(
             {
                 "instrument_symbol": symbol,
@@ -1037,9 +994,7 @@ def resolve_signal_lifecycle_state(
         return {
             "state": PortfolioMLState.STALE.value,
             "state_reason_code": "source_data_stale",
-            "state_reason_detail": (
-                "Source snapshot age exceeds freshness policy threshold."
-            ),
+            "state_reason_detail": ("Source snapshot age exceeds freshness policy threshold."),
         }
 
     return {
@@ -1067,9 +1022,7 @@ def resolve_family_lifecycle_state(
         )
 
     normalized_model_family = enforce_supported_model_policy(model_family=model_family)
-    missing_windows = (
-        list(missing_history_windows) if missing_history_windows is not None else []
-    )
+    missing_windows = list(missing_history_windows) if missing_history_windows is not None else []
     if len(missing_windows) > 0:
         return {
             "state": PortfolioMLState.UNAVAILABLE.value,
@@ -1150,12 +1103,8 @@ def compute_capm_signal_metrics(
             status_code=409,
         )
 
-    portfolio_array = np.asarray(
-        [float(item) for item in portfolio_returns], dtype="float64"
-    )
-    benchmark_array = np.asarray(
-        [float(item) for item in benchmark_returns], dtype="float64"
-    )
+    portfolio_array = np.asarray([float(item) for item in portfolio_returns], dtype="float64")
+    benchmark_array = np.asarray([float(item) for item in benchmark_returns], dtype="float64")
     risk_free_annual = float(
         _parse_decimal(risk_free_rate_annual, field_name="risk_free_rate_annual")
     )
@@ -1174,9 +1123,7 @@ def compute_capm_signal_metrics(
 
     portfolio_excess_mean = float(np.mean(portfolio_array - risk_free_per_period))
     benchmark_excess_mean = float(np.mean(benchmark_array - risk_free_per_period))
-    alpha_annual = (
-        portfolio_excess_mean - (beta * benchmark_excess_mean)
-    ) * annualization_factor
+    alpha_annual = (portfolio_excess_mean - (beta * benchmark_excess_mean)) * annualization_factor
     market_premium = benchmark_excess_mean * annualization_factor
     expected_return = risk_free_annual + (beta * market_premium)
 
@@ -1230,9 +1177,7 @@ def _build_family_registry_snapshot_payload(
     """Build one registry payload for segmentation/anomaly family lineage."""
 
     normalized_model_family = enforce_supported_model_policy(model_family=model_family)
-    normalized_symbol = (
-        instrument_symbol.strip().upper() if instrument_symbol is not None else None
-    )
+    normalized_symbol = instrument_symbol.strip().upper() if instrument_symbol is not None else None
     if normalized_symbol == "":
         normalized_symbol = None
     snapshot_ref = (
@@ -1241,9 +1186,7 @@ def _build_family_registry_snapshot_payload(
     )
     training_window_end = evaluated_at - timedelta(days=1)
     training_window_start = training_window_end - timedelta(days=120)
-    policy_version = _resolve_policy_version_for_family(
-        model_family=normalized_model_family
-    )
+    policy_version = _resolve_policy_version_for_family(model_family=normalized_model_family)
     return {
         "scope": scope.value,
         "instrument_symbol": normalized_symbol,
@@ -1286,9 +1229,7 @@ async def get_portfolio_ml_signal_response(
 ) -> PortfolioMLSignalResponse:
     """Return one read-only portfolio_ml signal response for selected scope."""
 
-    normalized_symbol = (
-        instrument_symbol.strip().upper() if instrument_symbol is not None else None
-    )
+    normalized_symbol = instrument_symbol.strip().upper() if instrument_symbol is not None else None
     if normalized_symbol == "":
         normalized_symbol = None
     logger.info(
@@ -1338,9 +1279,7 @@ async def get_portfolio_ml_signal_response(
             signal_rows_payload = cast(list[object], signal_rows_payload_obj)
             for signal_row_payload in signal_rows_payload:
                 if isinstance(signal_row_payload, Mapping):
-                    signal_rows.append(
-                        PortfolioMLSignalRow.model_validate(signal_row_payload)
-                    )
+                    signal_rows.append(PortfolioMLSignalRow.model_validate(signal_row_payload))
 
         response = PortfolioMLSignalResponse(
             state=lifecycle_state,
@@ -1351,9 +1290,7 @@ async def get_portfolio_ml_signal_response(
             as_of_ledger_at=as_of_ledger_at,
             as_of_market_at=as_of_market_at,
             evaluated_at=evaluated_at,
-            freshness_policy=PortfolioMLFreshnessPolicy(
-                max_age_hours=_DEFAULT_FRESHNESS_HOURS
-            ),
+            freshness_policy=PortfolioMLFreshnessPolicy(max_age_hours=_DEFAULT_FRESHNESS_HOURS),
             signals=signal_rows,
             capm=PortfolioMLCapmMetrics.model_validate(capm_payload),
         )
@@ -1410,9 +1347,7 @@ async def get_portfolio_ml_clusters_response(
 ) -> PortfolioMLClustersResponse:
     """Return deterministic cluster assignments for selected scope."""
 
-    normalized_symbol = (
-        instrument_symbol.strip().upper() if instrument_symbol is not None else None
-    )
+    normalized_symbol = instrument_symbol.strip().upper() if instrument_symbol is not None else None
     if normalized_symbol == "":
         normalized_symbol = None
     if scope is PortfolioMLScope.INSTRUMENT_SYMBOL and normalized_symbol is None:
@@ -1442,9 +1377,7 @@ async def get_portfolio_ml_clusters_response(
         },
     ]
     if scope is PortfolioMLScope.INSTRUMENT_SYMBOL and normalized_symbol is not None:
-        base_rows = [
-            row for row in base_rows if row["instrument_symbol"] == normalized_symbol
-        ]
+        base_rows = [row for row in base_rows if row["instrument_symbol"] == normalized_symbol]
         if len(base_rows) == 0:
             base_rows = [
                 {
@@ -1504,13 +1437,9 @@ async def get_portfolio_ml_clusters_response(
         as_of_ledger_at=as_of_ledger_at,
         as_of_market_at=as_of_market_at,
         evaluated_at=evaluated_at,
-        freshness_policy=PortfolioMLFreshnessPolicy(
-            max_age_hours=_DEFAULT_FRESHNESS_HOURS
-        ),
+        freshness_policy=PortfolioMLFreshnessPolicy(max_age_hours=_DEFAULT_FRESHNESS_HOURS),
         model_family=cast(str, payload.get("model_family", model_family)),
-        feature_set_hash=_resolve_feature_set_hash_for_family(
-            model_family=model_family
-        ),
+        feature_set_hash=_resolve_feature_set_hash_for_family(model_family=model_family),
         policy_version=_resolve_policy_version_for_family(model_family=model_family),
         rows=payload_rows,
     )
@@ -1524,9 +1453,7 @@ async def get_portfolio_ml_anomalies_response(
 ) -> PortfolioMLAnomaliesResponse:
     """Return deterministic anomaly events for selected scope."""
 
-    normalized_symbol = (
-        instrument_symbol.strip().upper() if instrument_symbol is not None else None
-    )
+    normalized_symbol = instrument_symbol.strip().upper() if instrument_symbol is not None else None
     if normalized_symbol == "":
         normalized_symbol = None
     if scope is PortfolioMLScope.INSTRUMENT_SYMBOL and normalized_symbol is None:
@@ -1556,9 +1483,7 @@ async def get_portfolio_ml_anomalies_response(
         },
     ]
     if scope is PortfolioMLScope.INSTRUMENT_SYMBOL and normalized_symbol is not None:
-        base_rows = [
-            row for row in base_rows if row["instrument_symbol"] == normalized_symbol
-        ]
+        base_rows = [row for row in base_rows if row["instrument_symbol"] == normalized_symbol]
         if len(base_rows) == 0:
             base_rows = [
                 {
@@ -1618,13 +1543,9 @@ async def get_portfolio_ml_anomalies_response(
         as_of_ledger_at=as_of_ledger_at,
         as_of_market_at=as_of_market_at,
         evaluated_at=evaluated_at,
-        freshness_policy=PortfolioMLFreshnessPolicy(
-            max_age_hours=_DEFAULT_FRESHNESS_HOURS
-        ),
+        freshness_policy=PortfolioMLFreshnessPolicy(max_age_hours=_DEFAULT_FRESHNESS_HOURS),
         model_family=cast(str, payload.get("model_family", model_family)),
-        feature_set_hash=_resolve_feature_set_hash_for_family(
-            model_family=model_family
-        ),
+        feature_set_hash=_resolve_feature_set_hash_for_family(model_family=model_family),
         policy_version=_resolve_policy_version_for_family(model_family=model_family),
         rows=payload_rows,
     )
@@ -1675,12 +1596,7 @@ def enforce_no_temporal_leakage(*, splits: Sequence[Mapping[str, int]]) -> None:
         train_end = split.get("train_end")
         test_start = split.get("test_start")
         test_end = split.get("test_end")
-        if (
-            train_start is None
-            or train_end is None
-            or test_start is None
-            or test_end is None
-        ):
+        if train_start is None or train_end is None or test_start is None or test_end is None:
             raise PortfolioMLClientError(
                 "Walk-forward split is missing required boundary fields.",
                 status_code=422,
@@ -1739,17 +1655,13 @@ def build_shared_lag_feature_matrix(
         feature_rows.append(lag_window.tolist())
         targets.append(float(series_array[idx]))
 
-    return np.asarray(feature_rows, dtype="float64"), np.asarray(
-        targets, dtype="float64"
-    )
+    return np.asarray(feature_rows, dtype="float64"), np.asarray(targets, dtype="float64")
 
 
 def _forecast_naive(series_array: np.ndarray, *, horizon_count: int) -> np.ndarray:
     """Generate naive baseline forecast from last observed value."""
 
-    return np.full(
-        shape=(horizon_count,), fill_value=float(series_array[-1]), dtype="float64"
-    )
+    return np.full(shape=(horizon_count,), fill_value=float(series_array[-1]), dtype="float64")
 
 
 def _forecast_seasonal_naive(
@@ -1791,17 +1703,12 @@ def _forecast_ewma_holt(series_array: np.ndarray, *, horizon_count: int) -> np.n
         trend = beta * (level - previous_level) + (1.0 - beta) * trend
 
     return np.asarray(
-        [
-            level + ((horizon_index + 1) * trend)
-            for horizon_index in range(horizon_count)
-        ],
+        [level + ((horizon_index + 1) * trend) for horizon_index in range(horizon_count)],
         dtype="float64",
     )
 
 
-def _forecast_arima_baseline(
-    series_array: np.ndarray, *, horizon_count: int
-) -> np.ndarray:
+def _forecast_arima_baseline(series_array: np.ndarray, *, horizon_count: int) -> np.ndarray:
     """Generate AR(1)-style baseline forecast using least-squares fit."""
 
     if len(series_array) < 3:
@@ -1844,9 +1751,7 @@ def _forecast_ridge_lag_regression(
     ridge_identity = np.eye(x_with_intercept.shape[1], dtype="float64")
     ridge_identity[0, 0] = 0.0
     weights = (
-        np.linalg.pinv(
-            (x_with_intercept.T @ x_with_intercept) + (ridge_lambda * ridge_identity)
-        )
+        np.linalg.pinv((x_with_intercept.T @ x_with_intercept) + (ridge_lambda * ridge_identity))
         @ x_with_intercept.T
         @ y_vector
     )
@@ -1909,9 +1814,7 @@ def run_baseline_candidate_forecasts(
             seasonal_period=seasonal_period,
         ),
         "ewma_holt": _forecast_ewma_holt(series_array, horizon_count=horizon_count),
-        "arima_baseline": _forecast_arima_baseline(
-            series_array, horizon_count=horizon_count
-        ),
+        "arima_baseline": _forecast_arima_baseline(series_array, horizon_count=horizon_count),
         "ridge_lag_regression": _forecast_ridge_lag_regression(
             series_array,
             horizon_count=horizon_count,
@@ -1964,9 +1867,7 @@ def evaluate_forecast_promotion_policy(
             status_code=422,
         )
 
-    candidate_mean = float(
-        np.mean(np.asarray(candidate_wmape_by_horizon, dtype="float64"))
-    )
+    candidate_mean = float(np.mean(np.asarray(candidate_wmape_by_horizon, dtype="float64")))
     naive_mean = float(np.mean(np.asarray(naive_wmape_by_horizon, dtype="float64")))
 
     if math.isclose(naive_mean, 0.0):
@@ -1983,9 +1884,7 @@ def evaluate_forecast_promotion_policy(
         if math.isclose(naive_metric, 0.0):
             horizon_regressions.append(0.0)
         else:
-            horizon_regressions.append(
-                ((candidate_metric - naive_metric) / naive_metric) * 100.0
-            )
+            horizon_regressions.append(((candidate_metric - naive_metric) / naive_metric) * 100.0)
     max_horizon_regression_pct = max(horizon_regressions)
 
     if interval_coverage < _COVERAGE_FLOOR or interval_coverage > _COVERAGE_CEILING:
@@ -2046,12 +1945,12 @@ def select_champion_forecast_snapshot(
             status_code=409,
         )
 
-    normalized_symbol = (
-        instrument_symbol.strip().upper() if instrument_symbol is not None else None
-    )
+    normalized_symbol = instrument_symbol.strip().upper() if instrument_symbol is not None else None
     if normalized_symbol == "":
         normalized_symbol = None
-    snapshot_ref = f"{scope}_{normalized_symbol or 'portfolio'}_{model_family}_{evaluated_at:%Y%m%dT%H%M%SZ}"
+    snapshot_ref = (
+        f"{scope}_{normalized_symbol or 'portfolio'}_{model_family}_{evaluated_at:%Y%m%dT%H%M%SZ}"
+    )
     expires_at = evaluated_at + timedelta(hours=_CHAMPION_TTL_HOURS)
     training_window_end = evaluated_at - timedelta(days=1)
     training_window_start = training_window_end - timedelta(days=120)
@@ -2062,9 +1961,7 @@ def select_champion_forecast_snapshot(
             {
                 "horizon_id": str(horizon["horizon_id"]),
                 "point_estimate": _quantize_decimal(
-                    _parse_decimal(
-                        horizon["point_estimate"], field_name="point_estimate"
-                    ),
+                    _parse_decimal(horizon["point_estimate"], field_name="point_estimate"),
                     scale=_FORECAST_VALUE_SCALE,
                 ),
                 "lower_bound": _quantize_decimal(
@@ -2107,9 +2004,7 @@ def select_champion_forecast_snapshot(
         "policy_result": dict(policy_result),
         "metric_vector": dict(metric_vector) if metric_vector is not None else {},
         "baseline_comparator_metrics": (
-            dict(baseline_comparator_metrics)
-            if baseline_comparator_metrics is not None
-            else {}
+            dict(baseline_comparator_metrics) if baseline_comparator_metrics is not None else {}
         ),
         "feature_set_hash": feature_set_hash,
         "run_status": "completed",
@@ -2129,9 +2024,7 @@ def build_forecast_candidate_audit_snapshot(
 ) -> dict[str, object]:
     """Build one registry audit snapshot payload for non-promoted forecast candidates."""
 
-    normalized_symbol = (
-        instrument_symbol.strip().upper() if instrument_symbol is not None else None
-    )
+    normalized_symbol = instrument_symbol.strip().upper() if instrument_symbol is not None else None
     if normalized_symbol == "":
         normalized_symbol = None
     normalized_model_family = enforce_supported_model_policy(model_family=model_family)
@@ -2141,9 +2034,7 @@ def build_forecast_candidate_audit_snapshot(
     )
     training_window_end = evaluated_at - timedelta(days=1)
     training_window_start = training_window_end - timedelta(days=120)
-    policy_version = _resolve_policy_version_for_family(
-        model_family=normalized_model_family
-    )
+    policy_version = _resolve_policy_version_for_family(model_family=normalized_model_family)
 
     return {
         "scope": scope,
@@ -2212,9 +2103,7 @@ def _build_default_forecast_history(*, points: int) -> list[Decimal]:
         baseline = 100.0 + (idx * 0.35)
         seasonal = math.sin(idx / 3.0) * 1.2
         value = baseline + seasonal
-        history.append(
-            _quantize_decimal(Decimal(str(value)), scale=_FORECAST_VALUE_SCALE)
-        )
+        history.append(_quantize_decimal(Decimal(str(value)), scale=_FORECAST_VALUE_SCALE))
     return history
 
 
@@ -2313,8 +2202,7 @@ async def _upsert_model_snapshot(
     instrument_symbol_value = snapshot_payload.get("instrument_symbol")
     normalized_symbol = (
         instrument_symbol_value.strip().upper()
-        if isinstance(instrument_symbol_value, str)
-        and instrument_symbol_value.strip() != ""
+        if isinstance(instrument_symbol_value, str) and instrument_symbol_value.strip() != ""
         else None
     )
 
@@ -2324,9 +2212,7 @@ async def _upsert_model_snapshot(
             "Model snapshot payload is missing model_family.",
             status_code=422,
         )
-    normalized_model_family = enforce_supported_model_policy(
-        model_family=model_family_value
-    )
+    normalized_model_family = enforce_supported_model_policy(model_family=model_family_value)
 
     training_window_start_value = snapshot_payload.get("training_window_start")
     training_window_end_value = snapshot_payload.get("training_window_end")
@@ -2349,24 +2235,17 @@ async def _upsert_model_snapshot(
 
     policy_result = _coerce_json_mapping(snapshot_payload.get("policy_result"))
     metric_vector = _coerce_json_mapping(snapshot_payload.get("metric_vector"))
-    baseline_metrics = _coerce_json_mapping(
-        snapshot_payload.get("baseline_comparator_metrics")
-    )
+    baseline_metrics = _coerce_json_mapping(snapshot_payload.get("baseline_comparator_metrics"))
     snapshot_metadata = _coerce_json_mapping(snapshot_payload.get("snapshot_metadata"))
 
     feature_set_hash_value = snapshot_payload.get("feature_set_hash")
-    if (
-        not isinstance(feature_set_hash_value, str)
-        or feature_set_hash_value.strip() == ""
-    ):
+    if not isinstance(feature_set_hash_value, str) or feature_set_hash_value.strip() == "":
         feature_set_hash = "portfolio_ml_features_v1"
     else:
         feature_set_hash = feature_set_hash_value.strip()
 
     run_status_value = snapshot_payload.get("run_status")
-    run_status = (
-        run_status_value.strip() if isinstance(run_status_value, str) else "completed"
-    )
+    run_status = run_status_value.strip() if isinstance(run_status_value, str) else "completed"
     if run_status == "":
         run_status = "completed"
 
@@ -2386,9 +2265,7 @@ async def _upsert_model_snapshot(
             else None
         )
 
-    policy_version = _resolve_policy_version_for_family(
-        model_family=normalized_model_family
-    )
+    policy_version = _resolve_policy_version_for_family(model_family=normalized_model_family)
     if "policy_version" not in snapshot_metadata:
         snapshot_metadata["policy_version"] = policy_version
     if "feature_set_hash" not in snapshot_metadata:
@@ -2542,14 +2419,10 @@ async def get_portfolio_ml_registry_response(
                 "Unsupported registry scope filter value.",
                 status_code=422,
             ) from exc
-        statement = statement.where(
-            PortfolioMLModelSnapshot.scope == normalized_scope.value
-        )
+        statement = statement.where(PortfolioMLModelSnapshot.scope == normalized_scope.value)
 
     if model_family is not None and model_family.strip() != "":
-        normalized_model_family = enforce_supported_model_policy(
-            model_family=model_family
-        )
+        normalized_model_family = enforce_supported_model_policy(model_family=model_family)
         normalized_model_family_filter = normalized_model_family
         statement = statement.where(
             PortfolioMLModelSnapshot.model_family == normalized_model_family
@@ -2557,9 +2430,7 @@ async def get_portfolio_ml_registry_response(
 
     if lifecycle_state is not None and lifecycle_state.strip() != "":
         try:
-            normalized_lifecycle_state = PortfolioMLState(
-                lifecycle_state.strip().lower()
-            )
+            normalized_lifecycle_state = PortfolioMLState(lifecycle_state.strip().lower())
         except ValueError as exc:
             raise PortfolioMLClientError(
                 "Unsupported registry lifecycle_state filter value.",
@@ -2599,11 +2470,7 @@ async def get_portfolio_ml_registry_response(
     registry_rows = [_to_registry_row(snapshot) for snapshot in snapshot_rows]
     if normalized_model_family_filter is not None:
         latest_row = next(
-            (
-                row
-                for row in registry_rows
-                if row.model_family == normalized_model_family_filter
-            ),
+            (row for row in registry_rows if row.model_family == normalized_model_family_filter),
             None,
         )
         if latest_row is not None:
@@ -2640,9 +2507,7 @@ async def get_portfolio_ml_forecast_response(
 ) -> PortfolioMLForecastResponse:
     """Return one read-only probabilistic forecast response for selected scope."""
 
-    normalized_symbol = (
-        instrument_symbol.strip().upper() if instrument_symbol is not None else None
-    )
+    normalized_symbol = instrument_symbol.strip().upper() if instrument_symbol is not None else None
     if normalized_symbol == "":
         normalized_symbol = None
     logger.info(
@@ -2689,18 +2554,12 @@ async def get_portfolio_ml_forecast_response(
                 if math.isclose(actual_value, 0.0)
                 else abs(actual_value - naive_value) / abs(actual_value)
             )
-            for actual_value, naive_value in zip(
-                actual_horizon, naive_forecast, strict=True
-            )
+            for actual_value, naive_value in zip(actual_horizon, naive_forecast, strict=True)
         ]
 
         training_residual_scale = float(
             np.std(
-                np.diff(
-                    np.asarray(
-                        [float(value) for value in forecast_history], dtype="float64"
-                    )
-                ),
+                np.diff(np.asarray([float(value) for value in forecast_history], dtype="float64")),
                 ddof=1,
             )
         )
@@ -2713,14 +2572,10 @@ async def get_portfolio_ml_forecast_response(
         for model_family, point_forecast in candidate_forecasts.items():
             if model_family == "naive":
                 continue
-            normalized_model_family = enforce_supported_model_policy(
-                model_family=model_family
-            )
-            is_allowed, policy_disallow_reason = (
-                _is_forecast_family_policy_allowed_for_scope(
-                    scope=scope,
-                    model_family=normalized_model_family,
-                )
+            normalized_model_family = enforce_supported_model_policy(model_family=model_family)
+            is_allowed, policy_disallow_reason = _is_forecast_family_policy_allowed_for_scope(
+                scope=scope,
+                model_family=normalized_model_family,
             )
             if not is_allowed:
                 rejected_candidate_snapshots.append(
@@ -2731,8 +2586,7 @@ async def get_portfolio_ml_forecast_response(
                         evaluated_at=evaluated_at,
                         policy_result={
                             "qualified": False,
-                            "reason_code": policy_disallow_reason
-                            or "policy_disallowed",
+                            "reason_code": policy_disallow_reason or "policy_disallowed",
                             "reason_detail": "Forecast candidate family is excluded by scope policy.",
                             "improvement_pct": 0.0,
                             "max_horizon_regression_pct": 0.0,
@@ -2883,9 +2737,7 @@ async def get_portfolio_ml_forecast_response(
                 for horizon_payload in horizon_rows_payload:
                     if isinstance(horizon_payload, Mapping):
                         horizons.append(
-                            PortfolioMLForecastHorizonRow.model_validate(
-                                horizon_payload
-                            )
+                            PortfolioMLForecastHorizonRow.model_validate(horizon_payload)
                         )
 
         response = PortfolioMLForecastResponse(
@@ -2897,9 +2749,7 @@ async def get_portfolio_ml_forecast_response(
             as_of_ledger_at=as_of_ledger_at,
             as_of_market_at=as_of_market_at,
             evaluated_at=evaluated_at,
-            freshness_policy=PortfolioMLFreshnessPolicy(
-                max_age_hours=_DEFAULT_FRESHNESS_HOURS
-            ),
+            freshness_policy=PortfolioMLFreshnessPolicy(max_age_hours=_DEFAULT_FRESHNESS_HOURS),
             model_snapshot_ref=model_snapshot_ref,
             model_family=selected_model_family,
             training_window_start=training_window_start,

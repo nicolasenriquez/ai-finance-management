@@ -96,9 +96,7 @@ def test_minimal_uniqueness_contract_supports_idempotent_rebuild_foundation() ->
     dividend_unique_sets = _unique_column_sets(_get_table("dividend_event"))
     assert frozenset({"canonical_record_id"}) in dividend_unique_sets
 
-    corporate_action_unique_sets = _unique_column_sets(
-        _get_table("corporate_action_event")
-    )
+    corporate_action_unique_sets = _unique_column_sets(_get_table("corporate_action_event"))
     assert frozenset({"canonical_record_id"}) in corporate_action_unique_sets
 
     lot_unique_sets = _unique_column_sets(_get_table("lot"))

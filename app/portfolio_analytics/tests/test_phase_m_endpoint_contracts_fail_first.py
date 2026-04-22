@@ -44,9 +44,7 @@ def _assert_endpoint_registered(*, path: str, guidance: str) -> None:
         )
 
 
-def _assert_callable_exists(
-    *, module: ModuleType, callable_name: str, guidance: str
-) -> None:
+def _assert_callable_exists(*, module: ModuleType, callable_name: str, guidance: str) -> None:
     """Fail when one expected module callable is missing."""
 
     if not hasattr(module, callable_name):

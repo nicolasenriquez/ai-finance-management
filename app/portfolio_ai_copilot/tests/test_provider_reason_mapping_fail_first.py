@@ -34,9 +34,7 @@ def _load_mapping_callable() -> Any:
             "normalization before implementation.",
         )
     if not callable(candidate):
-        pytest.fail(
-            "Fail-first baseline: map_provider_failure_to_copilot_state must be callable."
-        )
+        pytest.fail("Fail-first baseline: map_provider_failure_to_copilot_state must be callable.")
     return cast(Any, candidate)
 
 

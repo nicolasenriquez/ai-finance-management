@@ -35,12 +35,8 @@ async def test_signal_service_rejects_blank_instrument_symbol_after_trimming() -
             "Fail-first baseline: missing PortfolioMLScope, PortfolioMLClientError, "
             "or get_portfolio_ml_signal_response in app.portfolio_ml.service.",
         )
-    if not isinstance(client_error_type, type) or not issubclass(
-        client_error_type, Exception
-    ):
-        pytest.fail(
-            "Fail-first baseline: PortfolioMLClientError must be an Exception subclass."
-        )
+    if not isinstance(client_error_type, type) or not issubclass(client_error_type, Exception):
+        pytest.fail("Fail-first baseline: PortfolioMLClientError must be an Exception subclass.")
 
     with pytest.raises(client_error_type) as exc_info:
         await signal_callable(
@@ -54,29 +50,21 @@ async def test_signal_service_rejects_blank_instrument_symbol_after_trimming() -
 
 
 @pytest.mark.asyncio
-async def test_forecast_service_rejects_blank_instrument_symbol_after_trimming() -> (
-    None
-):
+async def test_forecast_service_rejects_blank_instrument_symbol_after_trimming() -> None:
     """Instrument scope forecast requests should reject whitespace-only symbols."""
 
     service_module = _load_service_module()
     scope_enum = getattr(service_module, "PortfolioMLScope", None)
     client_error_type = getattr(service_module, "PortfolioMLClientError", None)
-    forecast_callable = getattr(
-        service_module, "get_portfolio_ml_forecast_response", None
-    )
+    forecast_callable = getattr(service_module, "get_portfolio_ml_forecast_response", None)
 
     if scope_enum is None or client_error_type is None or forecast_callable is None:
         pytest.fail(
             "Fail-first baseline: missing PortfolioMLScope, PortfolioMLClientError, "
             "or get_portfolio_ml_forecast_response in app.portfolio_ml.service.",
         )
-    if not isinstance(client_error_type, type) or not issubclass(
-        client_error_type, Exception
-    ):
-        pytest.fail(
-            "Fail-first baseline: PortfolioMLClientError must be an Exception subclass."
-        )
+    if not isinstance(client_error_type, type) or not issubclass(client_error_type, Exception):
+        pytest.fail("Fail-first baseline: PortfolioMLClientError must be an Exception subclass.")
 
     with pytest.raises(client_error_type) as exc_info:
         await forecast_callable(

@@ -24,9 +24,7 @@ class MarketDataPriceWrite(BaseModel):
         """Require exactly one market-time key for deterministic persistence."""
 
         if self.market_timestamp is None and self.trading_date is None:
-            raise ValueError(
-                "Either market_timestamp or trading_date must be provided."
-            )
+            raise ValueError("Either market_timestamp or trading_date must be provided.")
         if self.market_timestamp is not None and self.trading_date is not None:
             raise ValueError("Provide only one of market_timestamp or trading_date.")
         return self

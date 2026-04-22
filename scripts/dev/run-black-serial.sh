@@ -62,7 +62,15 @@ def main() -> int:
         return 0
 
     exit_code = 0
-    mode = black.FileMode()
+    mode_kwargs: dict[str, object] = {}
+    pyproject = black.find_pyproject_toml((str(Path.cwd()),))
+    if pyproject:
+        parsed_config = black.parse_pyproject_toml(pyproject)
+        line_length = parsed_config.get("line_length")
+        if isinstance(line_length, int):
+            mode_kwargs["line_length"] = line_length
+
+    mode = black.FileMode(**mode_kwargs)
 
     for raw_path in files:
         path = Path(raw_path)

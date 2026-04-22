@@ -27,9 +27,7 @@ def r2h(r, g, b):
 
 def lum(h):
     r, g, b = [x / 255.0 for x in h2r(h)]
-    r, g, b = [
-        (x / 12.92 if x <= 0.03928 else ((x + 0.055) / 1.055) ** 2.4) for x in (r, g, b)
-    ]
+    r, g, b = [(x / 12.92 if x <= 0.03928 else ((x + 0.055) / 1.055) ** 2.4) for x in (r, g, b)]
     return 0.2126 * r + 0.7152 * g + 0.0722 * b
 
 

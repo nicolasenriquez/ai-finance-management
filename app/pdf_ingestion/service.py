@@ -156,9 +156,7 @@ def _write_ingestion_manifest(
     storage_root: Path,
 ) -> None:
     """Persist a durable metadata manifest adjacent to the stored PDF."""
-    manifest_path = storage_root / build_metadata_storage_key(
-        ingestion_result.storage_key
-    )
+    manifest_path = storage_root / build_metadata_storage_key(ingestion_result.storage_key)
     manifest_payload = json.dumps(
         ingestion_result.model_dump(mode="json"),
         ensure_ascii=True,
@@ -185,9 +183,7 @@ def load_ingestion_result_from_storage(
     Raises:
         PdfIngestionClientError: If the storage key or metadata manifest is invalid.
     """
-    storage_path = _resolve_storage_path(
-        storage_key=storage_key, storage_root=storage_root
-    )
+    storage_path = _resolve_storage_path(storage_key=storage_key, storage_root=storage_root)
     manifest_path = storage_path.with_suffix(".metadata.json")
     if not manifest_path.is_file():
         raise PdfIngestionClientError(
@@ -196,9 +192,7 @@ def load_ingestion_result_from_storage(
         )
 
     try:
-        return PdfIngestionResult.model_validate_json(
-            manifest_path.read_text(encoding="utf-8")
-        )
+        return PdfIngestionResult.model_validate_json(manifest_path.read_text(encoding="utf-8"))
     except OSError as exc:
         raise PdfIngestionClientError(
             "Stored PDF metadata could not be read.",
@@ -247,9 +241,7 @@ def ingest_pdf_bytes(
         PdfIngestionClientError: If upload validation fails.
         OSError: If file storage fails unexpectedly.
     """
-    normalized_content_type = (
-        (content_type or "").split(";", maxsplit=1)[0].strip().lower()
-    )
+    normalized_content_type = (content_type or "").split(";", maxsplit=1)[0].strip().lower()
     if normalized_content_type != "application/pdf":
         raise PdfIngestionClientError(
             "Upload must use Content-Type application/pdf.",
@@ -280,9 +272,7 @@ def ingest_pdf_bytes(
     storage_path = storage_root / storage_key
     storage_path.parent.mkdir(parents=True, exist_ok=True)
 
-    response_page_count = (
-        page_count if page_count is not None else preflight_result.page_count
-    )
+    response_page_count = page_count if page_count is not None else preflight_result.page_count
     response = PdfIngestionResult(
         document_id=document_id,
         original_filename=original_filename,

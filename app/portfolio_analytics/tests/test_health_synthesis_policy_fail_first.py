@@ -32,9 +32,7 @@ def test_health_score_weighting_is_deterministic_and_profile_sensitive() -> None
     """Different profile postures should produce deterministic but distinct scores."""
 
     service_module = _load_service_module()
-    compute_score = getattr(
-        service_module, "_compute_health_score_from_pillar_scores", None
-    )
+    compute_score = getattr(service_module, "_compute_health_score_from_pillar_scores", None)
     if compute_score is None or not callable(compute_score):
         pytest.fail(
             "Fail-first baseline: missing _compute_health_score_from_pillar_scores helper. "
@@ -81,19 +79,13 @@ def test_health_label_policy_applies_critical_override_guardrails() -> None:
             "Task 8.3 should enforce critical override guardrails.",
         )
 
+    assert resolve_label(health_score=80, critical_override_count=0) == PortfolioHealthLabel.HEALTHY
     assert (
-        resolve_label(health_score=80, critical_override_count=0)
-        == PortfolioHealthLabel.HEALTHY
+        resolve_label(health_score=80, critical_override_count=1) == PortfolioHealthLabel.WATCHLIST
     )
     assert (
-        resolve_label(health_score=80, critical_override_count=1)
-        == PortfolioHealthLabel.WATCHLIST
+        resolve_label(health_score=80, critical_override_count=2) == PortfolioHealthLabel.STRESSED
     )
     assert (
-        resolve_label(health_score=80, critical_override_count=2)
-        == PortfolioHealthLabel.STRESSED
-    )
-    assert (
-        resolve_label(health_score=40, critical_override_count=0)
-        == PortfolioHealthLabel.STRESSED
+        resolve_label(health_score=40, critical_override_count=0) == PortfolioHealthLabel.STRESSED
     )

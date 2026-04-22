@@ -98,9 +98,7 @@ def test_service_exposes_phase_m_question_pack_resolver() -> None:
     """Copilot service should expose one guided question-pack resolver callable."""
 
     service_module = _load_service_module()
-    question_pack_resolver = getattr(
-        service_module, "resolve_phase_m_question_pack", None
-    )
+    question_pack_resolver = getattr(service_module, "resolve_phase_m_question_pack", None)
     if question_pack_resolver is None or not callable(question_pack_resolver):
         pytest.fail(
             "Fail-first baseline: missing callable resolve_phase_m_question_pack(). "

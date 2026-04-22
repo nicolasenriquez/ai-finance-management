@@ -7,9 +7,7 @@ from decimal import Decimal
 from pathlib import Path
 from typing import cast
 
-_FINANCE_CASES_PATH = (
-    Path(__file__).parent / "fixtures" / "dataset_1_v1_finance_cases.json"
-)
+_FINANCE_CASES_PATH = Path(__file__).parent / "fixtures" / "dataset_1_v1_finance_cases.json"
 _REQUIRED_CASES = {"fifo_sell", "dividend_income", "split_adjustment"}
 
 

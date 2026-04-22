@@ -151,8 +151,7 @@ def test_runtime_quant_dependencies_are_exact_pins_and_lock_synced() -> None:
 
     runtime_dependencies = _load_pyproject_runtime_dependencies()
     runtime_dependency_by_name = {
-        _extract_requirement_name(requirement): requirement
-        for requirement in runtime_dependencies
+        _extract_requirement_name(requirement): requirement for requirement in runtime_dependencies
     }
 
     uv_lock_data = _load_uv_lock()
@@ -186,19 +185,15 @@ def test_runtime_quant_dependencies_are_exact_pins_and_lock_synced() -> None:
                 if not isinstance(requirement_name, str) or not isinstance(
                     requirement_specifier, str
                 ):
-                    pytest.fail(
-                        "uv.lock requires-dist entry must include string name/specifier."
-                    )
-                root_package_requires_dist[
-                    _normalize_package_name(requirement_name)
-                ] = requirement_specifier
+                    pytest.fail("uv.lock requires-dist entry must include string name/specifier.")
+                root_package_requires_dist[_normalize_package_name(requirement_name)] = (
+                    requirement_specifier
+                )
 
     for package_name in _APPROVED_QUANT_PACKAGES:
         runtime_entry = runtime_dependency_by_name.get(package_name)
         if runtime_entry is None:
-            pytest.fail(
-                f"Runtime dependency '{package_name}' must be declared in pyproject.toml."
-            )
+            pytest.fail(f"Runtime dependency '{package_name}' must be declared in pyproject.toml.")
 
         exact_pin_match = re.fullmatch(
             rf"{re.escape(package_name)}==([A-Za-z0-9.+-]+)", runtime_entry

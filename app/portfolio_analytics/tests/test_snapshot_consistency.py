@@ -145,9 +145,7 @@ async def _fake_snapshot_coverage(**_kwargs: object) -> SimpleNamespace:
 
 
 @pytest.mark.asyncio
-async def test_summary_response_sets_repeatable_read_transaction_before_queries() -> (
-    None
-):
+async def test_summary_response_sets_repeatable_read_transaction_before_queries() -> None:
     """Summary service must set repeatable-read/read-only transaction semantics first."""
 
     fake_session = _FakeSession(
@@ -304,9 +302,7 @@ async def test_risk_estimator_response_remains_read_only_and_no_mutation_sql(
 
 
 @pytest.mark.asyncio
-async def test_lot_detail_response_sets_repeatable_read_transaction_before_queries() -> (
-    None
-):
+async def test_lot_detail_response_sets_repeatable_read_transaction_before_queries() -> None:
     """Lot-detail service must set repeatable-read/read-only transaction semantics first."""
 
     fake_lot = SimpleNamespace(

@@ -70,9 +70,7 @@ def test_parse_date_value_normalizes_iso_date() -> None:
 def test_parse_decimal_comma_value_parses_locale_numbers() -> None:
     """Normalization should parse decimal-comma source values."""
 
-    parse_decimal_comma_value = _load_callable(
-        "parse_decimal_comma_value", task_hint="2.2"
-    )
+    parse_decimal_comma_value = _load_callable("parse_decimal_comma_value", task_hint="2.2")
 
     assert parse_decimal_comma_value("US $ 112,80") == Decimal("112.80")
     assert parse_decimal_comma_value("0,284897406") == Decimal("0.284897406")
@@ -127,9 +125,7 @@ def test_derive_trade_side_rejects_ambiguous_combinations() -> None:
 def test_normalize_pdf_from_storage_returns_canonical_records(tmp_path: Path) -> None:
     """Normalization should return canonical records for dataset 1."""
 
-    normalize_pdf_from_storage = _load_callable(
-        "normalize_pdf_from_storage", task_hint="2.1"
-    )
+    normalize_pdf_from_storage = _load_callable("normalize_pdf_from_storage", task_hint="2.1")
     storage_key = _seed_storage_key(tmp_path)
 
     result = cast(

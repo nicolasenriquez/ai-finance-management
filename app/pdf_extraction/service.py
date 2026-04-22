@@ -198,14 +198,10 @@ def _resolve_storage_path(*, storage_key: str, storage_root: Path) -> Path:
     return candidate
 
 
-def extract_pdf_from_storage(
-    *, storage_key: str, storage_root: Path
-) -> PdfExtractionResult:
+def extract_pdf_from_storage(*, storage_key: str, storage_root: Path) -> PdfExtractionResult:
     """Extract deterministic raw rows from a stored PDF using pdfplumber."""
 
-    storage_path = _resolve_storage_path(
-        storage_key=storage_key, storage_root=storage_root
-    )
+    storage_path = _resolve_storage_path(storage_key=storage_key, storage_root=storage_root)
     logger.info(
         "pdf_extraction.execution_started",
         storage_key=storage_key,

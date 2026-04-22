@@ -52,12 +52,8 @@ async def test_timestamp_mixin_sets_timestamps_on_creation(
     assert test_instance.updated_at is not None
 
     # Verify timestamps are within expected range
-    assert (
-        before <= test_instance.created_at <= after
-    )  # pyright: ignore[reportGeneralTypeIssues]
-    assert (
-        before <= test_instance.updated_at <= after
-    )  # pyright: ignore[reportGeneralTypeIssues]
+    assert before <= test_instance.created_at <= after  # pyright: ignore[reportGeneralTypeIssues]
+    assert before <= test_instance.updated_at <= after  # pyright: ignore[reportGeneralTypeIssues]
 
     # Verify created_at and updated_at are approximately the same (within 1ms)
     time_diff = abs(

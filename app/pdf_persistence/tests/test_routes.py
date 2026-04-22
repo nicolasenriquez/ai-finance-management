@@ -101,9 +101,7 @@ async def _truncate_persistence_tables() -> None:
     """Truncate persistence tables to keep route tests isolated."""
 
     settings = get_settings()
-    test_database_url = resolve_test_database_url(
-        runtime_database_url=settings.database_url
-    )
+    test_database_url = resolve_test_database_url(runtime_database_url=settings.database_url)
     cleanup_engine: AsyncEngine = create_async_engine(
         test_database_url,
         poolclass=NullPool,
@@ -202,8 +200,7 @@ def test_persist_endpoint_rerun_reuses_document_and_skips_duplicates(
     assert second_body["import_job_id"] != first_body["import_job_id"]
     assert second_body["summary"]["inserted_records"] == 0
     assert (
-        second_body["summary"]["duplicate_records"]
-        == second_body["summary"]["normalized_records"]
+        second_body["summary"]["duplicate_records"] == second_body["summary"]["normalized_records"]
     )
 
 
@@ -221,9 +218,7 @@ def test_persist_endpoint_failed_request_leaves_no_partial_import_state(
     invalid_storage_key = "corrupt-copy.pdf"
     invalid_pdf_path = persist_storage / invalid_storage_key
     invalid_pdf_path.write_bytes(valid_bytes)
-    invalid_manifest_path = persist_storage / build_metadata_storage_key(
-        invalid_storage_key
-    )
+    invalid_manifest_path = persist_storage / build_metadata_storage_key(invalid_storage_key)
     invalid_manifest_path.write_text("{invalid-json", encoding="utf-8")
 
     failed_response = client.post(endpoint, json={"storage_key": invalid_storage_key})

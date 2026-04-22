@@ -175,9 +175,7 @@ async def get_portfolio_exposure(
     db: DbSession,
     dimension: Annotated[
         str,
-        Query(
-            description="Supported exposure dimensions: asset_class, sector, currency, country."
-        ),
+        Query(description="Supported exposure dimensions: asset_class, sector, currency, country."),
     ] = "sector",
 ) -> PortfolioExposureResponse:
     """Return exposure decomposition rows by requested portfolio dimension."""
@@ -332,9 +330,7 @@ async def get_portfolio_time_series(
     ] = PortfolioChartPeriod.D30.value,
     scope: Annotated[
         str,
-        Query(
-            description=("Supported chart scope enum: portfolio, instrument_symbol.")
-        ),
+        Query(description=("Supported chart scope enum: portfolio, instrument_symbol.")),
     ] = PortfolioQuantReportScope.PORTFOLIO.value,
     instrument_symbol: Annotated[
         str | None,
@@ -442,9 +438,7 @@ async def get_portfolio_risk_estimators(
     ] = 30,
     scope: Annotated[
         str,
-        Query(
-            description=("Supported chart scope enum: portfolio, instrument_symbol.")
-        ),
+        Query(description=("Supported chart scope enum: portfolio, instrument_symbol.")),
     ] = PortfolioQuantReportScope.PORTFOLIO.value,
     instrument_symbol: Annotated[
         str | None,
@@ -528,9 +522,7 @@ async def get_portfolio_risk_evolution(
     ] = PortfolioChartPeriod.D252.value,
     scope: Annotated[
         str,
-        Query(
-            description=("Supported chart scope enum: portfolio, instrument_symbol.")
-        ),
+        Query(description=("Supported chart scope enum: portfolio, instrument_symbol.")),
     ] = PortfolioQuantReportScope.PORTFOLIO.value,
     instrument_symbol: Annotated[
         str | None,
@@ -595,9 +587,7 @@ async def get_portfolio_return_distribution(
     ] = PortfolioChartPeriod.D252.value,
     scope: Annotated[
         str,
-        Query(
-            description=("Supported chart scope enum: portfolio, instrument_symbol.")
-        ),
+        Query(description=("Supported chart scope enum: portfolio, instrument_symbol.")),
     ] = PortfolioQuantReportScope.PORTFOLIO.value,
     instrument_symbol: Annotated[
         str | None,
@@ -668,9 +658,7 @@ async def get_portfolio_efficient_frontier(
     ] = PortfolioChartPeriod.D90.value,
     scope: Annotated[
         str,
-        Query(
-            description=("Supported chart scope enum: portfolio, instrument_symbol.")
-        ),
+        Query(description=("Supported chart scope enum: portfolio, instrument_symbol.")),
     ] = PortfolioQuantReportScope.PORTFOLIO.value,
     instrument_symbol: Annotated[
         str | None,
@@ -803,9 +791,7 @@ async def get_portfolio_health_synthesis(
     ] = PortfolioChartPeriod.D90.value,
     scope: Annotated[
         str,
-        Query(
-            description=("Supported chart scope enum: portfolio, instrument_symbol.")
-        ),
+        Query(description=("Supported chart scope enum: portfolio, instrument_symbol.")),
     ] = PortfolioQuantReportScope.PORTFOLIO.value,
     instrument_symbol: Annotated[
         str | None,
@@ -813,9 +799,7 @@ async def get_portfolio_health_synthesis(
     ] = None,
     profile_posture: Annotated[
         PortfolioHealthProfilePosture,
-        Query(
-            description="Health posture weighting: conservative, balanced, aggressive."
-        ),
+        Query(description="Health posture weighting: conservative, balanced, aggressive."),
     ] = PortfolioHealthProfilePosture.BALANCED,
 ) -> PortfolioHealthSynthesisResponse:
     """Return deterministic portfolio-health synthesis for selected scope and period."""

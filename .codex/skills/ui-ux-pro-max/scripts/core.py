@@ -328,9 +328,7 @@ class BM25:
                     tf = term_freqs[token]
                     idf = self.idf[token]
                     numerator = tf * (self.k1 + 1)
-                    denominator = tf + self.k1 * (
-                        1 - self.b + self.b * doc_len / self.avgdl
-                    )
+                    denominator = tf + self.k1 * (1 - self.b + self.b * doc_len / self.avgdl)
                     score += idf * numerator / denominator
 
             scores.append((idx, score))
@@ -590,11 +588,7 @@ def detect_domain(query):
     }
 
     scores = {
-        domain: sum(
-            1
-            for kw in keywords
-            if re.search(r"\b" + re.escape(kw) + r"\b", query_lower)
-        )
+        domain: sum(1 for kw in keywords if re.search(r"\b" + re.escape(kw) + r"\b", query_lower))
         for domain, keywords in domain_keywords.items()
     }
     best = max(scores, key=scores.get)
@@ -628,9 +622,7 @@ def search(query, domain=None, max_results=MAX_RESULTS):
 def search_stack(query, stack, max_results=MAX_RESULTS):
     """Search stack-specific guidelines"""
     if stack not in STACK_CONFIG:
-        return {
-            "error": f"Unknown stack: {stack}. Available: {', '.join(AVAILABLE_STACKS)}"
-        }
+        return {"error": f"Unknown stack: {stack}. Available: {', '.join(AVAILABLE_STACKS)}"}
 
     filepath = DATA_DIR / STACK_CONFIG[stack]["file"]
 

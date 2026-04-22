@@ -27,9 +27,7 @@ def _load_golden_pdf_bytes() -> bytes:
 def _load_golden_json() -> dict[str, object]:
     """Load dataset 1 JSON contract fixture."""
 
-    return cast(
-        dict[str, object], json.loads(_GOLDEN_JSON_PATH.read_text(encoding="utf-8"))
-    )
+    return cast(dict[str, object], json.loads(_GOLDEN_JSON_PATH.read_text(encoding="utf-8")))
 
 
 def _seed_storage_key(tmp_path: Path) -> str:

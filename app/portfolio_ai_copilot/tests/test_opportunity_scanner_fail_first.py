@@ -60,9 +60,7 @@ def test_opportunity_scanner_ranking_is_deterministic_for_identical_inputs() -> 
 
     compute_candidate = _load_service_symbol(
         symbol_name="compute_deterministic_opportunity_candidates",
-        guidance=(
-            "Task 2.3 should expose one deterministic opportunity ranking callable."
-        ),
+        guidance=("Task 2.3 should expose one deterministic opportunity ranking callable."),
     )
     if not callable(compute_candidate):
         pytest.fail(
@@ -112,16 +110,12 @@ def test_opportunity_scanner_ranking_is_deterministic_for_identical_inputs() -> 
     assert first_result == second_result
 
 
-def test_opportunity_scanner_rejects_insufficient_eligible_universe_explicitly() -> (
-    None
-):
+def test_opportunity_scanner_rejects_insufficient_eligible_universe_explicitly() -> None:
     """Scanner should reject when insufficient eligible candidates are available."""
 
     compute_candidate = _load_service_symbol(
         symbol_name="compute_deterministic_opportunity_candidates",
-        guidance=(
-            "Task 2.3 should expose one deterministic opportunity ranking callable."
-        ),
+        guidance=("Task 2.3 should expose one deterministic opportunity ranking callable."),
     )
     if not callable(compute_candidate):
         pytest.fail(
@@ -160,16 +154,12 @@ def test_opportunity_scanner_rejects_insufficient_eligible_universe_explicitly()
     assert "insufficient" in str(exc_info.value).lower()
 
 
-def test_opportunity_scanner_classifies_held_symbol_as_double_down_when_rules_pass() -> (
-    None
-):
+def test_opportunity_scanner_classifies_held_symbol_as_double_down_when_rules_pass() -> None:
     """Held symbol should classify as double_down_candidate when threshold and proxy pass."""
 
     compute_candidate = _load_service_symbol(
         symbol_name="compute_deterministic_opportunity_candidates",
-        guidance=(
-            "Task 2.3 should expose one deterministic opportunity ranking callable."
-        ),
+        guidance=("Task 2.3 should expose one deterministic opportunity ranking callable."),
     )
     if not callable(compute_candidate):
         pytest.fail(
@@ -233,9 +223,7 @@ def test_opportunity_scanner_marks_failed_proxy_candidates_as_hold_off() -> None
 
     compute_candidate = _load_service_symbol(
         symbol_name="compute_deterministic_opportunity_candidates",
-        guidance=(
-            "Task 2.3 should expose one deterministic opportunity ranking callable."
-        ),
+        guidance=("Task 2.3 should expose one deterministic opportunity ranking callable."),
     )
     if not callable(compute_candidate):
         pytest.fail(
@@ -299,9 +287,7 @@ def test_opportunity_scanner_does_not_double_down_without_full_52w_history() -> 
 
     compute_candidate = _load_service_symbol(
         symbol_name="compute_deterministic_opportunity_candidates",
-        guidance=(
-            "Task 2.3 should expose one deterministic opportunity ranking callable."
-        ),
+        guidance=("Task 2.3 should expose one deterministic opportunity ranking callable."),
     )
     if not callable(compute_candidate):
         pytest.fail(
